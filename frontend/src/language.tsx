@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { I18nManager, Platform } from "react-native";
 
 export type Lang = "en" | "fr" | "ar";
 
@@ -155,6 +155,39 @@ const dict: Record<Lang, Record<string, string>> = {
     "dash.recent": "Recent bookings",
     "dash.noBookings": "No bookings yet",
     "dash.noBookingsSub": "Clients will see your profile in the marketplace.",
+    // Chat
+    "chat.title": "Messages",
+    "chat.empty": "No conversations yet",
+    "chat.emptySub": "Start a chat from a provider profile.",
+    "chat.placeholder": "Type a message…",
+    "chat.send": "Send",
+    "chat.safety": "Discuss job details safely — no phone numbers needed.",
+    "chat.messageBtn": "Message",
+    // Schedule
+    "schedule.title": "My schedule",
+    "schedule.workingHours": "Working hours",
+    "schedule.breaks": "Breaks",
+    "schedule.vacation": "Vacation days",
+    "schedule.save": "Save schedule",
+    "schedule.saved": "Schedule saved",
+    "schedule.offlineHint": "Offline · showing cached data",
+    "schedule.closed": "Closed",
+    "schedule.setHours": "Set hours",
+    "schedule.start": "Start",
+    "schedule.end": "End",
+    "schedule.tapDay": "Tap a day to add/remove a vacation",
+    "schedule.langRestart": "Language applied. Restart the app for full RTL layout.",
+    // Address
+    "address.suggestions": "Suggestions",
+    "address.searching": "Searching…",
+    // Days
+    "day.mon": "Monday",
+    "day.tue": "Tuesday",
+    "day.wed": "Wednesday",
+    "day.thu": "Thursday",
+    "day.fri": "Friday",
+    "day.sat": "Saturday",
+    "day.sun": "Sunday",
     // Common
     "common.retry": "Retry",
   },
@@ -288,6 +321,35 @@ const dict: Record<Lang, Record<string, string>> = {
     "dash.recent": "Réservations récentes",
     "dash.noBookings": "Aucune réservation",
     "dash.noBookingsSub": "Les clients verront votre profil dans la marketplace.",
+    "chat.title": "Messages",
+    "chat.empty": "Aucune conversation",
+    "chat.emptySub": "Commencez une discussion depuis un profil de prestataire.",
+    "chat.placeholder": "Écrire un message…",
+    "chat.send": "Envoyer",
+    "chat.safety": "Discutez en toute sécurité — pas besoin de numéro personnel.",
+    "chat.messageBtn": "Message",
+    "schedule.title": "Mon planning",
+    "schedule.workingHours": "Heures d'ouverture",
+    "schedule.breaks": "Pauses",
+    "schedule.vacation": "Jours de congé",
+    "schedule.save": "Enregistrer",
+    "schedule.saved": "Planning enregistré",
+    "schedule.offlineHint": "Hors ligne · données en cache",
+    "schedule.closed": "Fermé",
+    "schedule.setHours": "Définir",
+    "schedule.start": "Début",
+    "schedule.end": "Fin",
+    "schedule.tapDay": "Touchez un jour pour ajouter/retirer un congé",
+    "schedule.langRestart": "Langue appliquée. Redémarrez l'app pour le RTL complet.",
+    "address.suggestions": "Suggestions",
+    "address.searching": "Recherche…",
+    "day.mon": "Lundi",
+    "day.tue": "Mardi",
+    "day.wed": "Mercredi",
+    "day.thu": "Jeudi",
+    "day.fri": "Vendredi",
+    "day.sat": "Samedi",
+    "day.sun": "Dimanche",
     "common.retry": "Réessayer",
   },
   ar: {
@@ -420,6 +482,35 @@ const dict: Record<Lang, Record<string, string>> = {
     "dash.recent": "الحجوزات الأخيرة",
     "dash.noBookings": "لا توجد حجوزات",
     "dash.noBookingsSub": "سيرى العملاء ملفك في السوق.",
+    "chat.title": "الرسائل",
+    "chat.empty": "لا توجد محادثات",
+    "chat.emptySub": "ابدأ محادثة من ملف مقدم الخدمة.",
+    "chat.placeholder": "اكتب رسالة…",
+    "chat.send": "إرسال",
+    "chat.safety": "تحدث بأمان — دون الحاجة لمشاركة رقم هاتفك.",
+    "chat.messageBtn": "مراسلة",
+    "schedule.title": "جدولي",
+    "schedule.workingHours": "ساعات العمل",
+    "schedule.breaks": "الاستراحات",
+    "schedule.vacation": "أيام الإجازة",
+    "schedule.save": "حفظ",
+    "schedule.saved": "تم حفظ الجدول",
+    "schedule.offlineHint": "غير متصل · بيانات مخبأة",
+    "schedule.closed": "مغلق",
+    "schedule.setHours": "تحديد",
+    "schedule.start": "البداية",
+    "schedule.end": "النهاية",
+    "schedule.tapDay": "اضغط على يوم لإضافة/إزالة إجازة",
+    "schedule.langRestart": "تم تطبيق اللغة. أعد تشغيل التطبيق لتفعيل RTL بالكامل.",
+    "address.suggestions": "اقتراحات",
+    "address.searching": "بحث…",
+    "day.mon": "الاثنين",
+    "day.tue": "الثلاثاء",
+    "day.wed": "الأربعاء",
+    "day.thu": "الخميس",
+    "day.fri": "الجمعة",
+    "day.sat": "السبت",
+    "day.sun": "الأحد",
     "common.retry": "إعادة المحاولة",
   },
 };
@@ -456,12 +547,29 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const saved = await readLang();
       if (saved) setLangState(saved);
+      // Apply RTL layout when appropriate. On native this requires an app reload
+      // to take full effect for flex direction; text-level RTL still works.
+      const shouldRTL = (saved || "en") === "ar";
+      try {
+        if (I18nManager.isRTL !== shouldRTL) {
+          I18nManager.allowRTL(shouldRTL);
+          I18nManager.forceRTL(shouldRTL);
+        }
+      } catch {}
     })();
   }, []);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     writeLang(l);
+    // Toggle RTL. Restart needed on native for full effect (user is prompted in UI).
+    try {
+      const rtl = l === "ar";
+      if (I18nManager.isRTL !== rtl) {
+        I18nManager.allowRTL(rtl);
+        I18nManager.forceRTL(rtl);
+      }
+    } catch {}
   }, []);
 
   const t = useCallback(

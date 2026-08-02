@@ -9,6 +9,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { getItem, setItem } from "@/src/utils/storage";
 
 type Booking = {
   id: string; provider_id: string; provider_name: string; provider_category?: string;
@@ -34,15 +35,29 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<"all" | "pending" | "confirmed" | "completed">("all");
+  const [offline, setOffline] = useState(false);
+
+  const cacheKey = user ? `sp_bookings_${user.id}` : "";
 
   const load = useCallback(async () => {
+    // Load cache first for instant offline display
+    if (cacheKey) {
+      try {
+        const cached = await getItem<Booking[]>(cacheKey);
+        if (cached && cached.length) setBookings(cached);
+      } catch {}
+    }
     try {
       const data: any = await api.myBookings();
       setBookings(data);
-    } catch {}
+      setOffline(false);
+      if (cacheKey) await setItem(cacheKey, data);
+    } catch {
+      setOffline(true);
+    }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [cacheKey]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -62,6 +77,12 @@ export default function Bookings() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>{t("bookings.title")}</Text>
+        {offline && (
+          <View style={styles.offlineBadge}>
+            <Ionicons name="cloud-offline-outline" size={12} color={theme.colors.warning} />
+            <Text style={styles.offlineText}>{t("schedule.offlineHint")}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.tabsContainer}>
@@ -157,8 +178,10 @@ export default function Bookings() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.surface },
-  header: { paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md },
   title: { color: theme.colors.onSurface, fontSize: 24, fontWeight: "800" },
+  offlineBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surfaceSecondary, borderWidth: 1, borderColor: theme.colors.warning },
+  offlineText: { color: theme.colors.warning, fontSize: 11, fontWeight: "700" },
   tabsContainer: { flexDirection: "row", paddingHorizontal: theme.spacing.xl, gap: theme.spacing.sm, height: 56, alignItems: "center" },
   tab: {
     paddingHorizontal: theme.spacing.md, height: 36, borderRadius: theme.radius.pill,

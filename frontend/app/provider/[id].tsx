@@ -146,6 +146,14 @@ export default function ProviderDetail() {
 
       <SafeAreaView edges={["bottom"]} style={styles.ctaBar}>
         <Pressable
+          testID="message-provider-btn"
+          style={styles.msgBtn}
+          onPress={() => router.push(`/chat/${provider.id}?name=${encodeURIComponent(provider.full_name)}`)}
+        >
+          <Ionicons name="chatbubble-ellipses" size={18} color={theme.colors.brand} />
+          <Text style={styles.msgBtnText}>{t("chat.messageBtn")}</Text>
+        </Pressable>
+        <Pressable
           testID="request-booking-btn"
           style={styles.cta}
           onPress={() => router.push(`/booking/new?providerId=${provider.id}`)}
@@ -211,8 +219,16 @@ const styles = StyleSheet.create({
     position: "absolute", bottom: 0, left: 0, right: 0,
     padding: theme.spacing.md, paddingHorizontal: theme.spacing.xl,
     backgroundColor: "rgba(11,17,32,0.95)", borderTopWidth: 1, borderTopColor: theme.colors.border,
+    flexDirection: "row", alignItems: "center", gap: theme.spacing.sm,
   },
+  msgBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, paddingHorizontal: theme.spacing.md, paddingVertical: 16,
+    borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.brand,
+  },
+  msgBtnText: { color: theme.colors.brand, fontWeight: "700", fontSize: 14 },
   cta: {
+    flex: 1,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: theme.spacing.sm,
     backgroundColor: theme.colors.brand, paddingVertical: 16, borderRadius: theme.radius.pill,
   },

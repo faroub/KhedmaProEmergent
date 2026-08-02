@@ -40,6 +40,14 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses" size={size} color={color} />,
+          href: isLoggedInClient ? "/(client)/messages" : null,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: user ? "Profile" : "Sign in",

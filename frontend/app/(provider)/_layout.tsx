@@ -1,8 +1,13 @@
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "@/src/theme";
+import { useAuth } from "@/src/auth";
 
 export default function ProviderLayout() {
+  const { user, loading } = useAuth();
+  if (!loading && (!user || user.role !== "service_provider")) {
+    return <Redirect href="/" />;
+  }
   return (
     <Tabs
       screenOptions={{
@@ -32,6 +37,20 @@ export default function ProviderLayout() {
         options={{
           title: "Bookings",
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="schedule"
+        options={{
+          title: "Schedule",
+          tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

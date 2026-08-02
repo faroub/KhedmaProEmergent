@@ -10,6 +10,7 @@ import { api } from "@/src/api";
 import { theme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { useT } from "@/src/language";
+import { AddressAutocomplete } from "@/src/AddressAutocomplete";
 
 const TIME_SLOTS = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
@@ -234,13 +235,11 @@ export default function NewBooking() {
           />
 
           <Text style={styles.sectionLabel}>{t("booking.address")}</Text>
-          <TextInput
+          <AddressAutocomplete
             testID="address-input"
-            style={styles.input}
             value={address}
             onChangeText={setAddress}
             placeholder={t("booking.addressPh")}
-            placeholderTextColor={theme.colors.muted}
           />
 
           {isGuest && (

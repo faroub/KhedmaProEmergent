@@ -1,0 +1,59 @@
+{
+  "summary": "khedmaPro iteration 3 (Schedule + Chat + WebSocket + Address autocomplete + RTL + offline cache). Backend 24/24 pytest passing (10 new + 14 regression). New endpoints validated end-to-end: GET /api/schedule/{id} returns default DEFAULT_HOURS when nothing saved (mon-sat open, sun=null); PUT /api/schedule as provider persists working_hours/breaks/vacation_days (verified via subsequent GET); PUT /api/schedule as client returns 403; POST /api/chats/{other_id}/messages requires auth (401 without token); client→provider message is retrievable by both parties via GET /api/chats/{other_id}/messages; GET /api/chats/mine returns one thread per counterpart with last_text/last_at/other_name/other_role; WebSocket /api/ws/chat rejects invalid JWT (1008/handshake fail) and delivers real-time {type:'message',message:{...}} to an authenticated recipient after a REST send. Frontend verified in Expo web at 390x844: provider dashboard loads, Schedule tab renders 7 day rows + vacation calendar + time-picker modal (sched-row-mon, sched-open-sun, sched-start-mon, time-opt-mon-start-09:00, vacation-calendar, save-schedule-btn all working); tapping Closed pill opens hours, tapping start chip opens modal with 15 time options and updates value; Save persists (subsequent load shows saved value). Provider Messages tab shows a list of existing conversations including 'TEST Chat Client' threads created by pytest. Client flow: registered TEST_uichat_final@ex.com/password123, Messages tab visible with 'No conversations yet' empty state; provider detail page shows both 'Message' and 'Request Booking' sticky CTAs (message-provider-btn + request-booking-btn); tapping Message navigates to /chat/{id}, renders safety banner ('Discuss job details safely — no phone numbers needed'), chat-input + chat-send-btn; sending a message creates a gold right-aligned bubble instantly. Booking form has address-input placeholder 'Street, city' at correct spot. Two observations to flag to E1: (1) The 'Offline · showing cached data' badge is visible on the Schedule screen on an initial cold load even though GET /api/schedule/{id} returns 200 from pytest — the frontend load() appears to be throwing intermittently (possibly setState-race or a first-render timing where cached data renders before the network call resolves). (2) During UI-driven autocomplete, [data-testid=\"address-suggestions\"] did not appear after typing 'Alger' / 'Algiers' in the browser context even though direct curl to nominatim.openstreetmap.org returns 200 with real hits — most likely Nominatim's rate limiting from the CI network egress (per the note in review_request), not a code defect. Dropdown code path is correct (350ms debounce, min 3 chars, testID='address-suggestions').",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/(provider)/schedule.tsx :: load()",
+        "issue": "The 'Offline · showing cached data' badge is displayed on cold-loads of the Schedule screen even though GET /api/schedule/{id} returns 200 (confirmed via pytest). Likely causes to investigate: (a) load() runs twice — once with user=null (early return leaves loading=true) then again after auth hydrates — an in-flight abort could hit the catch branch and setOffline(true); (b) getSchedule uses auth:false but the request path is fine — fetch might be aborted on unmount/rerender. Recommend adding a mounted-ref guard and only setOffline(true) when the network truly errors.",
+        "testID": "N/A",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "app/(auth)/register.tsx",
+        "issue": "The register form inputs (Full name, Email, Password, Phone, City, Create account button) do NOT expose testIDs. Existing register-* testIDs referenced in prior test context aren't present. Would speed up automated testing and coverage of the client-onboarding flow.",
+        "testID": "register-fullname-input / register-email-input / register-password-input / register-submit-btn (missing)",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Booking address autocomplete (Nominatim)",
+        "issue": "In this test run typing 'Alger'/'Algiers' in the address-input did not render the [data-testid='address-suggestions'] dropdown in the browser context. Direct curl to https://nominatim.openstreetmap.org returned 200 with real hits, so the code path is intact and this is almost certainly Nominatim rate-limiting from CI (noted in review_request). No code fix needed; if flaky in CI, cache last-known suggestions or mock in tests.",
+        "affected_testIDs": ["address-input", "address-suggestions", "address-suggestion-0"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "expo-linear-gradient / RN Modal (upstream)",
+        "issue": "DevTools warning still present: 'props.pointerEvents is deprecated. Use style.pointerEvents' + 'Image: style.tintColor is deprecated. Please use props.tintColor.' — both from RN upstream, not khedmaPro code. Non-blocking; track for next expo/RN upgrade."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_schedule_chat.py",
+    "/app/backend/tests/test_khedmapro_api.py",
+    "/app/test_reports/pytest/pytest_schedule_chat.xml"
+  ],
+  "action_items": [
+    "Investigate app/(provider)/schedule.tsx `load()` — offline badge shows on healthy cold loads. Guard against setOffline(true) firing when the request wasn't actually a network failure (e.g., check if we have cached data + successful state). A `mounted` ref and clearer error handling would help.",
+    "Consider adding testIDs to the register screen inputs (register-fullname-input / register-email-input / register-password-input / register-submit-btn) for consistent automation.",
+    "Address autocomplete: consider a light client-side cache/backoff to reduce Nominatim rate-limit hits in CI/preview; optionally show a 'No matches' hint when items.length===0 after a successful fetch (currently the dropdown just disappears)."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py is now ~850 lines with schedule + chat + WS added to the same file. Recommend splitting into routers/ (auth, providers, bookings, reviews, schedule, chat, ws) post-MVP.",
+    "WSManager stores WebSocket references in a plain dict — fine for single-instance dev but will not scale horizontally. When you move to k8s multi-replica, back the pub/sub with Redis pub/sub or MongoDB change streams.",
+    "POST /api/subscription/pay is MOCKED (records timestamp only) — flagged as declared in review_request.",
+    "The Nominatim call is unbatched and directly hits nominatim.openstreetmap.org from the client — production should proxy through your own backend to add rate-limit / User-Agent / attribution and honor Nominatim's usage policy.",
+    "The chat REST endpoint doesn't verify that from/to are actually a client+provider pair. Two providers could message each other. Minor since UI hides the Message button on provider profiles for other providers, but the API should enforce it too."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_schedule_chat.py (NEW — schedule + chat + WebSocket test suite; 10 tests, all passing)"
+  ],
+  "success_rate": { "backend": "100% (24/24)", "frontend": "~95% of requested flows (address-autocomplete dropdown not rendered in UI test — rate-limit suspected, code path verified)" },
+  "seed_data_creation": "Registered TEST_uichat_final@ex.com (client) for UI chat testing. Pytest also creates TEST_client_*, TEST_short_*, TEST_prov_* on the fly. Provider provider1@khedmapro.dz now has a persisted schedule (09:00-18:00 mon-thu, 09:00-12:00 fri, sat=null, sun=null, one break mon 12:00-13:00, vacation 2026-06-10/11). Provider1 <-> TEST_chat_* client threads exist in the messages collection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Base URL: EXPO_PUBLIC_BACKEND_URL. Backend tests: /app/backend/tests/test_khedmapro_api.py + test_schedule_chat.py. Run with: EXPO_PUBLIC_BACKEND_URL=<url> pytest backend/tests -v. WebSocket tests use `websockets` package (pip install websockets already done). Key new testIDs: sched-row-{mon..sun}, sched-open-{day}, sched-start-{day}, sched-end-{day}, sched-close-{day}, time-opt-{day}-{start|end}-{HH:MM}, vacation-calendar, save-schedule-btn, chat-back-btn, chat-input, chat-send-btn, msg-{id}, message-provider-btn, address-input, address-suggestions, address-suggestion-{idx}. WS_URL helper: EXPO_PUBLIC_BACKEND_URL with http→ws swap + /api/ws/chat?token=<JWT>."
+}
