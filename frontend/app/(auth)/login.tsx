@@ -97,6 +97,21 @@ export default function Login() {
               {t("auth.noAccount")} <Text style={{ color: theme.colors.brand }}>{t("auth.signUp")}</Text>
             </Text>
           </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>{t("auth.orPhone")}</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <Pressable
+            testID="login-otp-btn"
+            style={styles.otpBtn}
+            onPress={() => router.push("/(auth)/otp")}
+          >
+            <Ionicons name="phone-portrait-outline" size={18} color={theme.colors.brand} />
+            <Text style={styles.otpBtnText}>{t("otp.title")}</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -131,4 +146,13 @@ const styles = StyleSheet.create({
   submitText: { color: theme.colors.onBrandPrimary, fontSize: 16, fontWeight: "700" },
   linkRow: { alignItems: "center", paddingTop: theme.spacing.md },
   linkText: { color: theme.colors.onSurfaceSecondary },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, marginTop: theme.spacing.lg },
+  divider: { flex: 1, height: 1, backgroundColor: theme.colors.border },
+  dividerText: { color: theme.colors.muted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1 },
+  otpBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: theme.spacing.sm,
+    paddingVertical: 14, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.brand,
+    marginTop: theme.spacing.sm,
+  },
+  otpBtnText: { color: theme.colors.brand, fontWeight: "700", fontSize: 15 },
 });

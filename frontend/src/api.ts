@@ -65,6 +65,21 @@ export const api = {
   paySubscription: () =>
     request("/subscription/pay", { method: "POST" }),
 
+  // OTP auth
+  otpRequest: (phone: string) =>
+    request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),
+  otpVerify: async (phone: string, code: string, role: "client" | "service_provider") => {
+    const data: any = await request("/auth/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ phone, code, role }),
+      auth: false,
+    });
+    if (data.access_token) await saveToken(data.access_token);
+    return data;
+  },
+  completeProfile: (payload: any) =>
+    request("/users/me/profile", { method: "PATCH", body: JSON.stringify(payload) }),
+
   // Schedule
   getSchedule: (providerId: string) =>
     request(`/schedule/${providerId}`, { auth: false }),

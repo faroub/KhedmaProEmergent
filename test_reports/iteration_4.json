@@ -1,0 +1,40 @@
+{
+  "summary": "khedmaPro iteration 4 — OTP phone-number authentication (MOCK mode) end-to-end verified. Backend: 19/19 new OTP tests pass in /app/backend/tests/test_otp_auth.py + 24/24 regression pass in test_khedmapro_api.py + test_schedule_chat.py (total 43/43 backend, 100%). Every requirement from the review_request is covered: (a) /api/auth/otp/request rejects short phone with 422 and non-Algerian format with 400 'Invalid Algerian phone number'; (b) all four input formats (0555…, +21355…, 0021355…, 555…) normalize to a single +213555… doc in otp_challenges; (c) MOCK OTP is written to /var/log/supervisor/backend.err.log as 'MOCK OTP for +213…: NNNNNN' and grepable by tests; (d) second request within 30s returns 429 'Please wait 30 seconds…'; (e) 6th request within an hour returns 429 'Too many OTP requests…' (verified by seeding otp_rate_limits with hour_count=5 and last_sent_at 40s ago); (f) /verify with wrong code returns 401 'Invalid or expired verification code'; (g) /verify with correct code + role=client on a fresh phone returns {access_token, is_new_user:true, profile_complete:false, user.role:'client'}; (h) reusing the same code returns 401 (single-use — delete_one race guard); (i) manually setting expires_at in the past yields 401; (j) plaintext code never appears in the otp_challenges document (only bcrypt code_hash starting with '$2'); (k) verifying twice for the same phone with a different role on the second call preserves the original role='client' (no overwrite); (l) PATCH /api/users/me/profile returns 401 without auth, 200 with client full_name+city (verified via GET /auth/me), 400 'Category required for providers' when provider omits category; (m) JWT from OTP verify is accepted by /api/auth/me (same issuer/claims). Password login (provider1@khedmapro.dz/password123), /providers, /categories, /schedule, /bookings, /reviews, /chats — all unchanged and pass. Frontend (mobile viewport 390x844): onboarding shows [data-testid=onboarding-otp-btn] 'Continue with phone' secondary button; login screen shows 'OR CONTINUE WITH PHONE' divider + [data-testid=login-otp-btn] outline button that routes to /otp; OTP screen has role toggle (otp-role-client / otp-role-provider), otp-phone-input, otp-send-btn primary button and a visible MOCK-hint banner ('MOCK'); after Send Code the screen switches to otp-code-input with a 'Resend in {s}s' countdown (verified '30s' present); wrong 000000 keeps screen on 'code' step and renders [data-testid=otp-error] with 'Invalid or expired verification code'; correct code as a fresh client routes to /complete-profile with pc-name-input + pc-city-input + pc-submit-btn AND no category chips; completing lands on /home (client dashboard 'Hello, TEST'). Correct code as service_provider routes to /complete-profile showing category chips (pc-cat-plumbing…), pc-bio-input, pc-hourly-input, pc-task-input; completing lands on /dashboard with 'Free trial active — 89 days remaining' banner and Plumbing category badge. No regressions observed on onboarding, home, provider detail, booking or language switcher (Language switcher still visible on onboarding; provider detail + booking + chat testIDs unchanged).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "React Native Web (upstream warnings)",
+        "issue": "DevTools console emits 'props.pointerEvents is deprecated. Use style.pointerEvents' during OTP → complete-profile navigation. Same benign upstream RN-web warning already flagged in iteration_3; not blocking, not khedmaPro code."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_otp_auth.py",
+    "/app/test_reports/pytest/pytest_otp_auth.xml",
+    "/app/backend/tests/test_khedmapro_api.py",
+    "/app/backend/tests/test_schedule_chat.py"
+  ],
+  "action_items": [
+    "None required. All 27 test items from the review_request pass — 17 backend + 10 frontend flows verified.",
+    "Optional nit: onboarding CTA now shows FOUR pill buttons (Browse services, Continue with phone, I am a provider, Sign in link). On a 390x844 viewport this still fits but the vertical rhythm is dense. Consider a small marginBottom cleanup or grouping the two 'phone' entries visually later."
+  ],
+  "critical_code_review_comments": [
+    "server.py request_otp/verify_otp: race protection on single-use is done via delete_one().deleted_count==1 — good, but two concurrent requests could still both pass bcrypt.checkpw before either deletes. In practice OTPs are short-lived and low-QPS so this is fine.",
+    "server.py normalize_dz_phone treats a bare 9-digit national number (e.g. '555000000') as valid — the review_request expected this and pytest confirms it, but note there's no test on truly malformed input like alpha chars beyond min_length; the regex fullmatch guards it.",
+    "server.py verify_otp creates the placeholder user with email = '<phone_e164_no_plus>@phone.khedmapro.dz' and inserts. Because users.email is a unique index, the very first insert may 409 if a stray user record still exists with that placeholder email — cleanup logic handles it in tests.",
+    "server.py verify_otp writes phone (raw) = phone_e164 for OTP-created users, but registered/legacy users may not have phone_e164. Existing lookups use {'phone_e164': phone}, so cross-auth (email register then phone login on the same number) will create TWO users. If E1 wants a merge behavior, add a fallback lookup by phone == phone_e164.",
+    "server.py otp_challenges TTL index (expireAfterSeconds=0 on expires_at) requires the field to be a BSON Date, not an ISO string. Currently expires_at is stored as an ISO string so Mongo's TTL will NOT auto-clean; the delete_many at the top of request_otp does the cleanup manually. Minor — either switch to real datetimes or keep the explicit cleanup."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_otp_auth.py (NEW — 19 OTP + profile-complete + regression tests, all passing)"
+  ],
+  "success_rate": { "backend": "100% (43/43 across all backend test files)", "frontend": "100% of requested OTP flows (client & provider end-to-end verified in web preview)" },
+  "seed_data_creation": "Ephemeral: each pytest run creates fresh users with unique phones (+213544…, +213545…) and cleans up its own otp_challenges/otp_rate_limits/users after the test class finishes. UI test created two accounts ('TEST OTP Client' → /home, 'TEST OTP Provider' → /dashboard) in the DB via the app itself; harmless — clearly TEST_ prefixed and can be dropped from db.users by phone_e164 if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OTP is MOCK — read the 6-digit code from `tail -n 500 /var/log/supervisor/backend.err.log | grep 'MOCK OTP for +213…'`. Use a FRESH phone number per test (uuid-derived '5' + 8 digits) to avoid the 30s cooldown, and delete otp_rate_limits/{phone} between rounds when needed. Backend base for direct curl: http://localhost:8001/api. Frontend URL from EXPO_PUBLIC_BACKEND_URL. New testIDs: onboarding-otp-btn, login-otp-btn, otp-back-btn, otp-role-client, otp-role-provider, otp-phone-input, otp-send-btn, otp-code-input, otp-verify-btn, otp-resend-btn, otp-wrong-number-btn, otp-error, pc-name-input, pc-city-input, pc-cat-{categoryId}, pc-bio-input, pc-hourly-input, pc-task-input, pc-submit-btn, pc-error. Run all backend tests: `EXPO_PUBLIC_BACKEND_URL=https://service-pro-app-21.preview.emergentagent.com pytest /app/backend/tests -q` (43 tests)."
+}

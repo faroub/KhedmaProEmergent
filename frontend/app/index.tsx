@@ -68,6 +68,15 @@ export default function Index() {
           </Pressable>
 
           <Pressable
+            testID="onboarding-otp-btn"
+            onPress={() => router.push("/(auth)/otp")}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="phone-portrait-outline" size={16} color={theme.colors.onSurface} />
+            <Text style={styles.secondaryBtnText}>{t("otp.title")}</Text>
+          </Pressable>
+
+          <Pressable
             testID="continue-as-provider-btn"
             onPress={() => router.push({ pathname: "/(auth)/register", params: { role: "service_provider" } })}
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}

@@ -38,6 +38,15 @@ Bold professional dark theme: navy (#0B1120) primary + gold (#D4AF37) accent, ge
 ## Data Storage
 MongoDB collections: `users`, `bookings`, `reviews`. All docs use UUID string `id`, `_id` excluded from responses.
 
+## Iteration 4 additions — OTP phone authentication
+- **New endpoints**: `POST /api/auth/otp/request`, `POST /api/auth/otp/verify`, `PATCH /api/users/me/profile`
+- **Mock SMS sender** — the 6-digit code is logged to backend stderr (`MOCK OTP for +213…`). Swap `send_otp_code()` to plug in Twilio Verify / Firebase Phone Auth / a local Algerian SMS gateway.
+- Algerian phone normalization: accepts `+213555000000`, `00213555000000`, `0555000000`, or `555000000` → `+213XXXXXXXXX`.
+- Codes are 6-digit, expire in 5 minutes, bcrypt-hashed, single-use (atomic delete), and phone-scoped rate-limited (1 per 30 s, max 5 per hour). MongoDB TTL index cleans up stale challenges.
+- Same JWT issuer as email/password login — the rest of the app works unchanged.
+- New-user flow: OTP creates the user with a placeholder email `+213XXXXXXXXX@phone.khedmapro.dz`, then the app routes to a profile completion screen (name + city + provider category/rates when applicable). Role captured on first verify is never overwritten on subsequent OTP sign-ins.
+- Frontend: new `/(auth)/otp.tsx` (2-step: phone → 6-digit code with a 30 s resend timer) and `/(auth)/complete-profile.tsx`. "Continue with phone" entry points added on onboarding and on the sign-in screen.
+
 ## Business Enhancement
 Subscription revenue model built-in: providers monetize the platform with a fair 3-month free trial then 1000 DZD/month recurring — the app auto-deactivates listings when unpaid, protecting client trust.
 

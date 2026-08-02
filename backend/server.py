@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 import bcrypt
 import jwt
+import re
+import secrets
 
 
 ROOT_DIR = Path(__file__).parent
@@ -141,6 +143,26 @@ class ScheduleIn(BaseModel):
 
 class ChatMessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+
+
+class OtpRequestIn(BaseModel):
+    phone: str = Field(min_length=9, max_length=20)
+
+
+class OtpVerifyIn(BaseModel):
+    phone: str = Field(min_length=9, max_length=20)
+    code: str = Field(pattern=r"^\d{6}$")
+    role: Role = Role.client
+
+
+class ProfileCompleteIn(BaseModel):
+    full_name: str = Field(min_length=2, max_length=100)
+    city: Optional[str] = None
+    # Provider-only extras
+    category: Optional[str] = None
+    bio: Optional[str] = None
+    hourly_rate: Optional[float] = None
+    task_rate: Optional[float] = None
 
 
 # ============ HELPERS ============
@@ -561,6 +583,174 @@ async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.servi
     return {"success": True, "amount_dzd": SUBSCRIPTION_FEE_DZD, "user": serialize_user(updated)}
 
 
+# ============ OTP AUTH ============
+def normalize_dz_phone(raw: str) -> str:
+    s = re.sub(r"[\s().-]", "", raw or "")
+    if s.startswith("+213"):
+        national = s[4:]
+    elif s.startswith("00213"):
+        national = s[5:]
+    elif s.startswith("0"):
+        national = s[1:]
+    else:
+        national = s
+    if not re.fullmatch(r"[567]\d{8}", national):
+        raise HTTPException(status_code=400, detail="Invalid Algerian phone number")
+    return "+213" + national
+
+
+async def send_otp_code(phone_e164: str, code: str) -> None:
+    """MOCK sender — logs the code. Swap this function to add Twilio / Firebase / a local SMS gateway."""
+    logger.warning("MOCK OTP for %s: %s", phone_e164, code)
+
+
+@api_router.post("/auth/otp/request")
+async def request_otp(body: OtpRequestIn):
+    phone = normalize_dz_phone(body.phone)
+    now = datetime.now(timezone.utc)
+    one_hour_ago = now - timedelta(hours=1)
+    thirty_seconds_ago = now - timedelta(seconds=30)
+
+    # Clean up stale challenges for this phone
+    await db.otp_challenges.delete_many({
+        "phone_e164": phone,
+        "$or": [{"expires_at": {"$lte": now.isoformat()}}, {"created_at": {"$lt": one_hour_ago.isoformat()}}],
+    })
+
+    rate = await db.otp_rate_limits.find_one({"_id": phone})
+    if rate:
+        last_sent = rate.get("last_sent_at")
+        if isinstance(last_sent, str):
+            last_sent = datetime.fromisoformat(last_sent.replace("Z", "+00:00"))
+        if last_sent and last_sent > thirty_seconds_ago:
+            raise HTTPException(status_code=429, detail="Please wait 30 seconds before requesting another code")
+        hour_started = rate.get("hour_started_at")
+        if isinstance(hour_started, str):
+            hour_started = datetime.fromisoformat(hour_started.replace("Z", "+00:00"))
+        if hour_started and hour_started > one_hour_ago:
+            if rate.get("hour_count", 0) >= 5:
+                raise HTTPException(status_code=429, detail="Too many OTP requests; try again later")
+            hour_count = rate.get("hour_count", 0) + 1
+            hour_start = hour_started
+        else:
+            hour_count = 1
+            hour_start = now
+    else:
+        hour_count = 1
+        hour_start = now
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    code_hash = bcrypt.hashpw(code.encode(), bcrypt.gensalt()).decode()
+
+    await db.otp_challenges.replace_one(
+        {"phone_e164": phone},
+        {
+            "phone_e164": phone,
+            "code_hash": code_hash,
+            "created_at": now.isoformat(),
+            "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        },
+        upsert=True,
+    )
+    await db.otp_rate_limits.update_one(
+        {"_id": phone},
+        {"$set": {
+            "last_sent_at": now.isoformat(),
+            "hour_started_at": hour_start.isoformat(),
+            "hour_count": hour_count,
+        }},
+        upsert=True,
+    )
+    await send_otp_code(phone, code)
+    return {"message": "If the number is valid, a verification code was sent", "expires_in": 300}
+
+
+@api_router.post("/auth/otp/verify")
+async def verify_otp(body: OtpVerifyIn):
+    phone = normalize_dz_phone(body.phone)
+    now = datetime.now(timezone.utc)
+    challenge = await db.otp_challenges.find_one({"phone_e164": phone}, {"_id": 0})
+    if not challenge:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    expires_at = challenge.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    if not expires_at or expires_at <= now:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    if not bcrypt.checkpw(body.code.encode(), challenge["code_hash"].encode()):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+
+    # Single-use race protection
+    deleted = await db.otp_challenges.delete_one({"phone_e164": phone})
+    if deleted.deleted_count != 1:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+
+    # Find or create user by phone
+    user = await db.users.find_one({"phone_e164": phone}, {"_id": 0})
+    is_new = user is None
+    if is_new:
+        user_id = str(uuid.uuid4())
+        placeholder_email = f"{phone[1:]}@phone.khedmapro.dz"  # drop leading +
+        user_doc = {
+            "id": user_id,
+            "email": placeholder_email,
+            "phone_e164": phone,
+            "phone": phone,
+            "password_hash": hash_password(secrets.token_urlsafe(24)),  # random, unused
+            "full_name": "",
+            "role": body.role.value,
+            "category": None,
+            "bio": None,
+            "hourly_rate": None,
+            "task_rate": None,
+            "city": None,
+            "avatar_url": None,
+            "rating": 0.0,
+            "reviews_count": 0,
+            "created_at": now.isoformat(),
+            "last_paid_at": None,
+            "profile_complete": False,
+            "auth_methods": ["otp"],
+        }
+        await db.users.insert_one(user_doc)
+        user = user_doc
+
+    token = make_token(user["id"], user["role"])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "is_new_user": is_new,
+        "profile_complete": user.get("profile_complete", bool(user.get("full_name"))),
+        "user": serialize_user(user),
+    }
+
+
+@api_router.patch("/users/me/profile")
+async def complete_profile(
+    body: ProfileCompleteIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    update: dict = {
+        "full_name": body.full_name,
+        "profile_complete": True,
+    }
+    if body.city is not None:
+        update["city"] = body.city
+    if user["role"] == Role.service_provider.value:
+        if not body.category:
+            raise HTTPException(status_code=400, detail="Category required for providers")
+        update["category"] = body.category
+        if body.bio is not None:
+            update["bio"] = body.bio
+        if body.hourly_rate is not None:
+            update["hourly_rate"] = body.hourly_rate
+        if body.task_rate is not None:
+            update["task_rate"] = body.task_rate
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return serialize_user(updated)
+
+
 # ============ SCHEDULE ============
 DEFAULT_HOURS = {
     "mon": {"start": "08:00", "end": "17:00"},
@@ -844,6 +1034,9 @@ async def on_startup():
     await db.messages.create_index("thread_id")
     await db.messages.create_index([("thread_id", 1), ("created_at", 1)])
     await db.schedules.create_index("provider_id", unique=True)
+    await db.users.create_index("phone_e164", unique=True, sparse=True)
+    await db.otp_challenges.create_index("phone_e164", unique=True)
+    await db.otp_challenges.create_index("expires_at", expireAfterSeconds=0)
 
 
 @app.on_event("shutdown")
