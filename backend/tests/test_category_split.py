@@ -83,5 +83,5 @@ def test_mongo_no_admin_education_rows():
         client.close()
         return c
 
-    n = asyncio.get_event_loop().run_until_complete(_count())
+    n = asyncio.run(_count())
     assert n == 0, f"still {n} users with legacy category admin_education"

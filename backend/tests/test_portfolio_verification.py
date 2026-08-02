@@ -81,7 +81,7 @@ def _cleanup_db(provider_id):
             }},
         )
         client.close()
-    asyncio.get_event_loop().run_until_complete(_run())
+    asyncio.run(_run())
 
 
 # ============================================================
