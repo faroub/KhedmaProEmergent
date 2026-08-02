@@ -65,7 +65,10 @@ export default function Schedule() {
         setVacation(cached.vacation_days || []);
       }
     } catch {}
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       const data: any = await api.getSchedule(user.id);
       setHours(data.working_hours || {});
@@ -74,8 +77,12 @@ export default function Schedule() {
       setOffline(false);
       // Cache for offline access
       await setItem(CACHE_KEY, { provider_id: user.id, ...data });
-    } catch {
-      setOffline(true);
+    } catch (e: any) {
+      // Only flag offline for network-style failures, not auth or missing data
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch") || msg === "") {
+        setOffline(true);
+      }
     } finally {
       setLoading(false);
     }
