@@ -1,0 +1,129 @@
+{
+  "app_name": "ServicePro",
+  "personality": "6 Glass / Luxe DARK",
+  "personality_one_liner": "A premium, authoritative marketplace where dark navy depth meets striking gold accents for absolute trust and professionalism.",
+  "color": {
+    "surface": "#0B1120", 
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#151E32", 
+    "onSurfaceSecondary": "#E2E8F0",
+    "surfaceTertiary": "#1E2B45", 
+    "onSurfaceTertiary": "#CBD5E1",
+    "surfaceInverse": "#FFFFFF", 
+    "onSurfaceInverse": "#0B1120",
+    "brand": "#D4AF37",
+    "brandPrimary": "#D4AF37", 
+    "onBrandPrimary": "#0B1120",
+    "brandSecondary": "#F3E188", 
+    "onBrandSecondary": "#0B1120",
+    "brandTertiary": "#3B321D", 
+    "onBrandTertiary": "#E5D39D",
+    "success": "#10B981", 
+    "onSuccess": "#022C22",
+    "warning": "#F59E0B", 
+    "onWarning": "#451A03",
+    "error": "#EF4444", 
+    "onError": "#450A0A",
+    "info": "#64748B", 
+    "onInfo": "#F8FAFC",
+    "border": "#1E2B45", 
+    "borderStrong": "#334155", 
+    "divider": "#151E32"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": { "sm": 12, "base": 14, "lg": 16, "xl": 20, "2xl": 24 }
+  },
+  "spacing": { 
+    "rule": "Generous vertical breathing room for a premium feel. Do not cramp elements. Sticky CTAs must have scroll clearance.", 
+    "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32, "3xl": 48 
+  },
+  "radius_tokens": { "sm": 6, "md": 12, "lg": 20, "pill": 999 },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": ["Use on sticky headers, bottom tab bar, featured provider cards overlays, modal scrims."],
+    "dont's": ["Do not use on body text regions, form fields, or every single list row."]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Onboarding & Role Selection",
+      "purpose": "Introduce the platform and branch users to either Client or Provider.",
+      "states": { "loading": "Centered brand spinner", "empty": "", "error": "" },
+      "layout": "Full-bleed background image with a vertical gradient scrim (transparent to surface). Large typography header. Two massive pill-shaped Glass cards for 'I am a Client' and 'I am a Provider'."
+    },
+    {
+      "name": "Client_Home",
+      "purpose": "Discover services and top-rated providers.",
+      "states": { "loading": "Skeletons for category grid and provider cards.", "empty": "Icon + 'No providers available nearby.'", "error": "Readable message + Retry button" },
+      "layout": "Top sticky header with location. Search bar below it. A promo banner (glass over abstract navy/gold image). A horizontal scroll row for Categories using tinted icon containers. A 'Featured Providers' section with horizontally scrolling cards showing provider photo, name, rating, and rate. A sticky chip row for quick filters under the search bar."
+    },
+    {
+      "name": "Provider_Profile",
+      "purpose": "View provider details and initiate booking.",
+      "states": { "loading": "Centered brand spinner", "empty": "", "error": "Readable message + Retry button" },
+      "layout": "Hero image banner with provider avatar intersecting the bottom edge. Name and 'Verified' gold badge. Star rating and reviews count. Bio paragraph. List of services offered (prices). Sticky primary CTA 'Request Booking' anchored at the bottom with a glass background."
+    },
+    {
+      "name": "Booking_Flow",
+      "purpose": "Select date/time and describe task.",
+      "states": { "loading": "Spinner during submission.", "empty": "", "error": "Error toast." },
+      "layout": "Clean mobile-first layout. Calendar date picker. Horizontally scrollable time-slot chips. Multi-line text input for task description. Fixed bottom CTA to confirm."
+    },
+    {
+      "name": "Provider_Dashboard",
+      "purpose": "Manage earnings, bookings, and subscription status.",
+      "states": { "loading": "Skeletons for stats.", "empty": "Illustration + 'No bookings yet'", "error": "Retry button" },
+      "layout": "Top stat blocks (earnings, completed tasks). A prominent banner for Subscription Status ('3 months free trial active' or '1000 DZD due'). List of recent bookings with Status tags."
+    }
+  ],
+  "images": {
+    "onboarding_hero": { 
+      "url": "https://images.pexels.com/photos/10997877/pexels-photo-10997877.jpeg", 
+      "dark": "https://images.unsplash.com/photo-1687463221023-02f259da7d77", 
+      "alt": "Abstract navy and gold fluid background" 
+    },
+    "provider_avatar_1": {
+      "url": "https://images.unsplash.com/photo-1594824476967-48c8b964273f",
+      "alt": "Provider portrait woman"
+    },
+    "provider_avatar_2": {
+      "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+      "alt": "Provider portrait close up"
+    },
+    "empty_state": {
+      "url": "https://images.pexels.com/photos/26628057/pexels-photo-26628057.jpeg",
+      "alt": "Abstract subtle wave for empty state"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Adhere STRICTLY to the Dark Navy and Gold palette. The brief explicitly authorized Navy.",
+    "Use Glassmorphism (expo-blur) on the bottom tab bar, sticky bottom CTAs, and featured provider cards over background images to create a premium 'Luxe' feel.",
+    "For the Provider Dashboard, prominently display the Subscription banner. Show the '3 months free trial' vs '1000 DZD' clearly.",
+    "Ensure the booking flow uses horizontally scrollable time chips and clear date pickers as per modern marketplace conventions (Mobbin insights).",
+    "Add gradient scrims behind text that overlays images, especially in the onboarding hero and provider profile covers.",
+    "Implement JWT Auth mock flow for login.",
+    "Avoid typical Material purple/blue. Stick entirely to the #0B1120 base and #D4AF37 accents."
+  ],
+  "haptics": {
+    "primary_button_press": "impactLight",
+    "tab_change": "selection",
+    "time_slot_select": "selection",
+    "success_booking": "notificationSuccess"
+  }
+}
