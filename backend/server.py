@@ -61,6 +61,70 @@ CATEGORIES = [
 ]
 
 
+# 58 Algerian wilayas (province code → English / French / Arabic name)
+WILAYAS = [
+    {"code": "01", "en": "Adrar", "fr": "Adrar", "ar": "أدرار"},
+    {"code": "02", "en": "Chlef", "fr": "Chlef", "ar": "الشلف"},
+    {"code": "03", "en": "Laghouat", "fr": "Laghouat", "ar": "الأغواط"},
+    {"code": "04", "en": "Oum El Bouaghi", "fr": "Oum El Bouaghi", "ar": "أم البواقي"},
+    {"code": "05", "en": "Batna", "fr": "Batna", "ar": "باتنة"},
+    {"code": "06", "en": "Béjaïa", "fr": "Béjaïa", "ar": "بجاية"},
+    {"code": "07", "en": "Biskra", "fr": "Biskra", "ar": "بسكرة"},
+    {"code": "08", "en": "Béchar", "fr": "Béchar", "ar": "بشار"},
+    {"code": "09", "en": "Blida", "fr": "Blida", "ar": "البليدة"},
+    {"code": "10", "en": "Bouira", "fr": "Bouira", "ar": "البويرة"},
+    {"code": "11", "en": "Tamanrasset", "fr": "Tamanrasset", "ar": "تمنراست"},
+    {"code": "12", "en": "Tébessa", "fr": "Tébessa", "ar": "تبسة"},
+    {"code": "13", "en": "Tlemcen", "fr": "Tlemcen", "ar": "تلمسان"},
+    {"code": "14", "en": "Tiaret", "fr": "Tiaret", "ar": "تيارت"},
+    {"code": "15", "en": "Tizi Ouzou", "fr": "Tizi Ouzou", "ar": "تيزي وزو"},
+    {"code": "16", "en": "Algiers", "fr": "Alger", "ar": "الجزائر"},
+    {"code": "17", "en": "Djelfa", "fr": "Djelfa", "ar": "الجلفة"},
+    {"code": "18", "en": "Jijel", "fr": "Jijel", "ar": "جيجل"},
+    {"code": "19", "en": "Sétif", "fr": "Sétif", "ar": "سطيف"},
+    {"code": "20", "en": "Saïda", "fr": "Saïda", "ar": "سعيدة"},
+    {"code": "21", "en": "Skikda", "fr": "Skikda", "ar": "سكيكدة"},
+    {"code": "22", "en": "Sidi Bel Abbès", "fr": "Sidi Bel Abbès", "ar": "سيدي بلعباس"},
+    {"code": "23", "en": "Annaba", "fr": "Annaba", "ar": "عنابة"},
+    {"code": "24", "en": "Guelma", "fr": "Guelma", "ar": "قالمة"},
+    {"code": "25", "en": "Constantine", "fr": "Constantine", "ar": "قسنطينة"},
+    {"code": "26", "en": "Médéa", "fr": "Médéa", "ar": "المدية"},
+    {"code": "27", "en": "Mostaganem", "fr": "Mostaganem", "ar": "مستغانم"},
+    {"code": "28", "en": "M'Sila", "fr": "M'Sila", "ar": "المسيلة"},
+    {"code": "29", "en": "Mascara", "fr": "Mascara", "ar": "معسكر"},
+    {"code": "30", "en": "Ouargla", "fr": "Ouargla", "ar": "ورقلة"},
+    {"code": "31", "en": "Oran", "fr": "Oran", "ar": "وهران"},
+    {"code": "32", "en": "El Bayadh", "fr": "El Bayadh", "ar": "البيض"},
+    {"code": "33", "en": "Illizi", "fr": "Illizi", "ar": "إليزي"},
+    {"code": "34", "en": "Bordj Bou Arréridj", "fr": "Bordj Bou Arréridj", "ar": "برج بوعريريج"},
+    {"code": "35", "en": "Boumerdès", "fr": "Boumerdès", "ar": "بومرداس"},
+    {"code": "36", "en": "El Tarf", "fr": "El Tarf", "ar": "الطارف"},
+    {"code": "37", "en": "Tindouf", "fr": "Tindouf", "ar": "تندوف"},
+    {"code": "38", "en": "Tissemsilt", "fr": "Tissemsilt", "ar": "تيسمسيلت"},
+    {"code": "39", "en": "El Oued", "fr": "El Oued", "ar": "الوادي"},
+    {"code": "40", "en": "Khenchela", "fr": "Khenchela", "ar": "خنشلة"},
+    {"code": "41", "en": "Souk Ahras", "fr": "Souk Ahras", "ar": "سوق أهراس"},
+    {"code": "42", "en": "Tipaza", "fr": "Tipaza", "ar": "تيبازة"},
+    {"code": "43", "en": "Mila", "fr": "Mila", "ar": "ميلة"},
+    {"code": "44", "en": "Aïn Defla", "fr": "Aïn Defla", "ar": "عين الدفلى"},
+    {"code": "45", "en": "Naâma", "fr": "Naâma", "ar": "النعامة"},
+    {"code": "46", "en": "Aïn Témouchent", "fr": "Aïn Témouchent", "ar": "عين تموشنت"},
+    {"code": "47", "en": "Ghardaïa", "fr": "Ghardaïa", "ar": "غرداية"},
+    {"code": "48", "en": "Relizane", "fr": "Relizane", "ar": "غليزان"},
+    {"code": "49", "en": "Timimoun", "fr": "Timimoun", "ar": "تيميمون"},
+    {"code": "50", "en": "Bordj Badji Mokhtar", "fr": "Bordj Badji Mokhtar", "ar": "برج باجي مختار"},
+    {"code": "51", "en": "Ouled Djellal", "fr": "Ouled Djellal", "ar": "أولاد جلال"},
+    {"code": "52", "en": "Béni Abbès", "fr": "Béni Abbès", "ar": "بني عباس"},
+    {"code": "53", "en": "In Salah", "fr": "In Salah", "ar": "عين صالح"},
+    {"code": "54", "en": "In Guezzam", "fr": "In Guezzam", "ar": "عين قزام"},
+    {"code": "55", "en": "Touggourt", "fr": "Touggourt", "ar": "تقرت"},
+    {"code": "56", "en": "Djanet", "fr": "Djanet", "ar": "جانت"},
+    {"code": "57", "en": "El M'Ghair", "fr": "El M'Ghair", "ar": "المغير"},
+    {"code": "58", "en": "El Meniaa", "fr": "El Meniaa", "ar": "المنيعة"},
+]
+
+
+
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
@@ -74,6 +138,9 @@ class RegisterIn(BaseModel):
     task_rate: Optional[float] = None
     city: Optional[str] = None
     avatar_url: Optional[str] = None
+    wilaya_code: Optional[str] = None
+    baladiya: Optional[str] = None
+    cross_wilaya: bool = False
 
 
 class LoginIn(BaseModel):
@@ -119,6 +186,12 @@ class BookingCreate(BaseModel):
     guest_name: Optional[str] = None
     guest_phone: Optional[str] = None
     guest_email: Optional[str] = None
+    # NEW: booking type + service location (pin drop)
+    booking_type: str = "instant"  # 'instant' or 'quote'
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    wilaya_code: Optional[str] = None
+    baladiya: Optional[str] = None
 
 
 class BookingStatusUpdate(BaseModel):
@@ -163,6 +236,20 @@ class ProfileCompleteIn(BaseModel):
     bio: Optional[str] = None
     hourly_rate: Optional[float] = None
     task_rate: Optional[float] = None
+    wilaya_code: Optional[str] = None
+    baladiya: Optional[str] = None
+    cross_wilaya: Optional[bool] = None
+
+
+class PortfolioUpdateIn(BaseModel):
+    # Base64-encoded compressed images (client-side compression via expo-image-manipulator)
+    portfolio_images: List[str] = Field(default_factory=list, max_length=12)
+
+
+class ReportIn(BaseModel):
+    provider_id: str
+    reason: str = Field(min_length=2, max_length=64)
+    details: Optional[str] = Field(default=None, max_length=1000)
 
 
 # ============ HELPERS ============
@@ -266,6 +353,10 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "trial_ends_at": sub["trial_ends_at"],
         "subscription_status": sub["subscription_status"],
         "days_until_due": sub["days_until_due"],
+        "wilaya_code": doc.get("wilaya_code"),
+        "baladiya": doc.get("baladiya"),
+        "cross_wilaya": doc.get("cross_wilaya", False),
+        "portfolio_images": doc.get("portfolio_images", []),
     }
     if not public:
         out["email"] = doc["email"]
@@ -365,18 +456,35 @@ async def list_categories():
     return CATEGORIES
 
 
+@api_router.get("/wilayas")
+async def list_wilayas():
+    return WILAYAS
+
+
 # ============ PROVIDERS ============
 @api_router.get("/providers")
-async def list_providers(category: Optional[str] = None, search: Optional[str] = None):
+async def list_providers(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    wilaya: Optional[str] = None,
+):
     query = {"role": Role.service_provider.value}
     if category:
         query["category"] = category
+    if wilaya:
+        # Provider matches when their home wilaya matches, OR they've opted in to cross-wilaya travel.
+        query["$or"] = [{"wilaya_code": wilaya}, {"cross_wilaya": True}]
     if search:
-        query["$or"] = [
+        s_or = [
             {"full_name": {"$regex": search, "$options": "i"}},
             {"bio": {"$regex": search, "$options": "i"}},
             {"city": {"$regex": search, "$options": "i"}},
+            {"baladiya": {"$regex": search, "$options": "i"}},
         ]
+        if "$or" in query:
+            query = {"$and": [{"$or": query.pop("$or")}, {"$or": s_or}, query]}
+        else:
+            query["$or"] = s_or
     docs = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
     # Only include active providers
     result = []
@@ -468,6 +576,11 @@ async def create_booking(
         "status": BookingStatus.pending.value,
         "created_at": now,
         "reviewed": False,
+        "booking_type": body.booking_type if body.booking_type in ("instant", "quote") else "instant",
+        "location_lat": body.location_lat,
+        "location_lng": body.location_lng,
+        "wilaya_code": body.wilaya_code,
+        "baladiya": body.baladiya,
     }
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
@@ -736,6 +849,12 @@ async def complete_profile(
     }
     if body.city is not None:
         update["city"] = body.city
+    if body.wilaya_code is not None:
+        update["wilaya_code"] = body.wilaya_code
+    if body.baladiya is not None:
+        update["baladiya"] = body.baladiya
+    if body.cross_wilaya is not None:
+        update["cross_wilaya"] = body.cross_wilaya
     if user["role"] == Role.service_provider.value:
         if not body.category:
             raise HTTPException(status_code=400, detail="Category required for providers")
@@ -749,6 +868,48 @@ async def complete_profile(
     await db.users.update_one({"id": user["id"]}, {"$set": update})
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return serialize_user(updated)
+
+
+@api_router.patch("/users/me/portfolio")
+async def set_portfolio(
+    body: PortfolioUpdateIn,
+    user: Annotated[dict, Depends(require_role(Role.service_provider))],
+):
+    # Guard against oversized payloads (approx 900 KB per image after compression)
+    for img in body.portfolio_images:
+        if not isinstance(img, str) or len(img) > 900_000:
+            raise HTTPException(status_code=413, detail="Image too large, please compress further")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"portfolio_images": body.portfolio_images}},
+    )
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return {"portfolio_images": updated.get("portfolio_images", [])}
+
+
+# ============ REPORTS ============
+@api_router.post("/reports", status_code=201)
+async def report_provider(
+    body: ReportIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    provider = await db.users.find_one({"id": body.provider_id, "role": Role.service_provider.value}, {"_id": 0})
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "provider_id": body.provider_id,
+        "reporter_id": user["id"],
+        "reporter_name": user["full_name"],
+        "reporter_role": user["role"],
+        "reason": body.reason,
+        "details": body.details,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "open",
+    }
+    await db.reports.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
 
 
 # ============ SCHEDULE ============
@@ -927,18 +1088,18 @@ async def seed_data():
         return {"message": "Already seeded", "providers": existing, "reviews": reviews_count}
 
     seed_providers = [
-        {"full_name": "Ahmed Boumediene", "category": "plumbing", "hourly_rate": 800, "task_rate": 2500, "city": "Algiers", "bio": "10+ years experience in residential plumbing. Fast, clean and reliable.", "avatar_url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400"},
-        {"full_name": "Karim Belkacem", "category": "electrical", "hourly_rate": 1000, "task_rate": 3000, "city": "Oran", "bio": "Certified electrician for homes and small businesses. Safe wiring guaranteed.", "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"},
-        {"full_name": "Amina Cherif", "category": "cleaning", "hourly_rate": 500, "task_rate": 2000, "city": "Algiers", "bio": "Deep home & office cleaning with eco-friendly products.", "avatar_url": "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400"},
-        {"full_name": "Youcef Mansouri", "category": "carpentry", "hourly_rate": 900, "task_rate": 3500, "city": "Constantine", "bio": "Custom furniture, doors, and interior finishes.", "avatar_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400"},
-        {"full_name": "Sofiane Kaci", "category": "painting", "hourly_rate": 700, "task_rate": 2800, "city": "Algiers", "bio": "Interior/exterior painting, decorative finishes.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
-        {"full_name": "Nadia Haddad", "category": "landscaping", "hourly_rate": 600, "task_rate": 2200, "city": "Blida", "bio": "Garden design and maintenance for villas.", "avatar_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400"},
-        {"full_name": "Riad Zerouki", "category": "it_support", "hourly_rate": 1500, "task_rate": 4000, "city": "Algiers", "bio": "PC repair, network setup, remote support.", "avatar_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400"},
-        {"full_name": "Leila Bensalem", "category": "admin_education", "hourly_rate": 1200, "task_rate": 3500, "city": "Oran", "bio": "Tutor and admin coach for university applications.", "avatar_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400"},
-        {"full_name": "Mehdi Fares", "category": "photography", "hourly_rate": 2000, "task_rate": 8000, "city": "Algiers", "bio": "Wedding, event, and portrait photography.", "avatar_url": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400"},
-        {"full_name": "Salim Ouhadj", "category": "moving", "hourly_rate": 1200, "task_rate": 5000, "city": "Algiers", "bio": "Careful moving service with team & truck.", "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"},
-        {"full_name": "Fatima Zohra", "category": "cleaning", "hourly_rate": 550, "task_rate": 2100, "city": "Setif", "bio": "Reliable home cleaning, deep-clean specialist.", "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400"},
-        {"full_name": "Bilal Rahmani", "category": "electrical", "hourly_rate": 950, "task_rate": 2900, "city": "Algiers", "bio": "Emergency electrical services, 24/7 available.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
+        {"full_name": "Ahmed Boumediene", "category": "plumbing", "hourly_rate": 800, "task_rate": 2500, "city": "Algiers", "wilaya_code": "16", "baladiya": "Bab Ezzouar", "cross_wilaya": False, "bio": "10+ years experience in residential plumbing. Fast, clean and reliable.", "avatar_url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400"},
+        {"full_name": "Karim Belkacem", "category": "electrical", "hourly_rate": 1000, "task_rate": 3000, "city": "Oran", "wilaya_code": "31", "baladiya": "Bir El Djir", "cross_wilaya": True, "bio": "Certified electrician for homes and small businesses. Safe wiring guaranteed.", "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"},
+        {"full_name": "Amina Cherif", "category": "cleaning", "hourly_rate": 500, "task_rate": 2000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Hydra", "cross_wilaya": False, "bio": "Deep home & office cleaning with eco-friendly products.", "avatar_url": "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400"},
+        {"full_name": "Youcef Mansouri", "category": "carpentry", "hourly_rate": 900, "task_rate": 3500, "city": "Constantine", "wilaya_code": "25", "baladiya": "Constantine Centre", "cross_wilaya": True, "bio": "Custom furniture, doors, and interior finishes.", "avatar_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400"},
+        {"full_name": "Sofiane Kaci", "category": "painting", "hourly_rate": 700, "task_rate": 2800, "city": "Algiers", "wilaya_code": "16", "baladiya": "Kouba", "cross_wilaya": True, "bio": "Interior/exterior painting, decorative finishes.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
+        {"full_name": "Nadia Haddad", "category": "landscaping", "hourly_rate": 600, "task_rate": 2200, "city": "Blida", "wilaya_code": "09", "baladiya": "Blida Centre", "cross_wilaya": True, "bio": "Garden design and maintenance for villas.", "avatar_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400"},
+        {"full_name": "Riad Zerouki", "category": "it_support", "hourly_rate": 1500, "task_rate": 4000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Cheraga", "cross_wilaya": False, "bio": "PC repair, network setup, remote support.", "avatar_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400"},
+        {"full_name": "Leila Bensalem", "category": "admin_education", "hourly_rate": 1200, "task_rate": 3500, "city": "Oran", "wilaya_code": "31", "baladiya": "Oran Centre", "cross_wilaya": False, "bio": "Tutor and admin coach for university applications.", "avatar_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400"},
+        {"full_name": "Mehdi Fares", "category": "photography", "hourly_rate": 2000, "task_rate": 8000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Alger Centre", "cross_wilaya": True, "bio": "Wedding, event, and portrait photography.", "avatar_url": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400"},
+        {"full_name": "Salim Ouhadj", "category": "moving", "hourly_rate": 1200, "task_rate": 5000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Bab El Oued", "cross_wilaya": True, "bio": "Careful moving service with team & truck.", "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"},
+        {"full_name": "Fatima Zohra", "category": "cleaning", "hourly_rate": 550, "task_rate": 2100, "city": "Setif", "wilaya_code": "19", "baladiya": "Sétif Centre", "cross_wilaya": False, "bio": "Reliable home cleaning, deep-clean specialist.", "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400"},
+        {"full_name": "Bilal Rahmani", "category": "electrical", "hourly_rate": 950, "task_rate": 2900, "city": "Algiers", "wilaya_code": "16", "baladiya": "El Harrach", "cross_wilaya": False, "bio": "Emergency electrical services, 24/7 available.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
     ]
 
     for i, p in enumerate(seed_providers):
@@ -1037,6 +1198,8 @@ async def on_startup():
     await db.users.create_index("phone_e164", unique=True, sparse=True)
     await db.otp_challenges.create_index("phone_e164", unique=True)
     await db.otp_challenges.create_index("expires_at", expireAfterSeconds=0)
+    await db.users.create_index("wilaya_code")
+    await db.reports.create_index("provider_id")
 
 
 @app.on_event("shutdown")

@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { PortfolioManager } from "@/src/PortfolioManager";
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
@@ -145,6 +146,7 @@ export default function Dashboard() {
         </View>
 
         <Text style={styles.sectionTitle}>{t("dash.recent")}</Text>
+        <PortfolioManager />
         {loading ? (
           <ActivityIndicator color={theme.colors.brand} style={{ marginTop: theme.spacing.lg }} />
         ) : bookings.length === 0 ? (

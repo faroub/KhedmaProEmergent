@@ -12,6 +12,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { WilayaPicker } from "@/src/WilayaPicker";
 
 type Category = { id: string; name: string; icon: string };
 type Provider = {
@@ -26,6 +27,7 @@ export default function Home() {
   const { t, isRTL } = useT();
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [wilayaCode, setWilayaCode] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export default function Home() {
     try {
       const [cats, provs] = await Promise.all([
         api.categories(),
-        api.providers({ category: selectedCat || undefined, search: search || undefined }),
+        api.providers({ category: selectedCat || undefined, search: search || undefined, wilaya: wilayaCode || undefined }),
       ]);
       setCategories(cats as any);
       setProviders(provs as any);
@@ -45,7 +47,7 @@ export default function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCat, search]);
+  }, [selectedCat, search, wilayaCode]);
 
   useEffect(() => {
     load();
@@ -97,6 +99,24 @@ export default function Home() {
             placeholderTextColor={theme.colors.muted}
             returnKeyType="search"
           />
+        </View>
+
+        <View style={{ paddingHorizontal: theme.spacing.xl, marginTop: theme.spacing.md, flexDirection: "row", gap: theme.spacing.sm }}>
+          <WilayaPicker
+            testID="home-wilaya-picker"
+            compact
+            value={wilayaCode}
+            onSelect={(code) => setWilayaCode(code)}
+            label={t("wilaya.filterAll")}
+          />
+          {wilayaCode && (
+            <Pressable testID="clear-wilaya-btn" onPress={() => setWilayaCode(null)} style={{
+              paddingHorizontal: 10, height: 36, borderRadius: theme.radius.pill,
+              borderWidth: 1, borderColor: theme.colors.border, alignItems: "center", justifyContent: "center",
+            }}>
+              <Ionicons name="close" size={16} color={theme.colors.muted} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.promoWrap}>

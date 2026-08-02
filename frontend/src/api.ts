@@ -43,10 +43,11 @@ export const api = {
   },
 
   categories: () => request("/categories", { auth: false }),
-  providers: (params?: { category?: string; search?: string }) => {
+  providers: (params?: { category?: string; search?: string; wilaya?: string }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.search) q.set("search", params.search);
+    if (params?.wilaya) q.set("wilaya", params.wilaya);
     const qs = q.toString();
     return request(`/providers${qs ? `?${qs}` : ""}`, { auth: false });
   },
@@ -79,6 +80,14 @@ export const api = {
   },
   completeProfile: (payload: any) =>
     request("/users/me/profile", { method: "PATCH", body: JSON.stringify(payload) }),
+
+  wilayas: () => request("/wilayas", { auth: false }),
+
+  updatePortfolio: (images: string[]) =>
+    request("/users/me/portfolio", { method: "PATCH", body: JSON.stringify({ portfolio_images: images }) }),
+
+  reportProvider: (payload: { provider_id: string; reason: string; details?: string }) =>
+    request("/reports", { method: "POST", body: JSON.stringify(payload) }),
 
   // Schedule
   getSchedule: (providerId: string) =>

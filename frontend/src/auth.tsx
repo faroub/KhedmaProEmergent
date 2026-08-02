@@ -20,6 +20,10 @@ export type User = {
   trial_ends_at?: string | null;
   subscription_status?: string | null;
   days_until_due?: number | null;
+  wilaya_code?: string;
+  baladiya?: string;
+  cross_wilaya?: boolean;
+  portfolio_images?: string[];
 };
 
 type AuthCtx = {

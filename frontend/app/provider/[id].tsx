@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, ImageBackground,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, ImageBackground, Modal, TextInput, FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -10,14 +10,57 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "@/src/api";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { useAuth } from "@/src/auth";
 
 export default function ProviderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t, isRTL } = useT();
+  const { user } = useAuth();
   const [provider, setProvider] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<string | null>(null);
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  const REPORT_REASONS = [
+    { key: "no_show", tKey: "report.reasons.noShow" },
+    { key: "poor_quality", tKey: "report.reasons.poorQuality" },
+    { key: "price_gouging", tKey: "report.reasons.priceGouging" },
+    { key: "unsafe", tKey: "report.reasons.unsafe" },
+    { key: "fraud", tKey: "report.reasons.fraud" },
+    { key: "other", tKey: "report.reasons.other" },
+  ];
+
+  const openReport = () => {
+    if (!user) {
+      router.push("/(auth)/login");
+      return;
+    }
+    setReportReason(null);
+    setReportDetails("");
+    setReportError(null);
+    setReportSuccess(false);
+    setReportOpen(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportReason) return;
+    setReportSubmitting(true);
+    try {
+      await api.reportProvider({ provider_id: id as string, reason: reportReason, details: reportDetails || undefined });
+      setReportSuccess(true);
+      setTimeout(() => setReportOpen(false), 1500);
+    } catch (e: any) {
+      setReportError(e?.message || "Failed");
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -113,6 +156,21 @@ export default function ProviderDetail() {
         </View>
 
         <View style={styles.reviewsSection}>
+          {provider.portfolio_images && provider.portfolio_images.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>{t("portfolio.title")}</Text>
+              <FlatList
+                horizontal
+                data={provider.portfolio_images}
+                keyExtractor={(_, i) => `p${i}`}
+                contentContainerStyle={{ gap: 8 }}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item, index }) => (
+                  <Image source={{ uri: item }} testID={`portfolio-${index}`} style={styles.portfolioImg} contentFit="cover" />
+                )}
+              />
+            </>
+          )}
           <View style={styles.reviewsHeader}>
             <Text style={styles.sectionTitle}>{t("provider.reviews")} ({reviews.length})</Text>
             <Pressable
@@ -162,6 +220,75 @@ export default function ProviderDetail() {
           <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={18} color={theme.colors.onBrandPrimary} />
         </Pressable>
       </SafeAreaView>
+
+      {/* Report modal */}
+      <Modal transparent visible={reportOpen} animationType="slide" onRequestClose={() => setReportOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
+          <View style={{
+            backgroundColor: theme.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, gap: theme.spacing.md,
+          }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: theme.colors.onSurface, fontSize: 20, fontWeight: "800" }}>{t("report.title")}</Text>
+              <Pressable onPress={() => setReportOpen(false)} testID="report-close-btn">
+                <Ionicons name="close" size={22} color={theme.colors.onSurface} />
+              </Pressable>
+            </View>
+
+            {reportSuccess ? (
+              <View style={{ alignItems: "center", padding: theme.spacing.xl }}>
+                <Ionicons name="checkmark-circle" size={48} color={theme.colors.success} />
+                <Text style={{ color: theme.colors.onSurface, fontSize: 15, marginTop: theme.spacing.sm }}>{t("report.submitted")}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={{ color: theme.colors.onSurfaceTertiary, fontSize: 13, fontWeight: "600" }}>{t("report.reason")}</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {REPORT_REASONS.map((r) => (
+                    <Pressable
+                      key={r.key}
+                      testID={`report-reason-${r.key}`}
+                      onPress={() => setReportReason(r.key)}
+                      style={{
+                        paddingHorizontal: 12, paddingVertical: 10, borderRadius: theme.radius.pill,
+                        borderWidth: 1, borderColor: reportReason === r.key ? theme.colors.brand : theme.colors.border,
+                        backgroundColor: reportReason === r.key ? theme.colors.brand : theme.colors.surfaceSecondary,
+                      }}
+                    >
+                      <Text style={{ color: reportReason === r.key ? theme.colors.onBrandPrimary : theme.colors.onSurface, fontWeight: "600", fontSize: 12 }}>
+                        {t(r.tKey)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={{ color: theme.colors.onSurfaceTertiary, fontSize: 13, fontWeight: "600" }}>{t("report.details")}</Text>
+                <TextInput
+                  testID="report-details-input"
+                  style={{
+                    backgroundColor: theme.colors.surfaceSecondary, borderRadius: theme.radius.md,
+                    padding: theme.spacing.md, color: theme.colors.onSurface, height: 100, textAlignVertical: "top",
+                    borderWidth: 1, borderColor: theme.colors.border,
+                  }}
+                  multiline value={reportDetails} onChangeText={setReportDetails}
+                  placeholder={t("report.detailsPh")} placeholderTextColor={theme.colors.muted}
+                />
+                {reportError && <Text style={{ color: theme.colors.error, textAlign: "center" }}>{reportError}</Text>}
+                <Pressable
+                  testID="report-submit-btn"
+                  onPress={submitReport}
+                  disabled={!reportReason || reportSubmitting}
+                  style={{
+                    backgroundColor: theme.colors.brand, paddingVertical: 14, borderRadius: theme.radius.pill,
+                    alignItems: "center", opacity: !reportReason || reportSubmitting ? 0.6 : 1,
+                  }}
+                >
+                  {reportSubmitting ? <ActivityIndicator color={theme.colors.onBrandPrimary} /> : <Text style={{ color: theme.colors.onBrandPrimary, fontWeight: "700" }}>{t("report.submit")}</Text>}
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -206,6 +333,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.brand,
   },
   writeReviewText: { color: theme.colors.brand, fontSize: 12, fontWeight: "700" },
+  portfolioImg: { width: 140, height: 140, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceSecondary },
   sectionTitle: { color: theme.colors.onSurface, fontSize: 18, fontWeight: "700" },
   noReviews: { color: theme.colors.muted, fontSize: 13 },
   reviewCard: {

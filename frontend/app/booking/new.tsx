@@ -11,6 +11,8 @@ import { theme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { useT } from "@/src/language";
 import { AddressAutocomplete } from "@/src/AddressAutocomplete";
+import { PinDropMap } from "@/src/PinDropMap";
+import { WilayaPicker } from "@/src/WilayaPicker";
 
 const TIME_SLOTS = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
@@ -45,6 +47,10 @@ export default function NewBooking() {
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [success, setSuccess] = useState(false);
+  const [bookingType, setBookingType] = useState<"instant" | "quote">("instant");
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [wilayaCode, setWilayaCode] = useState<string | null>(null);
+  const [baladiya, setBaladiya] = useState("");
 
   const isGuest = !user || user.role !== "client";
   const locale = lang === "ar" ? "ar-DZ" : lang === "fr" ? "fr-FR" : "en-US";
@@ -86,6 +92,11 @@ export default function NewBooking() {
         address,
         rate_type: rateType,
         estimated_hours: rateType === "hourly" ? parseFloat(hours) : undefined,
+        booking_type: bookingType,
+        location_lat: pin?.lat,
+        location_lng: pin?.lng,
+        wilaya_code: wilayaCode || undefined,
+        baladiya: baladiya || undefined,
       };
       if (isGuest) {
         payload.guest_name = guestName;
@@ -242,6 +253,63 @@ export default function NewBooking() {
             placeholder={t("booking.addressPh")}
           />
 
+          <Text style={styles.sectionLabel}>{t("booking.pinTitle")}</Text>
+          <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: 6 }}>{t("booking.pinHint")}</Text>
+          <PinDropMap
+            testID="pin-drop-map"
+            initialLat={pin?.lat ?? 36.7538}
+            initialLng={pin?.lng ?? 3.0588}
+            onPinChange={(lat, lng) => setPin({ lat, lng })}
+            height={280}
+          />
+          {pin && (
+            <Text style={{ color: theme.colors.brand, fontSize: 12, marginTop: 6 }} testID="pin-coords">
+              {t("booking.locationSet")}: {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
+            </Text>
+          )}
+
+          <Text style={styles.sectionLabel}>{t("wilaya.mine")}</Text>
+          <WilayaPicker
+            testID="booking-wilaya-picker"
+            value={wilayaCode}
+            onSelect={(code) => setWilayaCode(code)}
+          />
+          <Text style={styles.sectionLabel}>{t("wilaya.baladiya")}</Text>
+          <TextInput
+            testID="baladiya-input"
+            style={styles.input}
+            value={baladiya}
+            onChangeText={setBaladiya}
+            placeholder={t("wilaya.baladiyaPh")}
+            placeholderTextColor={theme.colors.muted}
+          />
+
+          <Text style={styles.sectionLabel}>{t("booking.rateType")}</Text>
+          <View style={styles.bookingTypeRow}>
+            <Pressable
+              testID="btype-instant-btn"
+              onPress={() => setBookingType("instant")}
+              style={[styles.bTypeCard, bookingType === "instant" && styles.bTypeCardActive]}
+            >
+              <Ionicons name="flash" size={18} color={bookingType === "instant" ? theme.colors.onBrandPrimary : theme.colors.brand} />
+              <Text style={[styles.bTypeTitle, bookingType === "instant" && styles.bTypeTitleActive]}>{t("booking.instant")}</Text>
+              <Text style={[styles.bTypeSub, bookingType === "instant" && { color: theme.colors.onBrandPrimary, opacity: 0.85 }]}>
+                {t("booking.instantSub")}
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="btype-quote-btn"
+              onPress={() => setBookingType("quote")}
+              style={[styles.bTypeCard, bookingType === "quote" && styles.bTypeCardActive]}
+            >
+              <Ionicons name="chatbubbles" size={18} color={bookingType === "quote" ? theme.colors.onBrandPrimary : theme.colors.brand} />
+              <Text style={[styles.bTypeTitle, bookingType === "quote" && styles.bTypeTitleActive]}>{t("booking.quote")}</Text>
+              <Text style={[styles.bTypeSub, bookingType === "quote" && { color: theme.colors.onBrandPrimary, opacity: 0.85 }]}>
+                {t("booking.quoteSub")}
+              </Text>
+            </Pressable>
+          </View>
+
           {isGuest && (
             <>
               <View style={styles.guestBanner}>
@@ -334,6 +402,16 @@ const styles = StyleSheet.create({
   rateBtnText: { color: theme.colors.onSurface, fontWeight: "600", fontSize: 13 },
   rateBtnTextActive: { color: theme.colors.onBrandPrimary },
   input: { backgroundColor: theme.colors.surfaceSecondary, borderRadius: theme.radius.md, paddingHorizontal: theme.spacing.lg, paddingVertical: 14, fontSize: 16, color: theme.colors.onSurface, borderWidth: 1, borderColor: theme.colors.border },
+  bookingTypeRow: { flexDirection: "row", gap: theme.spacing.md },
+  bTypeCard: {
+    flex: 1, padding: theme.spacing.md, borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary, borderWidth: 1, borderColor: theme.colors.border,
+    gap: 4,
+  },
+  bTypeCardActive: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  bTypeTitle: { color: theme.colors.onSurface, fontSize: 14, fontWeight: "700", marginTop: 6 },
+  bTypeTitleActive: { color: theme.colors.onBrandPrimary },
+  bTypeSub: { color: theme.colors.muted, fontSize: 11 },
   guestBanner: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, padding: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.brandTertiary, marginTop: theme.spacing.xl },
   guestBannerText: { color: theme.colors.onBrandTertiary, fontSize: 13, fontWeight: "700", flex: 1 },
   error: { color: theme.colors.error, textAlign: "center", marginTop: theme.spacing.md },
