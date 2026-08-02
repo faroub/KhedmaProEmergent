@@ -1,0 +1,48 @@
+{
+  "summary": "khedmaPro iteration 7 — Account lifecycle (deactivate / reactivate / soft-delete / MOCK subscription pay) + offline-bookings entry screen — fully verified. Backend (pytest, sequential run, 56/56 pass across all test files; new file /app/backend/tests/test_account_lifecycle.py = 13/13 pass): (1) provider1 login OK, (2) GET /api/subscription/status returns subscription_status='trial', active=true, days_until_due=89, fee_dzd=1000, trial_months=3, is_manually_deactivated=false, is_deleted=false; (3) POST /users/me/deactivate flips is_manually_deactivated=true and active=false in the returned user; (4) GET /api/providers no longer contains provider1's id; (5) POST /api/bookings against the deactivated provider (guest payload) returns 410; (6) POST /users/me/reactivate clears the flag and provider re-appears in listings; (7) POST /subscription/pay returns success:true, amount_dzd:1000, subscription_status flips to 'active', last_paid_at set, days_until_due≈30 (measured 30); (8) POST /users/me/delete → 200, then POST /auth/login with same creds → 410, GET /auth/me with stale token → 410, GET /api/providers/{id} → 404; (9) provider1 restored via direct Mongo update (motor async) — subsequent login OK; (10) Client lifecycle: fresh register(role=client) → deactivate (200, is_manually_deactivated=true) → /auth/me still 200 for deactivated client → reactivate → delete → next email/password login = 410, /auth/me with stale token = 410. Frontend (mobile viewport 390x844, Playwright, http://localhost:3000): logged in as provider1 → landed on /dashboard → tapped Profile tab → subscription-card VISIBLE with 'Free trial' badge and '89 days left in trial' text; pay-btn VISIBLE with label 'Pay 1000 DZD'; deactivate-btn + delete-btn present in Danger zone. Tapping deactivate-btn opened confirm-modal → confirm-ok flipped the UI: deact-banner appeared (yellow 'Manually deactivated' banner) and the danger-zone button became reactivate-btn (green Reactivate account row). Tapping reactivate-btn → confirm-ok → banner disappeared and deactivate-btn returned. Language switcher: switching to Arabic ('العربية' via lang-option-ar) rendered the profile in Arabic ('الملف الشخصي', 'الاشتراك', 'فترة تجريبية', 'ادفع 1000 دج') with a visually RTL layout (title/labels right-aligned, subscription card text right-aligned — see screenshot profile-ar.png). Switching back to English (lang-option-en) restored the LTR layout — screenshot profile-back-en.png confirms all copy is left-aligned again. IMPORTANT: The app applies RTL through React-Native flexbox (rowReverse / writingDirection) rather than setting `document.documentElement.dir='rtl'`, so probing `document.documentElement.dir` reports '' and computed direction stays 'ltr' in both modes — the layout however IS visually RTL when Arabic is active. Delete-cancel path: tapping delete-btn opened confirm-modal, tapping confirm-cancel closed the modal cleanly and the account was NOT deleted (delete-btn still present, /auth/me still 200 in a follow-up). Bookings screen (provider1, empty) loaded without crashing, showing '[data-testid=last-sync]' = 'Last synced · 10:45:56 PM' and 'No bookings yet' empty state; no offline-badge (browser online). No red screen or unhandled JS errors during any flow. Provider1 was restored in Mongo at the end of the backend suite — safe for re-run.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "React Native Web (upstream warnings)",
+        "issue": "DevTools console still emits 'props.pointerEvents is deprecated. Use style.pointerEvents' during login → profile navigation. Same benign upstream RN-web warning already flagged in iterations 3 & 4; not blocking, not khedmaPro code."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_account_lifecycle.py",
+    "/app/test_reports/pytest/pytest_account_lifecycle.xml",
+    "/app/backend/tests/test_khedmapro_api.py",
+    "/app/backend/tests/test_otp_auth.py",
+    "/app/backend/tests/test_schedule_chat.py"
+  ],
+  "action_items": [
+    "None blocking. Optional nit: consider setting `document.documentElement.setAttribute('dir', 'rtl')` when Arabic is selected so third-party libs, form autofill, and screenshot tests can rely on the standard `dir` attribute. Current implementation is visually correct but non-standard for the DOM layer."
+  ],
+  "critical_code_review_comments": [
+    "server.py POST /users/me/delete only calls db.users.update_one — it does not cancel/expire any bookings, chats, schedule docs, or subscription_payments belonging to that user. Reasonable for soft-delete, but callers must remember: GET /api/bookings/mine on a still-valid token from a deleted user will 410 through current_user, but past bookings the provider was linked to remain in db.bookings referencing a now-hidden provider — worth checking if that surfaces stale rows on the client side.",
+    "server.py POST /subscription/pay clears is_manually_deactivated but does NOT clear is_deleted. Effectively a soft-deleted account cannot be revived by paying (correct — deletion must go through admin/DB restore). Consider documenting this in the API docstring so mobile devs don't mistakenly wire 'Pay to undelete'.",
+    "compute_subscription() returns 'manually_deactivated' as subscription_status but the frontend Profile screen only checks user.is_manually_deactivated (from /auth/me) — good, that field is always present. However /providers/{id} still returns active:false for a deactivated provider; ensure the booking flow surfaces a clean 'Provider currently unavailable' rather than a raw 410.",
+    "profile.tsx line 34-37: subStatus/daysLeft/isManuallyDeact read from useAuth() user, meaning the screen depends on the auth store being refreshed after /users/me/deactivate. The action code does call refresh() (assumed) — this worked in the UI test. Just flagging that if refresh() ever silently fails, the banner/toggle will not update.",
+    "test_account_lifecycle.py uses `pytest.provider_token` as a poor-man's cross-test state carrier — works, but if the suite is ever run with -n auto (xdist), the class runs on one worker and the module-level state is fine within one worker, however the parallel run also triggered a race where test_seed_has_12_providers on worker gw1 counted providers WHILE gw0 had provider1 in the deactivated state. Repro: `pytest backend/tests/ -n auto` intermittently fails test_seed_has_12_providers. Sequential run (`-o addopts=''` or `-p no:xdist`) always passes 56/56. Not a product bug but a test-isolation concern — consider marking the lifecycle class `@pytest.mark.serial` or making the seed test tolerate 11 (one temporarily hidden)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_account_lifecycle.py (NEW — 13 tests: 10 provider lifecycle + 3 client lifecycle, all pass sequentially)",
+    "/app/test_reports/iteration_7.json (this report)",
+    "/app/test_result.md (test-history entry appended)"
+  ],
+  "success_rate": {
+    "backend": "100% (56/56 sequentially — includes 13 new lifecycle tests + 43 regression tests from previous iterations)",
+    "frontend": "100% of the review_request UI flows (login, subscription-card, pay-btn label, deactivate → confirm-ok, reactivate, delete cancel path, Arabic ↔ English language switch, empty bookings last-sync)"
+  },
+  "seed_data_creation": "Ephemeral. Provider lifecycle test class uses seeded provider1 and RESTORES it via direct motor Mongo update in an autouse module-scope fixture (both before and after the class). Client lifecycle registers `test_client_<8-hex>@khedmapro.dz` per class run — leaves a soft-deleted client in db.users (harmless, matches 'test_' convention). No side effects on other seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run backend suite SEQUENTIALLY to avoid race on test_seed_has_12_providers: `EXPO_PUBLIC_BACKEND_URL=https://service-pro-app-21.preview.emergentagent.com EXPO_BACKEND_URL=$EXPO_PUBLIC_BACKEND_URL pytest /app/backend/tests -q -o addopts=''`. If re-running the lifecycle in isolation, remember to run TestProviderLifecycle IN ORDER (deps: test_01 login → test_10 restore). If provider1 login ever returns 410, run the restore snippet from `_restore_provider1_via_mongo()` directly. Frontend: web preview is at http://localhost:3000 and auth token is IN-MEMORY (JWT via SecureStore on native, in-memory on web) — do NOT `page.goto` between screens because that will drop the session. Use the bottom-tab links (`page.get_by_text('Profile'|'Bookings'|'Dashboard').click()`). New testIDs: subscription-card, pay-btn, deactivate-btn, reactivate-btn, delete-btn, confirm-modal, confirm-ok, confirm-cancel, deact-banner, profile-lang-switcher, lang-option-ar/en/fr, last-sync, offline-badge. Arabic RTL is applied via RN-web flex rowReverse (visual only) — do NOT assert `document.documentElement.dir==='rtl'`, assert the Arabic text is visible in body innerText instead."
+}
