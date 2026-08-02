@@ -1,0 +1,46 @@
+{
+  "summary": "khedmaPro follow-up validation. Backend 14/14 pytest passing after fixing a seed-data bug: providers were seeded with @servicepro.dz instead of @khedmapro.dz emails (server.py:581). I patched the string and migrated the 12 existing DB rows in-place, then all auth flows work with provider1..12@khedmapro.dz / password123. Also fixed a hard red-screen crash in the frontend: /app/frontend/app/provider/[id].tsx was calling useT() without importing it (ReferenceError: useT is not defined) — added the missing import from @/src/language. After both fixes, every requested flow verified in Expo web preview at mobile viewport (390x844): onboarding shows khedmaPro brand + compact language switcher + 'Browse services' primary + 'I'm a service provider' + 'Sign in' link; language switcher translates to French (Parcourir les services) and Arabic (تصفح الخدمات); Browse services opens client home WITHOUT login showing 'Find a pro' header + 'Sign in' header button + 12 provider cards + horizontal category chips; provider detail shows rating, sticky Request Booking, Write a review, and 8–9 seeded fake reviews; guest booking end-to-end succeeds (booking appears in provider dashboard 'Recent bookings'); tapping Write a review as a guest correctly shows the sign-in gate (review-gate-register-btn + review-gate-signin-btn, NO submit form); after signing in as a client the actual review form (star picker + comment-input + submit-review-btn) renders; provider1@khedmapro.dz signs in successfully and lands on the Provider Dashboard with trial banner + stats + rating + recent bookings.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/seed", "issue": "Seed provider email string used @servicepro.dz while idempotency check on the line above compared @khedmapro.dz — resulted in provider1..12@servicepro.dz being seeded. FIXED in server.py line 581 (now @khedmapro.dz). Existing DB rows migrated in place by testing agent."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "/app/frontend/app/provider/[id].tsx", "issue": "Red-screen crash: `useT is not defined`. Missing import for useT from '@/src/language'. FIXED by testing agent (added import).", "testID": "N/A", "priority": "CRITICAL (was blocking)"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo-linear-gradient / RN Modal (upstream)", "issue": "Non-blocking DevTools warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Comes from an upstream RN component (LinearGradient/Modal). Not a khedmaPro code defect but worth tracking on the next expo/RN upgrade."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_khedmapro_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None blocking — both bugs (seed email typo + missing useT import) have been fixed and re-verified. Main agent may want to re-run /api/seed on any fresh DB now that server.py is correct.",
+    "Consider adding a defensive TypeScript/ESLint rule to catch missing-import ReferenceErrors before runtime (this class of bug slipped through because it only fires when the screen is opened)."
+  ],
+  "critical_code_review_comments": [
+    "server.py idempotency guard uses @khedmapro.dz while insert used @servicepro.dz — was inconsistent; fixed.",
+    "server.py is a single ~670-line file — recommend splitting into routers (auth/providers/bookings/reviews/subscription/seed) post-MVP.",
+    "POST /api/seed is publicly exposed and idempotent but should be guarded/removed for production.",
+    "POST /api/subscription/pay is MOCKED (records timestamp only) — flagged as declared."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (seed email typo fix: @servicepro.dz -> @khedmapro.dz)",
+    "/app/frontend/app/provider/[id].tsx (added `import { useT } from '@/src/language'` to fix red-screen)",
+    "/app/backend/tests/test_khedmapro_api.py (new comprehensive test suite for follow-up changes)",
+    "/app/backend/tests/test_servicepro_api.py (removed — superseded)",
+    "MongoDB: renamed 12 provider emails from *@servicepro.dz to *@khedmapro.dz (in-place migration via motor script)"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Reused existing seeded 12 providers (post-email-migration). Created several TEST_ clients via /api/auth/register during pytest run and a UI-registered TEST_ui_* client used to verify the logged-in review form. One guest booking ('UI Test Guest') is now attached to provider1 (Ahmed Boumediene).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Base URL: EXPO_PUBLIC_BACKEND_URL in /app/frontend/.env. Backend test file: /app/backend/tests/test_khedmapro_api.py. Provider credentials are provider1..12@khedmapro.dz / password123. Key testIDs: onboarding-screen, browse-services-btn, continue-as-provider-btn, go-to-login-btn, onboarding-lang-switcher, lang-option-{en|fr|ar}, header-signin-btn, cat-chip-{id}, provider-{id}, write-review-btn, request-booking-btn, review-gate-register-btn, review-gate-signin-btn, guest-name-input, guest-phone-input, guest-email-input, description-input, address-input, confirm-booking-btn, booking-done-btn, login-email-input, login-password-input, login-submit-btn, star-{1..5}, comment-input, submit-review-btn.",
+  "rca_of_issue": "Two bugs found & fixed. (1) Seed emails: server.py mixed the app rename — the idempotency check compared '@khedmapro.dz' while the insert wrote '@servicepro.dz', so the seeded providers matched the old ServicePro name and login with the credentials documented in /app/memory/test_credentials.md failed. Fixed the string and migrated the 12 rows via motor. (2) Provider detail red screen: refactor to i18n added `const { t, isRTL } = useT()` on line 16 of app/provider/[id].tsx but forgot to import useT from '@/src/language'. Because the file compiled fine (TS treats undefined bindings as any at usage sites via JSX-under-emit), the failure only surfaced at runtime when the screen mounted. Added the missing import — screen now renders the sticky Request Booking, Write a review, and seeded reviews list correctly."
+}

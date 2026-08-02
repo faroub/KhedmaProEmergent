@@ -1,0 +1,328 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View, Text, StyleSheet, ScrollView, TextInput, Pressable,
+  FlatList, ActivityIndicator, RefreshControl, ImageBackground,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { api } from "@/src/api";
+import { useAuth } from "@/src/auth";
+import { theme } from "@/src/theme";
+import { useT } from "@/src/language";
+
+type Category = { id: string; name: string; icon: string };
+type Provider = {
+  id: string; full_name: string; category?: string; hourly_rate?: number;
+  task_rate?: number; city?: string; avatar_url?: string; rating: number;
+  reviews_count: number; bio?: string;
+};
+
+export default function Home() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { t, isRTL } = useT();
+  const [search, setSearch] = useState("");
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [cats, provs] = await Promise.all([
+        api.categories(),
+        api.providers({ category: selectedCat || undefined, search: search || undefined }),
+      ]);
+      setCategories(cats as any);
+      setProviders(provs as any);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedCat, search]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    load();
+  };
+
+  const featured = useMemo(() => providers.slice(0, 5), [providers]);
+
+  return (
+    <SafeAreaView style={styles.root} edges={["top"]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.hello}>
+            {user ? `${t("home.hello")}, ${user.full_name?.split(" ")[0]}` : t("home.helloGuest")}
+          </Text>
+          <View style={styles.locRow}>
+            <Ionicons name="location" size={14} color={theme.colors.brand} />
+            <Text style={styles.locText}>{user?.city || "Algeria"}</Text>
+          </View>
+        </View>
+        {user ? (
+          <Pressable style={styles.bell} onPress={() => router.push("/(client)/bookings")} testID="header-bookings-btn">
+            <Ionicons name="calendar-outline" size={22} color={theme.colors.onSurface} />
+          </Pressable>
+        ) : (
+          <Pressable style={styles.signInBtn} onPress={() => router.push("/(auth)/login")} testID="header-signin-btn">
+            <Text style={styles.signInText}>{t("home.headerSignIn")}</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.brand} />}
+      >
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={18} color={theme.colors.muted} />
+          <TextInput
+            testID="search-input"
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t("home.searchPlaceholder")}
+            placeholderTextColor={theme.colors.muted}
+            returnKeyType="search"
+          />
+        </View>
+
+        <View style={styles.promoWrap}>
+          <ImageBackground
+            source={{ uri: "https://images.unsplash.com/photo-1687463221023-02f259da7d77?w=800" }}
+            style={styles.promo}
+            imageStyle={{ borderRadius: theme.radius.lg }}
+          >
+            <LinearGradient
+              colors={["rgba(11,17,32,0.2)", "rgba(11,17,32,0.85)"]}
+              style={[StyleSheet.absoluteFill, { borderRadius: theme.radius.lg }]}
+            />
+            <View style={styles.promoContent}>
+              <Text style={styles.promoBadge}>{t("home.promoBadge")}</Text>
+              <Text style={styles.promoTitle}>{t("home.promoTitle")}</Text>
+              <Text style={styles.promoSub}>{t("home.promoSub")}</Text>
+            </View>
+          </ImageBackground>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t("home.categories")}</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRowContent}
+          style={styles.chipRow}
+        >
+          <Pressable
+            testID="cat-chip-all"
+            onPress={() => setSelectedCat(null)}
+            style={[styles.chip, !selectedCat && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, !selectedCat && styles.chipTextActive]}>{t("home.all")}</Text>
+          </Pressable>
+          {categories.map((c) => (
+            <Pressable
+              key={c.id}
+              testID={`cat-chip-${c.id}`}
+              onPress={() => setSelectedCat(c.id)}
+              style={[styles.chip, selectedCat === c.id && styles.chipActive]}
+            >
+              <Ionicons name={c.icon as any} size={14} color={selectedCat === c.id ? theme.colors.onBrandPrimary : theme.colors.brand} />
+              <Text style={[styles.chipText, selectedCat === c.id && styles.chipTextActive]}>{t(`cat.${c.id}`)}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {featured.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t("home.topRated")}</Text>
+            </View>
+            <FlatList
+              horizontal
+              data={featured}
+              keyExtractor={(p) => p.id}
+              contentContainerStyle={{ paddingHorizontal: theme.spacing.xl, gap: theme.spacing.md }}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <Pressable
+                  testID={`featured-${item.id}`}
+                  style={styles.featuredCard}
+                  onPress={() => router.push(`/provider/${item.id}`)}
+                >
+                  <Image
+                    source={{ uri: item.avatar_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400" }}
+                    style={styles.featuredImg}
+                    contentFit="cover"
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(11,17,32,0.95)"]}
+                    style={styles.featuredScrim}
+                  />
+                  <View style={styles.featuredInfo}>
+                    <View style={styles.ratingPill}>
+                      <Ionicons name="star" size={11} color={theme.colors.brand} />
+                      <Text style={styles.ratingPillText}>{item.rating.toFixed(1)}</Text>
+                    </View>
+                    <Text style={styles.featuredName} numberOfLines={1}>{item.full_name}</Text>
+                    <Text style={styles.featuredCat} numberOfLines={1}>
+                      {item.category ? t(`cat.${item.category}`) : ""}
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
+            />
+          </>
+        )}
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t("home.allProviders")}</Text>
+          <Text style={styles.sectionCount}>{providers.length}</Text>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator color={theme.colors.brand} style={{ marginTop: theme.spacing.xl }} />
+        ) : providers.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="search-outline" size={40} color={theme.colors.muted} />
+            <Text style={styles.emptyText}>{t("home.noResults")}</Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: theme.spacing.xl, gap: theme.spacing.md }}>
+            {providers.map((p) => (
+              <Pressable
+                key={p.id}
+                testID={`provider-${p.id}`}
+                style={styles.providerRow}
+                onPress={() => router.push(`/provider/${p.id}`)}
+              >
+                <Image
+                  source={{ uri: p.avatar_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200" }}
+                  style={styles.providerAvatar}
+                  contentFit="cover"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.providerName} numberOfLines={1}>{p.full_name}</Text>
+                  <Text style={styles.providerCat} numberOfLines={1}>
+                    {p.category ? t(`cat.${p.category}`) : ""} • {p.city || ""}
+                  </Text>
+                  <View style={styles.providerMeta}>
+                    <Ionicons name="star" size={12} color={theme.colors.brand} />
+                    <Text style={styles.providerRating}>{p.rating.toFixed(1)}</Text>
+                    <Text style={styles.providerReviews}>({p.reviews_count})</Text>
+                    <View style={styles.dot} />
+                    <Text style={styles.providerRate}>{p.hourly_rate ?? "-"} {t("provider.perHour")}</Text>
+                  </View>
+                </View>
+                <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.colors.surface },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md,
+  },
+  hello: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "700" },
+  locRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  locText: { color: theme.colors.onSurfaceSecondary, fontSize: 13 },
+  bell: {
+    width: 40, height: 40, borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  signInBtn: {
+    paddingHorizontal: theme.spacing.md, height: 40,
+    borderRadius: theme.radius.pill, backgroundColor: theme.colors.brand,
+    alignItems: "center", justifyContent: "center",
+  },
+  signInText: { color: theme.colors.onBrandPrimary, fontWeight: "700", fontSize: 13 },
+  searchWrap: {
+    flexDirection: "row", alignItems: "center", gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.xl, paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border,
+  },
+  searchInput: { flex: 1, color: theme.colors.onSurface, paddingVertical: 12, fontSize: 15 },
+  promoWrap: { paddingHorizontal: theme.spacing.xl, marginTop: theme.spacing.lg },
+  promo: { height: 150, borderRadius: theme.radius.lg, overflow: "hidden", justifyContent: "flex-end" },
+  promoContent: { padding: theme.spacing.lg },
+  promoBadge: {
+    color: theme.colors.onBrandPrimary, backgroundColor: theme.colors.brand,
+    fontWeight: "800", fontSize: 10, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: theme.radius.sm, alignSelf: "flex-start", marginBottom: 8,
+  },
+  promoTitle: { color: theme.colors.onSurface, fontSize: 22, fontWeight: "800", lineHeight: 26 },
+  promoSub: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 4 },
+  sectionHeader: {
+    paddingHorizontal: theme.spacing.xl, marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.md, flexDirection: "row",
+    alignItems: "center", justifyContent: "space-between",
+  },
+  sectionTitle: { color: theme.colors.onSurface, fontSize: 18, fontWeight: "700" },
+  sectionCount: { color: theme.colors.muted, fontSize: 13 },
+  chipRow: { height: 56 },
+  chipRowContent: { paddingHorizontal: theme.spacing.xl, gap: theme.spacing.sm, alignItems: "center" },
+  chip: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: theme.spacing.md, height: 36,
+    borderRadius: theme.radius.pill, backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1, borderColor: theme.colors.border, flexShrink: 0,
+  },
+  chipActive: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  chipText: { color: theme.colors.onSurface, fontWeight: "600", fontSize: 13 },
+  chipTextActive: { color: theme.colors.onBrandPrimary },
+  featuredCard: {
+    width: 180, height: 220, borderRadius: theme.radius.lg,
+    overflow: "hidden", backgroundColor: theme.colors.surfaceSecondary,
+  },
+  featuredImg: { width: "100%", height: "100%" },
+  featuredScrim: { position: "absolute", bottom: 0, left: 0, right: 0, height: "70%" },
+  featuredInfo: { position: "absolute", bottom: 0, left: 0, right: 0, padding: theme.spacing.md },
+  ratingPill: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: "rgba(11,17,32,0.75)", paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: theme.radius.sm, alignSelf: "flex-start", marginBottom: 6,
+  },
+  ratingPillText: { color: theme.colors.brand, fontSize: 11, fontWeight: "700" },
+  featuredName: { color: theme.colors.onSurface, fontSize: 15, fontWeight: "700" },
+  featuredCat: { color: theme.colors.onSurfaceSecondary, fontSize: 12 },
+  providerRow: {
+    flexDirection: "row", alignItems: "center", gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border,
+  },
+  providerAvatar: { width: 56, height: 56, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceTertiary },
+  providerName: { color: theme.colors.onSurface, fontSize: 15, fontWeight: "700" },
+  providerCat: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
+  providerMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  providerRating: { color: theme.colors.brand, fontSize: 12, fontWeight: "700" },
+  providerReviews: { color: theme.colors.muted, fontSize: 12 },
+  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: theme.colors.muted, marginHorizontal: 4 },
+  providerRate: { color: theme.colors.onSurfaceSecondary, fontSize: 12, fontWeight: "600" },
+  empty: { alignItems: "center", gap: theme.spacing.sm, paddingVertical: theme.spacing.xxl },
+  emptyText: { color: theme.colors.muted, fontSize: 14 },
+});
