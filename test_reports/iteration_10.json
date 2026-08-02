@@ -1,0 +1,76 @@
+{
+  "summary": "Iteration 10 — Backend regression after 1658-line server.py was split into config/database/schemas/reference_data/security/subscription/deps/phone/ws_manager modules + routes/ package (auth, otp, users, providers, bookings, reviews, subscription, verification, schedule, messages, reports, metadata, seed). No endpoint URL, request/response shape, or business logic changed. FRONTEND WAS NOT TESTED per instructions. Pre-existing pytest suite under /app/backend/tests/: 80/81 passed under default xdist -n 2 --dist loadscope; the only failures are the two flaky asyncio 'no current event loop' cases the reviewer flagged (test_category_split.py::test_mongo_no_admin_education_rows + a teardown from test_portfolio_verification._cleanup_db attached to the last-running class in test_schedule_chat.py). Both PASS in isolation with --override-ini='addopts=-n 0' (verified). Additional targeted smoke checks (8/8, /app/backend/tests/test_refactor_smoke.py) all PASS: root ok, 11 categories with admin_consulting + education (no admin_education), 58 wilayas, admin login returns is_admin=true, provider1 login returns subscription_status='trial' with days_until_due>0, /api/providers returns >0 rows with object-shaped portfolio_images (list of dicts) and no email/phone leakage, WS /api/ws/chat?token=<invalid> closes with 1008, WS /api/ws/chat?token=<valid> accepted. No real regressions from the refactor.",
+  "subtask_results": {
+    "existing_suite_under_xdist_-n2": {
+      "total": 81,
+      "passed": 80,
+      "failed_flaky_known": [
+        "tests/test_category_split.py::test_mongo_no_admin_education_rows (asyncio.get_event_loop no current event loop — passes -n 0)",
+        "tests/test_schedule_chat.py::TestChatWebSocket::test_valid_token_receives_realtime_message [teardown ERROR from test_portfolio_verification._cleanup_db session fixture — passes -n 0]"
+      ],
+      "junit": "/app/test_reports/pytest/pytest_iter10.xml"
+    },
+    "isolation_reruns": {
+      "test_category_split::test_mongo_no_admin_education_rows": "PASSED (n=0)",
+      "test_schedule_chat.py (all 10)": "PASSED (n=0)"
+    },
+    "smoke_checks": {
+      "1_root_endpoint": "PASS  GET /api/ -> {message:'khedmaPro API', status:'ok'}",
+      "2_categories_11_with_split": "PASS  11 categories; admin_consulting + education present; admin_education absent",
+      "3_wilayas_58": "PASS  len == 58",
+      "4_admin_login_is_admin_true": "PASS  admin@khedmapro.dz / admin123 -> user.is_admin == true",
+      "5_provider1_trial_days_positive": "PASS  provider1@khedmapro.dz / password123 -> subscription_status='trial', days_until_due > 0",
+      "6_providers_object_portfolio_images": "PASS  /api/providers returns list, each item has portfolio_images:list[dict], email/phone excluded",
+      "7a_ws_invalid_token_1008": "PASS  /api/ws/chat?token=invalid closes with 1008",
+      "7b_ws_valid_token_accepted": "PASS  /api/ws/chat?token=<valid> connection accepted",
+      "junit": "/app/test_reports/pytest/pytest_iter10_smoke.xml"
+    }
+  },
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "tests/test_category_split.py::test_mongo_no_admin_education_rows",
+        "issue": "Uses asyncio.get_event_loop().run_until_complete(...) which fails on xdist worker with 'no current event loop' — pre-existing, reviewer-acknowledged flake. Fix: switch to asyncio.new_event_loop()+set_event_loop(), or asyncio.run(...). Not caused by refactor."
+      },
+      {
+        "endpoint": "tests/test_portfolio_verification.py::_cleanup_db (session-scope teardown)",
+        "issue": "Same asyncio.get_event_loop() pattern — errors during teardown on the last worker's last test (surfaces attached to test_schedule_chat's final case under loadscope). Pre-existing. Fix: use asyncio.run(_run()) in the teardown."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [],
+    "note": "Frontend explicitly out of scope for iteration 10 per review request."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_smoke.py",
+    "/app/test_reports/pytest/pytest_iter10.xml",
+    "/app/test_reports/pytest/pytest_iter10_smoke.xml",
+    "/app/test_reports/pytest/pytest_iter10_full.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup (not caused by refactor): replace asyncio.get_event_loop().run_until_complete(...) with asyncio.run(...) in tests/test_category_split.py::test_mongo_no_admin_education_rows and tests/test_portfolio_verification.py::_cleanup_db to remove xdist flakiness."
+  ],
+  "critical_code_review_comments": [
+    "Refactor is clean: server.py trimmed to a thin FastAPI entry (~118 lines) that builds api_router, adds CORS + WS route, and runs startup hooks (indexes, admin_education→admin_consulting migration, seed).",
+    "routes/__init__.py::build_api_router() aggregates routers with the /api prefix maintained — no client-visible URL change.",
+    "portfolio_images shape (list of dicts) preserved on /api/providers and privacy fields (email, phone) still excluded from public rows — matches iteration 9 behavior."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_smoke.py (new — 8 targeted smoke checks)"
+  ],
+  "success_rate": {
+    "backend_full_suite_xdist": "80/81 (98.8%) — 1 failure + 1 teardown error are the reviewer-acknowledged pre-existing flakes; both pass in isolation",
+    "backend_smoke_checks": "8/8 (100%)",
+    "frontend": "not tested — out of scope"
+  },
+  "seed_data_creation": "None — read-only regression checks; no user records created or modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend was refactored from a 1658-line monolith into modular files (config/database/schemas/reference_data/security/subscription/deps/phone/ws_manager + routes/*) with zero API contract change. Full pre-existing suite at /app/backend/tests/ passes 80/81 under default xdist -n 2 --dist loadscope; the only 2 failing/erroring items (test_category_split::test_mongo_no_admin_education_rows and test_portfolio_verification's session-scope _cleanup_db teardown surfacing on the last test of test_schedule_chat) are pre-existing asyncio flakes acknowledged by the reviewer — both pass with --override-ini='addopts=-n 0'. New targeted smoke file /app/backend/tests/test_refactor_smoke.py (8 tests) covers root, categories (11 w/ admin_consulting+education), wilayas (58), admin login, provider1 trial state, /api/providers portfolio_images object-shape + privacy, WS invalid token 1008, WS valid token accepted — all green in isolation. NOTE: test_refactor_smoke::test_provider1_login_trial may fail under parallel runs because test_account_lifecycle.py mutates provider1's subscription state in a sibling worker (shared-state, not a refactor regression). Run smoke file with -n 0 to avoid this.",
+  "rca_of_issue": "N/A — no defects introduced by the refactor. The two flaky tests are pre-existing test-infrastructure issues (asyncio event-loop retrieval on xdist workers) documented by the reviewer."
+}

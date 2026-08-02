@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="3" skipped="0" tests="90" time="28.415" timestamp="2026-08-02T23:34:02.968580+00:00" hostname="agent-env-e7769096-a50f-42ce-8b08-864ada4d0584"><testcase classname="tests.test_khedmapro_api" name="test_root_returns_khedmapro" time="0.143" /><testcase classname="tests.test_khedmapro_api" name="test_register_password_too_short_rejected" time="0.260" /><testcase classname="tests.test_khedmapro_api" name="test_register_password_8_chars_ok" time="0.307" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_status_initial" time="0.721" /><testcase classname="tests.test_khedmapro_api" name="test_seeded_provider_login_khedmapro_email" time="0.306" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_submit_creates_pending" time="0.259" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_status_reflects_submission" time="0.043" /><testcase classname="tests.test_khedmapro_api" name="test_seed_has_12_providers" time="0.048" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_delete_document" time="0.164" /><testcase classname="tests.test_khedmapro_api" name="test_providers_public_hides_email_and_phone" time="0.045" /><testcase classname="tests.test_khedmapro_api" name="test_provider_detail_public_hides_email_and_phone" time="0.130" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_413_on_oversized_doc" time="0.319" /><testcase classname="tests.test_khedmapro_api" name="test_auth_me_includes_email_and_phone" time="0.305" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_pending_forbidden_for_non_admin" time="0.141" /><testcase classname="tests.test_khedmapro_api" name="test_providers_have_seeded_reviews" time="0.452" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_pending_lists_provider" time="0.352" /><testcase classname="tests.test_khedmapro_api" name="test_booking_guest_ok" time="0.088" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_get_provider_detail" time="0.086" /><testcase classname="tests.test_khedmapro_api" name="test_booking_guest_missing_name_phone_rejected" time="0.120" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_get_provider_forbidden_for_non_admin" time="0.043" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_reject_sets_reason" time="0.085" /><testcase classname="tests.test_khedmapro_api" name="test_review_without_auth_rejected" time="0.083" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_approve_sets_verified" time="0.338" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_01_login_provider1" time="0.329" /><testcase classname="tests.test_khedmapro_api" name="test_review_direct_provider_id_ok" time="0.634" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_02_subscription_status_trial" time="0.047" /><testcase classname="tests.test_khedmapro_api" name="test_review_duplicate_provider_id_returns_409" time="0.084" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_03_deactivate_account" time="0.088" /><testcase classname="tests.test_refactor_smoke" name="test_root_endpoint" time="0.093" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_04_deactivated_provider_hidden_from_list" time="0.099" /><testcase classname="tests.test_refactor_smoke" name="test_categories_count_and_split" time="0.091" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_05_booking_against_deactivated_provider_410" time="0.110" /><testcase classname="tests.test_refactor_smoke" name="test_wilayas_count" time="0.100" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_06_reactivate_account" time="0.160" /><testcase classname="tests.test_refactor_smoke" name="test_admin_login" time="0.319" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_07_pay_subscription" time="0.275" /><testcase classname="tests.test_refactor_smoke" name="test_provider1_login_trial" time="0.319"><failure message="AssertionError: {'id': '24c5f2c1-3e00-4ac2-b44c-5714e4e5a27b', 'full_name': 'Ahmed Boumediene', 'role': 'service_provider', 'category': 'plumbing', ...}&#10;assert 'active' == 'trial'&#10;  &#10;  - trial&#10;  + active">def test_provider1_login_trial():
+        r = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": "provider1@khedmapro.dz", "password": "password123"},
+            timeout=10,
+        )
+        assert r.status_code == 200
+        user = r.json()["user"]
+&gt;       assert user["subscription_status"] == "trial", user
+E       AssertionError: {'id': '24c5f2c1-3e00-4ac2-b44c-5714e4e5a27b', 'full_name': 'Ahmed Boumediene', 'role': 'service_provider', 'category': 'plumbing', ...}
+E       assert 'active' == 'trial'
+E         
+E         - trial
+E         + active
+
+tests/test_refactor_smoke.py:66: AssertionError</failure></testcase><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_08_delete_account_blocks_login_and_me" time="0.621" /><testcase classname="tests.test_refactor_smoke" name="test_providers_list_portfolio_shape" time="0.254" /><testcase classname="tests.test_refactor_smoke" name="test_ws_invalid_token_closes_1008" time="0.150" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_09_deleted_provider_returns_404_on_detail" time="0.097" /><testcase classname="tests.test_refactor_smoke" name="test_ws_valid_token_accepted" time="0.751" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_10_restore_provider1_via_mongo" time="0.275" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_objects_first_auto_cover" time="0.219" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_explicit_cover_flag_only_first_wins" time="0.042" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_legacy_strings_normalized" time="0.042" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_serialize_user_returns_rich_shape" time="0.041" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_public_provider_returns_rich_shape" time="0.082" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_413_on_oversized_url" time="0.111" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_wrong_code_returns_401" time="1.409" /><testcase classname="tests.test_category_split" name="test_categories_endpoint_split" time="0.262" /><testcase classname="tests.test_category_split" name="test_providers_admin_consulting" time="0.085" /><testcase classname="tests.test_category_split" name="test_providers_education" time="0.044" /><testcase classname="tests.test_category_split" name="test_providers_legacy_admin_education_empty" time="0.042" /><testcase classname="tests.test_category_split" name="test_mongo_no_admin_education_rows" time="0.001"><failure message="RuntimeError: There is no current event loop in thread 'MainThread'.">def test_mongo_no_admin_education_rows():
+        from motor.motor_asyncio import AsyncIOMotorClient
+    
+        async def _count():
+            client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+            db = client[os.environ["DB_NAME"]]
+            c = await db.users.count_documents({"category": "admin_education"})
+            client.close()
+            return c
+    
+&gt;       n = asyncio.get_event_loop().run_until_complete(_count())
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_category_split.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;asyncio.unix_events._UnixDefaultEventLoopPolicy object at 0xffe39433b790&gt;
+
+    def get_event_loop(self):
+        """Get the event loop for the current context.
+    
+        Returns an instance of EventLoop or raises an exception.
+        """
+        if (self._local._loop is None and
+                not self._local._set_called and
+                threading.current_thread() is threading.main_thread()):
+            self.set_event_loop(self.new_event_loop())
+    
+        if self._local._loop is None:
+&gt;           raise RuntimeError('There is no current event loop in thread %r.'
+                               % threading.current_thread().name)
+E           RuntimeError: There is no current event loop in thread 'MainThread'.
+
+/usr/local/lib/python3.11/asyncio/events.py:681: RuntimeError</failure></testcase><testcase classname="tests.test_schedule_chat.TestChat" name="test_send_message_without_auth_401" time="0.361" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_client_sends_message_provider_can_read" time="0.579" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_correct_code_new_client_returns_new_user_true" time="1.470" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_provider_replies_and_history_contains_both" time="0.275" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_my_chats_returns_thread_with_counterpart" time="0.046" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_my_chats_without_auth_401" time="0.040" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_short_phone_returns_422" time="0.099" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_non_algerian_returns_400" time="0.100" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_normalizes_various_formats_to_same_e164" time="0.821" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_reuse_of_same_code_returns_401" time="1.834" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_success_logs_mock_otp_to_stderr" time="0.829" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_profile_no_auth_returns_401" time="0.123" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_client_profile_success" time="1.967" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_expired_challenge_returns_401" time="1.032" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_code_stored_as_bcrypt_hash_no_plaintext" time="0.926" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_provider_profile_requires_category" time="1.780" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_existing_user_role_not_overwritten" time="3.252" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_jwt_from_otp_accepted_by_me" time="1.818" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_password_login_still_works" time="0.478" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_providers_list" time="0.096" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_categories_list" time="0.384" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_01_deactivate_reactivate_client" time="0.454" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_admin_login_ok" time="0.263" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_02_delete_client_blocks_login" time="0.561" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_admin_me_is_admin" time="0.044" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_provider_me_not_admin" time="0.228" /><testcase classname="tests.test_otp_auth.TestOtpRateLimits" name="test_second_request_within_30s_returns_429" time="0.886" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_03_deleted_client_auth_me_410" time="0.043" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_default_schedule_returned_when_none_saved" time="0.528" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_put_schedule_persists_as_provider" time="0.360" /><testcase classname="tests.test_otp_auth.TestOtpRateLimits" name="test_sixth_request_within_hour_returns_429" time="0.167" /><testcase classname="tests.test_schedule_chat.TestChatWebSocket" name="test_invalid_token_rejected" time="0.186" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_put_schedule_requires_provider_role" time="0.313" /><testcase classname="tests.test_schedule_chat.TestChatWebSocket" name="test_valid_token_receives_realtime_message" time="10.606"><failure message="TimeoutError: timed out during opening handshake">self = &lt;websockets.asyncio.client.connect object at 0xffe3940d6f90&gt;
+
+    async def __await_impl__(self) -&gt; ClientConnection:
+        try:
+            async with asyncio_timeout(self.open_timeout):
+                for _ in range(MAX_REDIRECTS):
+&gt;                   self.connection = await self.create_connection()
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:555: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:470: in create_connection
+    _, connection = await loop.create_connection(factory, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:1070: in create_connection
+    sock = await self._connect_sock(
+/usr/local/lib/python3.11/asyncio/base_events.py:974: in _connect_sock
+    await self.sock_connect(sock, address)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+sock = &lt;socket.socket [closed] fd=-1, family=2, type=1, proto=6&gt;
+address = ('104.18.10.243', 443)
+
+    async def sock_connect(self, sock, address):
+        """Connect to a remote socket at address.
+    
+        This method is a coroutine.
+        """
+        base_events._check_ssl_socket(sock)
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
+    
+        if sock.family == socket.AF_INET or (
+                base_events._HAS_IPv6 and sock.family == socket.AF_INET6):
+            resolved = await self._ensure_resolved(
+                address, family=sock.family, type=sock.type, proto=sock.proto,
+                loop=self,
+            )
+            _, _, _, _, address = resolved[0]
+    
+        fut = self.create_future()
+        self._sock_connect(fut, sock, address)
+        try:
+&gt;           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+/usr/local/lib/python3.11/asyncio/selector_events.py:638: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+self = &lt;websockets.asyncio.client.connect object at 0xffe3940d6f90&gt;
+
+    async def __await_impl__(self) -&gt; ClientConnection:
+        try:
+&gt;           async with asyncio_timeout(self.open_timeout):
+
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:553: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Timeout [expired]&gt;
+exc_type = &lt;class 'asyncio.exceptions.CancelledError'&gt;
+exc_val = CancelledError(), exc_tb = &lt;traceback object at 0xffe39420e140&gt;
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -&gt; Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+    
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+    
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+    
+            if self._task.uncancel() &lt;= self._cancelling and exc_type is exceptions.CancelledError:
+                # Since there are no new cancel requests, we're
+                # handling this.
+&gt;               raise TimeoutError from exc_val
+E               TimeoutError
+
+/usr/local/lib/python3.11/asyncio/timeouts.py:115: TimeoutError
+
+The above exception was the direct cause of the following exception:
+
+self = &lt;test_schedule_chat.TestChatWebSocket object at 0xffe394333a90&gt;
+s = &lt;requests.sessions.Session object at 0xffe3941c7190&gt;
+client_ctx = {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MTIwMjY4Yy05ZTc2LTQ3MTAtYTFjMy02YTU0OTI0ZjIyMmQiLCJyb2xlIj...r4XRz3PEs5XRaD34Gs6_gKEKHhFc', 'id': '9120268c-9e76-4710-a1c3-6a54924f222d', 'email': 'TEST_chat_16ba3776@example.com'}
+provider_ctx = {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNGM1ZjJjMS0zZTAwLTRhYzItYjQ0Yy01NzE0ZTRlNWEyN2IiLCJyb2xlIj...2MSwiZXhwIjoxNzg1ODAwMDYxfQ.6Hg-WKG8FhfeS9TNcj9DtEzK-s9jKx3a4HhTqWMQed4', 'id': '24c5f2c1-3e00-4ac2-b44c-5714e4e5a27b'}
+
+    def test_valid_token_receives_realtime_message(self, s, client_ctx, provider_ctx):
+        async def go():
+            uri = f"{WS_BASE}/api/ws/chat?token={provider_ctx['token']}"
+            received = []
+            async with websockets.connect(uri) as ws:
+                # give server a moment to register
+                await asyncio.sleep(0.5)
+                # trigger message from client -&gt; provider via REST
+                r = s.post(f"{API}/chats/{provider_ctx['id']}/messages",
+                           headers=auth(client_ctx["token"]),
+                           json={"text": "TEST ws realtime"})
+                assert r.status_code == 201
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=5)
+                    received.append(json.loads(raw))
+                except asyncio.TimeoutError:
+                    pass
+            return received
+&gt;       msgs = asyncio.run(go())
+               ^^^^^^^^^^^^^^^^^
+
+tests/test_schedule_chat.py:203: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_schedule_chat.py:189: in go
+    async with websockets.connect(uri) as ws:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:601: in __aenter__
+    return await self
+           ^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;websockets.asyncio.client.connect object at 0xffe3940d6f90&gt;
+
+    async def __await_impl__(self) -&gt; ClientConnection:
+        try:
+            async with asyncio_timeout(self.open_timeout):
+                for _ in range(MAX_REDIRECTS):
+                    self.connection = await self.create_connection()
+                    try:
+                        await self.connection.handshake(
+                            self.additional_headers,
+                            self.user_agent_header,
+                        )
+                    except asyncio.CancelledError:
+                        self.connection.transport.abort()
+                        raise
+                    except Exception as exc:
+                        # Always close the connection even though keep-alive is
+                        # the default in HTTP/1.1 because create_connection ties
+                        # opening the network connection with initializing the
+                        # protocol. In the current design of connect(), there is
+                        # no easy way to reuse the network connection that works
+                        # in every case nor to reinitialize the protocol.
+                        self.connection.transport.abort()
+    
+                        uri_or_exc = self.process_redirect(exc)
+                        # Response is a valid redirect; follow it.
+                        if isinstance(uri_or_exc, str):
+                            self.uri = uri_or_exc
+                            continue
+                        # Response isn't a valid redirect; raise the exception.
+                        if uri_or_exc is exc:
+                            raise
+                        else:
+                            raise uri_or_exc from exc
+    
+                    else:
+                        self.connection.start_keepalive()
+                        return self.connection
+                else:
+                    raise SecurityError(f"more than {MAX_REDIRECTS} redirects")
+    
+        except TimeoutError as exc:
+            # Re-raise exception with an informative error message.
+&gt;           raise TimeoutError("timed out during opening handshake") from exc
+E           TimeoutError: timed out during opening handshake
+
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:592: TimeoutError</failure></testcase><testcase classname="tests.test_schedule_chat.TestChatWebSocket" name="test_valid_token_receives_realtime_message" time="0.001"><error message="failed on teardown with &quot;RuntimeError: There is no current event loop in thread 'MainThread'.&quot;">provider_id = '24c5f2c1-3e00-4ac2-b44c-5714e4e5a27b'
+
+    @pytest.fixture(scope="session", autouse=True)
+    def _cleanup_db(provider_id):
+        """
+        Session teardown: reset provider1 portfolio &amp; verification state so re-runs
+        are deterministic.
+        """
+        yield
+        async def _run():
+            client = AsyncIOMotorClient(MONGO_URL)
+            db = client[DB_NAME]
+            await db.users.update_one(
+                {"id": provider_id},
+                {"$set": {
+                    "portfolio_images": [],
+                    "verification_documents": [],
+                    "verification_status": "unverified",
+                    "verification_reject_reason": None,
+                    "verification_submitted_at": None,
+                    "verification_reviewed_at": None,
+                    "verification_reviewer_id": None,
+                    "is_verified": False,
+                }},
+            )
+            client.close()
+&gt;       asyncio.get_event_loop().run_until_complete(_run())
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_portfolio_verification.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;asyncio.unix_events._UnixDefaultEventLoopPolicy object at 0xffe39433b790&gt;
+
+    def get_event_loop(self):
+        """Get the event loop for the current context.
+    
+        Returns an instance of EventLoop or raises an exception.
+        """
+        if (self._local._loop is None and
+                not self._local._set_called and
+                threading.current_thread() is threading.main_thread()):
+            self.set_event_loop(self.new_event_loop())
+    
+        if self._local._loop is None:
+&gt;           raise RuntimeError('There is no current event loop in thread %r.'
+                               % threading.current_thread().name)
+E           RuntimeError: There is no current event loop in thread 'MainThread'.
+
+/usr/local/lib/python3.11/asyncio/events.py:681: RuntimeError</error></testcase></testsuite></testsuites>

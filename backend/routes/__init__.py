@@ -1,0 +1,40 @@
+"""khedmaPro API routers.
+
+Each module exposes a `router = APIRouter(...)` that is composed by
+`build_api_router()` into a single `/api` router mounted by the FastAPI app.
+"""
+from fastapi import APIRouter
+
+from . import (
+    auth,
+    otp,
+    users,
+    providers,
+    bookings,
+    reviews,
+    subscription,
+    verification,
+    schedule,
+    messages,
+    reports,
+    metadata,
+    seed,
+)
+
+
+def build_api_router() -> APIRouter:
+    api = APIRouter(prefix="/api")
+    api.include_router(auth.router)
+    api.include_router(otp.router)
+    api.include_router(users.router)
+    api.include_router(providers.router)
+    api.include_router(bookings.router)
+    api.include_router(reviews.router)
+    api.include_router(subscription.router)
+    api.include_router(verification.router)
+    api.include_router(schedule.router)
+    api.include_router(messages.router)
+    api.include_router(reports.router)
+    api.include_router(metadata.router)
+    api.include_router(seed.router)
+    return api

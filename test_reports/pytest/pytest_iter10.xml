@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="1" skipped="0" tests="81" time="18.399" timestamp="2026-08-02T23:32:27.962626+00:00" hostname="agent-env-e7769096-a50f-42ce-8b08-864ada4d0584"><testcase classname="tests.test_khedmapro_api" name="test_root_returns_khedmapro" time="0.314" /><testcase classname="tests.test_khedmapro_api" name="test_register_password_too_short_rejected" time="0.040" /><testcase classname="tests.test_khedmapro_api" name="test_register_password_8_chars_ok" time="0.306" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_status_initial" time="0.618" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_submit_creates_pending" time="0.044" /><testcase classname="tests.test_khedmapro_api" name="test_seeded_provider_login_khedmapro_email" time="0.261" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_status_reflects_submission" time="0.263" /><testcase classname="tests.test_khedmapro_api" name="test_seed_has_12_providers" time="0.043" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_delete_document" time="0.089" /><testcase classname="tests.test_khedmapro_api" name="test_providers_public_hides_email_and_phone" time="0.043" /><testcase classname="tests.test_khedmapro_api" name="test_provider_detail_public_hides_email_and_phone" time="0.122" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_413_on_oversized_doc" time="0.150" /><testcase classname="tests.test_khedmapro_api" name="test_auth_me_includes_email_and_phone" time="0.299" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_pending_forbidden_for_non_admin" time="0.231" /><testcase classname="tests.test_khedmapro_api" name="test_providers_have_seeded_reviews" time="0.475" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_pending_lists_provider" time="0.346" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_get_provider_detail" time="0.043" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_get_provider_forbidden_for_non_admin" time="0.041" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_reject_sets_reason" time="0.126" /><testcase classname="tests.test_khedmapro_api" name="test_booking_guest_ok" time="0.122" /><testcase classname="tests.test_portfolio_verification.TestVerification" name="test_admin_approve_sets_verified" time="0.133" /><testcase classname="tests.test_khedmapro_api" name="test_booking_guest_missing_name_phone_rejected" time="0.120" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_01_login_provider1" time="0.370" /><testcase classname="tests.test_khedmapro_api" name="test_review_without_auth_rejected" time="0.085" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_02_subscription_status_trial" time="0.223" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_03_deactivate_account" time="0.044" /><testcase classname="tests.test_khedmapro_api" name="test_review_direct_provider_id_ok" time="0.650" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_04_deactivated_provider_hidden_from_list" time="0.101" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_05_booking_against_deactivated_provider_410" time="0.134" /><testcase classname="tests.test_khedmapro_api" name="test_review_duplicate_provider_id_returns_409" time="0.085" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_06_reactivate_account" time="0.332" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_wrong_code_returns_401" time="1.434" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_07_pay_subscription" time="0.089" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_08_delete_account_blocks_login_and_me" time="0.352" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_09_deleted_provider_returns_404_on_detail" time="0.156" /><testcase classname="tests.test_account_lifecycle.TestProviderLifecycle" name="test_10_restore_provider1_via_mongo" time="0.291" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_objects_first_auto_cover" time="0.220" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_explicit_cover_flag_only_first_wins" time="0.043" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_correct_code_new_client_returns_new_user_true" time="1.676" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_patch_legacy_strings_normalized" time="0.051" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_serialize_user_returns_rich_shape" time="0.260" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_public_provider_returns_rich_shape" time="0.081" /><testcase classname="tests.test_portfolio_verification.TestPortfolio" name="test_413_on_oversized_url" time="0.117" /><testcase classname="tests.test_category_split" name="test_categories_endpoint_split" time="0.099" /><testcase classname="tests.test_category_split" name="test_providers_admin_consulting" time="0.055" /><testcase classname="tests.test_category_split" name="test_providers_education" time="0.105" /><testcase classname="tests.test_category_split" name="test_providers_legacy_admin_education_empty" time="0.049" /><testcase classname="tests.test_category_split" name="test_mongo_no_admin_education_rows" time="0.001"><failure message="RuntimeError: There is no current event loop in thread 'MainThread'.">def test_mongo_no_admin_education_rows():
+        from motor.motor_asyncio import AsyncIOMotorClient
+    
+        async def _count():
+            client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+            db = client[os.environ["DB_NAME"]]
+            c = await db.users.count_documents({"category": "admin_education"})
+            client.close()
+            return c
+    
+&gt;       n = asyncio.get_event_loop().run_until_complete(_count())
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_category_split.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;asyncio.unix_events._UnixDefaultEventLoopPolicy object at 0xfe1fe49cfc10&gt;
+
+    def get_event_loop(self):
+        """Get the event loop for the current context.
+    
+        Returns an instance of EventLoop or raises an exception.
+        """
+        if (self._local._loop is None and
+                not self._local._set_called and
+                threading.current_thread() is threading.main_thread()):
+            self.set_event_loop(self.new_event_loop())
+    
+        if self._local._loop is None:
+&gt;           raise RuntimeError('There is no current event loop in thread %r.'
+                               % threading.current_thread().name)
+E           RuntimeError: There is no current event loop in thread 'MainThread'.
+
+/usr/local/lib/python3.11/asyncio/events.py:681: RuntimeError</failure></testcase><testcase classname="tests.test_schedule_chat.TestChat" name="test_send_message_without_auth_401" time="0.559" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_reuse_of_same_code_returns_401" time="1.850" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_client_sends_message_provider_can_read" time="0.774" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_provider_replies_and_history_contains_both" time="0.103" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_my_chats_returns_thread_with_counterpart" time="0.053" /><testcase classname="tests.test_schedule_chat.TestChat" name="test_my_chats_without_auth_401" time="0.048" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_short_phone_returns_422" time="0.097" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_non_algerian_returns_400" time="0.095" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_normalizes_various_formats_to_same_e164" time="0.809" /><testcase classname="tests.test_otp_auth.TestOtpRequestValidation" name="test_success_logs_mock_otp_to_stderr" time="0.859" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_expired_challenge_returns_401" time="1.221" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_profile_no_auth_returns_401" time="0.092" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_client_profile_success" time="1.838" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_code_stored_as_bcrypt_hash_no_plaintext" time="0.953" /><testcase classname="tests.test_otp_auth.TestOtpVerify" name="test_existing_user_role_not_overwritten" time="3.172" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_provider_profile_requires_category" time="1.844" /><testcase classname="tests.test_otp_auth.TestProfileComplete" name="test_jwt_from_otp_accepted_by_me" time="1.710" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_01_deactivate_reactivate_client" time="0.852" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_02_delete_client_blocks_login" time="0.350" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_password_login_still_works" time="0.482" /><testcase classname="tests.test_account_lifecycle.TestClientLifecycle" name="test_03_deleted_client_auth_me_410" time="0.184" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_providers_list" time="0.100" /><testcase classname="tests.test_otp_auth.TestRegression" name="test_categories_list" time="0.228" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_default_schedule_returned_when_none_saved" time="0.757" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_admin_login_ok" time="0.636" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_admin_me_is_admin" time="0.528" /><testcase classname="tests.test_portfolio_verification.TestAdminSeed" name="test_provider_me_not_admin" time="0.189" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_put_schedule_persists_as_provider" time="0.358" /><testcase classname="tests.test_otp_auth.TestOtpRateLimits" name="test_second_request_within_30s_returns_429" time="0.650" /><testcase classname="tests.test_schedule_chat.TestSchedule" name="test_put_schedule_requires_provider_role" time="0.506" /><testcase classname="tests.test_schedule_chat.TestChatWebSocket" name="test_invalid_token_rejected" time="0.184" /><testcase classname="tests.test_otp_auth.TestOtpRateLimits" name="test_sixth_request_within_hour_returns_429" time="0.110" /><testcase classname="tests.test_schedule_chat.TestChatWebSocket" name="test_valid_token_receives_realtime_message" time="0.901"><error message="failed on teardown with &quot;RuntimeError: There is no current event loop in thread 'MainThread'.&quot;">provider_id = '24c5f2c1-3e00-4ac2-b44c-5714e4e5a27b'
+
+    @pytest.fixture(scope="session", autouse=True)
+    def _cleanup_db(provider_id):
+        """
+        Session teardown: reset provider1 portfolio &amp; verification state so re-runs
+        are deterministic.
+        """
+        yield
+        async def _run():
+            client = AsyncIOMotorClient(MONGO_URL)
+            db = client[DB_NAME]
+            await db.users.update_one(
+                {"id": provider_id},
+                {"$set": {
+                    "portfolio_images": [],
+                    "verification_documents": [],
+                    "verification_status": "unverified",
+                    "verification_reject_reason": None,
+                    "verification_submitted_at": None,
+                    "verification_reviewed_at": None,
+                    "verification_reviewer_id": None,
+                    "is_verified": False,
+                }},
+            )
+            client.close()
+&gt;       asyncio.get_event_loop().run_until_complete(_run())
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_portfolio_verification.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;asyncio.unix_events._UnixDefaultEventLoopPolicy object at 0xfe1fe49cfc10&gt;
+
+    def get_event_loop(self):
+        """Get the event loop for the current context.
+    
+        Returns an instance of EventLoop or raises an exception.
+        """
+        if (self._local._loop is None and
+                not self._local._set_called and
+                threading.current_thread() is threading.main_thread()):
+            self.set_event_loop(self.new_event_loop())
+    
+        if self._local._loop is None:
+&gt;           raise RuntimeError('There is no current event loop in thread %r.'
+                               % threading.current_thread().name)
+E           RuntimeError: There is no current event loop in thread 'MainThread'.
+
+/usr/local/lib/python3.11/asyncio/events.py:681: RuntimeError</error></testcase></testsuite></testsuites>
