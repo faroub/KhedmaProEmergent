@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 8 — 3 new feature groups (Rich Portfolios, Provider Verification, Arabic terminology fix زبون→عميل). Backend: 20/20 pytest cases pass in /app/backend/tests/test_portfolio_verification.py (portfolio cover normalization, legacy-string handling, 900 KB cap → 413, verification submit/status/delete/oversize, admin pending/detail/approve/reject, admin seed integrity). Frontend: verified via Playwright on mobile viewport 390×844 that (a) provider1 profile shows verification-card with 'Not verified' badge and verify-open-uploader opens the sheet with all four doc rows and a disabled verify-submit; (b) admin@khedmapro.dz shows admin-panel-link which navigates to /admin/verification (empty state rendered); (c) provider1 hitting /admin/verification sees the 'Admin access required' empty state; (d) PortfolioManager component renders on the provider dashboard with portfolio-add-btn (portfolio empty ⇒ no thumbs/cover, no runtime errors); (e) public /provider/{id} detail page renders cleanly and verified-badge is absent for unverified provider1; (f) Arabic language switch shows no residual 'عميل' anywhere on the profile screen. All test-created DB mutations were rolled back via the session-scoped Motor cleanup fixture (provider1 portfolio + verification state reset to defaults).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_portfolio_verification.py",
+    "/app/test_reports/pytest/pytest_iter8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PortfolioUpdateIn accepts up to 20 items but no server-side dedupe on identical URLs; not a bug, just a UX consideration.",
+    "verify-doc-id_recto / id_verso are labelled REQUIRED in the sheet — verify-submit disabled state is enforced via canSubmit; correctly wired.",
+    "Non-admin viewing /admin/verification correctly renders the forbidden state (admin.forbidden = 'Admin access required'); route is not guarded server-side by redirect, only by client conditional — acceptable since all admin API endpoints re-check is_admin (verified via test_admin_pending_forbidden_for_non_admin)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_portfolio_verification.py (new)",
+    "/app/test_reports/pytest/pytest_iter8.xml (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20)",
+    "frontend": "100% (all requested testIDs and states verified)"
+  },
+  "seed_data_creation": "None. All test-created verification submissions and portfolio changes on provider1 were rolled back via session-scoped Motor cleanup fixture (portfolio_images=[], verification_status='unverified', documents=[], reject_reason/submitted_at/reviewed_at/reviewer_id=None, is_verified=false). Confirmed via GET /api/providers post-run: provider1 is back to unverified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 8 covered ONLY the three new feature groups (Rich Portfolios, Provider Verification, Arabic زبون terminology). Do NOT retest account lifecycle, offline bookings, RTL, chat, wilaya, maps or reports — those were covered in iterations 4 & 7. Admin credentials are seeded on backend startup (admin@khedmapro.dz / admin123). Provider1 portfolio + verification state is reset automatically at end of the pytest suite. The frontend web preview persists auth only in-memory, so use in-app tab navigation (not raw page.goto) to move to /profile after login — a hard reload drops the JWT.",
+  "rca_of_issue": "N/A — no defects observed."
+}

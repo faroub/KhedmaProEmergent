@@ -186,6 +186,22 @@ export default function Profile() {
           <Row icon="location" label={t("profile.city")} value={user.city || "—"} />
         </View>
 
+        {/* ============ Admin (admin users only) ============ */}
+        {user.is_admin && (
+          <Pressable
+            testID="admin-panel-link"
+            style={styles.dangerCardActive}
+            onPress={() => router.push("/admin/verification")}
+          >
+            <Ionicons name="shield-checkmark" size={22} color={theme.colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dangerTitle}>{t("admin.title")}</Text>
+              <Text style={styles.dangerSub}>{t("admin.empty")}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceTertiary} />
+          </Pressable>
+        )}
+
         {/* ============ Verification (providers only) ============ */}
         {isProvider && (
           <>

@@ -33,7 +33,7 @@ const DOC_LABELS: Record<string, string> = {
 
 export default function AdminVerification() {
   const router = useRouter();
-  const { user, isBooting } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t } = useT();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ export default function AdminVerification() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (!isBooting && !user?.is_admin) {
+  if (!authLoading && !user?.is_admin) {
     return (
       <SafeAreaView style={styles.root} edges={["top"]}>
         <View style={styles.center}>

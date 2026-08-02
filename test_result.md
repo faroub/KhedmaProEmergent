@@ -154,3 +154,100 @@
 ## agent_communication
   - agent: "testing"
     message: "iteration_7 complete. 56/56 backend tests pass sequentially (13 new lifecycle + 43 regression). All requested frontend flows verified end-to-end in web preview. No blocking issues. RTL is rendered via component-level flexbox rather than DOM `dir` attribute — visually correct, flagged as a soft nit only. Provider1 was restored in DB after the suite so re-runs are safe."
+
+## Iteration 8 — Rich Portfolios + Provider Verification + Arabic زبون
+### Backend
+- task: "PATCH /api/users/me/portfolio (rich object + legacy strings + cover rules + 900 KB cap)"
+  implemented: true
+  working: true
+  file: "/app/backend/server.py"
+  stuck_count: 0
+  priority: "high"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "6/6 pytest cases: objects with is_cover=true preserved (only first flagged wins), legacy strings normalized to {url,caption:null,tags:[],is_cover: i==0}, auto-cover falls back to index 0, oversize URL (>900KB) → 413, serialize_user + public /providers/{id} both return the rich shape, email/phone excluded from public detail."
+- task: "Provider verification submit/status/delete + admin approve/reject/pending queue"
+  implemented: true
+  working: true
+  file: "/app/backend/server.py"
+  stuck_count: 0
+  priority: "high"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "11/11 pytest cases: /verification/submit persists docs with server-assigned uuid + status='pending' + submitted_at; /verification/status reflects pending+documents; DELETE /verification/documents/{id} removes a doc; oversize doc → 413; /admin/verification/pending returns provider1, non-admin → 403; /admin/verification/{id} returns 200 (admin) / 403 (non-admin); reject sets verification_reject_reason; approve flips is_verified true on public /providers/{id}. All state rolled back via Motor cleanup fixture."
+- task: "Admin seed (admin@khedmapro.dz / admin123, is_admin=true)"
+  implemented: true
+  working: true
+  file: "/app/backend/server.py"
+  stuck_count: 0
+  priority: "high"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "3/3 pytest cases: login succeeds, /auth/me returns is_admin:true, provider1 /auth/me returns is_admin:false."
+
+### Frontend
+- task: "PortfolioManager on provider dashboard renders without runtime errors"
+  implemented: true
+  working: true
+  file: "/app/frontend/src/PortfolioManager.tsx"
+  stuck_count: 0
+  priority: "medium"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "portfolio-manager + portfolio-add-btn testIDs render on /dashboard after provider1 login. Empty portfolio → no portfolio-thumb-{i}/cover/remove elements which is expected. Zero pageerror/console errors during load."
+- task: "Provider public detail page — portfolio thumbs + verified-badge conditional"
+  implemented: true
+  working: true
+  file: "/app/frontend/app/provider/[id].tsx"
+  stuck_count: 0
+  priority: "medium"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "verified-badge correctly absent for unverified provider1. detail-viewer-close + portfolio-{i} testIDs wired in source; not exercised because provider1 portfolio is empty (as allowed by the request)."
+- task: "VerificationCard on provider profile (verify-open-uploader → sheet with 4 doc rows, verify-submit disabled)"
+  implemented: true
+  working: true
+  file: "/app/frontend/src/VerificationCard.tsx"
+  stuck_count: 0
+  priority: "high"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "verification-card visible on provider1 profile with 'Not verified' badge and copy 'Trust & verification'. verify-open-uploader opens a modal exposing verify-doc-id_recto / verify-doc-id_verso / verify-doc-certification / verify-doc-background_check. verify-submit initially disabled (canSubmit=false because required docs missing)."
+- task: "Admin panel link + /admin/verification queue screen"
+  implemented: true
+  working: true
+  file: "/app/frontend/app/admin/verification.tsx"
+  stuck_count: 0
+  priority: "high"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "admin-panel-link visible on admin@khedmapro.dz profile only; tapping navigates to /admin/verification which renders 'Verification queue' header + 'No pending verifications 🎉' empty state + admin-refresh button. Provider1 hitting /admin/verification directly sees the 'Admin access required' locked empty state as designed."
+- task: "Arabic terminology fix — عميل replaced with زبون"
+  implemented: true
+  working: true
+  file: "/app/frontend/src/language.tsx"
+  stuck_count: 0
+  priority: "medium"
+  needs_retesting: false
+  status_history:
+    - working: true
+      agent: "testing"
+      comment: "Ripgrep across /app/frontend confirms zero occurrences of عميل; all client-facing Arabic strings (auth.client, otp.roleClient, profile.guest*, review.needAccountSub, bookings.noteSub) now use زبون. After switching provider1 profile to Arabic, page HTML contains neither عميل (removed) nor زبون (not shown because provider1's role pill reads 'Provider')."
+
+## agent_communication
+  - agent: "testing"
+    message: "iteration_8 complete. 20/20 new pytest cases pass in /app/backend/tests/test_portfolio_verification.py (report /app/test_reports/pytest/pytest_iter8.xml). All requested frontend testIDs verified on mobile viewport 390×844. All portfolio + verification mutations rolled back via session-scoped Motor cleanup — provider1 is back to unverified/empty for future test runs. No blocking issues found in Groups A/B/C. Note for future runs: on the web preview, JWT is in-memory only, so use in-app tab navigation to move between screens rather than `page.goto`, otherwise auth state is dropped."
