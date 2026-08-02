@@ -92,6 +92,13 @@ const dict: Record<Lang, Record<string, string>> = {
     "bookings.markComplete": "Mark complete",
     "bookings.cancel": "Cancel",
     "bookings.leaveReview": "Leave review",
+    "bookings.offline": "Offline · showing cached data",
+    "bookings.lastSync": "Last synced",
+    "bookings.addNote": "Add a private note (visible only to you, offline)",
+    "bookings.noteTitle": "Private note",
+    "bookings.noteSub": "Kept on your device and available offline. Great for access codes, gate PINs, or client preferences.",
+    "bookings.notePh": "e.g. Gate code 4287. Client prefers cash. Park in visitor lot.",
+    "bookings.saveNote": "Save note",
     // Auth
     "auth.welcomeBack": "Welcome back",
     "auth.signInSub": "Sign in to your khedmaPro account",
@@ -250,6 +257,43 @@ const dict: Record<Lang, Record<string, string>> = {
     "portfolio.compressing": "Compressing…",
     "portfolio.limit": "Up to 12 photos",
     "common.retry": "Retry",
+    // Account settings
+    "account.section": "Account",
+    "account.subscription": "Subscription",
+    "account.subActive": "Active subscription",
+    "account.subTrial": "Free trial",
+    "account.subDue": "Payment due",
+    "account.subDeact": "Deactivated",
+    "account.subDeleted": "Deleted",
+    "account.subManual": "Manually deactivated",
+    "account.daysLeftTrial": "{days} days left in trial",
+    "account.daysLeftActive": "Renews in {days} days",
+    "account.dueNow": "Pay 1000 DZD now to keep your profile listed.",
+    "account.willAutoDelete": "Profile will be permanently deleted after 12 unpaid months.",
+    "account.payNow": "Pay 1000 DZD",
+    "account.paying": "Processing…",
+    "account.paySuccess": "Payment received — thank you!",
+    "account.dangerZone": "Danger zone",
+    "account.deactivate": "Deactivate account",
+    "account.deactivateSub": "Temporarily hide your profile. You can reactivate anytime by signing in and tapping Reactivate.",
+    "account.reactivate": "Reactivate account",
+    "account.reactivateSub": "Restore your account and make your profile visible again.",
+    "account.delete": "Delete account",
+    "account.deleteSub": "Permanently remove your account. This action cannot be undone.",
+    "account.confirmDeactivate": "Deactivate your account?",
+    "account.confirmDeactivateSub": "Your profile will be hidden until you reactivate.",
+    "account.confirmDelete": "Delete your account?",
+    "account.confirmDeleteSub": "This is permanent. Your bookings history, reviews and messages will be hidden and you won't be able to log back in.",
+    "account.confirmReactivate": "Reactivate account?",
+    "account.confirmReactivateSub": "Your profile will become visible to clients again.",
+    "account.cancel": "Cancel",
+    "account.confirm": "Confirm",
+    "account.deleted": "Account deleted",
+    "account.deletedSub": "Your account has been permanently removed.",
+    "account.deactivated": "Account deactivated",
+    "account.reactivated": "Account reactivated",
+    "account.deactBanner": "Your account is currently deactivated. Reactivate to appear in search again.",
+    "account.mockPay": "Payment gateway is mocked in this build.",
   },
   fr: {
     "app.name": "khedmaPro",
@@ -322,6 +366,13 @@ const dict: Record<Lang, Record<string, string>> = {
     "bookings.markComplete": "Marquer terminée",
     "bookings.cancel": "Annuler",
     "bookings.leaveReview": "Laisser un avis",
+    "bookings.offline": "Hors ligne · données en cache",
+    "bookings.lastSync": "Dernière synchro",
+    "bookings.addNote": "Ajouter une note privée (visible uniquement par vous, hors ligne)",
+    "bookings.noteTitle": "Note privée",
+    "bookings.noteSub": "Conservée sur votre appareil et disponible hors ligne. Idéale pour codes d'accès, PIN de portail ou préférences client.",
+    "bookings.notePh": "ex. Code portail 4287. Client préfère espèces. Parking visiteurs.",
+    "bookings.saveNote": "Enregistrer la note",
     "auth.welcomeBack": "Bon retour",
     "auth.signInSub": "Connectez-vous à votre compte khedmaPro",
     "auth.email": "Email",
@@ -465,6 +516,43 @@ const dict: Record<Lang, Record<string, string>> = {
     "portfolio.compressing": "Compression…",
     "portfolio.limit": "Jusqu'à 12 photos",
     "common.retry": "Réessayer",
+    // Account settings
+    "account.section": "Compte",
+    "account.subscription": "Abonnement",
+    "account.subActive": "Abonnement actif",
+    "account.subTrial": "Essai gratuit",
+    "account.subDue": "Paiement requis",
+    "account.subDeact": "Désactivé",
+    "account.subDeleted": "Supprimé",
+    "account.subManual": "Désactivé manuellement",
+    "account.daysLeftTrial": "{days} jours restants d'essai",
+    "account.daysLeftActive": "Renouvellement dans {days} jours",
+    "account.dueNow": "Payez 1000 DZD maintenant pour rester listé.",
+    "account.willAutoDelete": "Le profil sera supprimé après 12 mois impayés.",
+    "account.payNow": "Payer 1000 DZD",
+    "account.paying": "Traitement…",
+    "account.paySuccess": "Paiement reçu — merci !",
+    "account.dangerZone": "Zone sensible",
+    "account.deactivate": "Désactiver le compte",
+    "account.deactivateSub": "Masquer temporairement votre profil. Vous pouvez le réactiver à tout moment.",
+    "account.reactivate": "Réactiver le compte",
+    "account.reactivateSub": "Restaurer votre compte et rendre le profil visible à nouveau.",
+    "account.delete": "Supprimer le compte",
+    "account.deleteSub": "Suppression permanente. Cette action est irréversible.",
+    "account.confirmDeactivate": "Désactiver le compte ?",
+    "account.confirmDeactivateSub": "Votre profil sera masqué jusqu'à réactivation.",
+    "account.confirmDelete": "Supprimer le compte ?",
+    "account.confirmDeleteSub": "Action permanente. Votre historique, avis et messages seront masqués et vous ne pourrez plus vous connecter.",
+    "account.confirmReactivate": "Réactiver le compte ?",
+    "account.confirmReactivateSub": "Votre profil sera à nouveau visible pour les clients.",
+    "account.cancel": "Annuler",
+    "account.confirm": "Confirmer",
+    "account.deleted": "Compte supprimé",
+    "account.deletedSub": "Votre compte a été supprimé de manière permanente.",
+    "account.deactivated": "Compte désactivé",
+    "account.reactivated": "Compte réactivé",
+    "account.deactBanner": "Votre compte est actuellement désactivé. Réactivez-le pour réapparaître dans la recherche.",
+    "account.mockPay": "La passerelle de paiement est simulée dans cette version.",
   },
   ar: {
     "app.name": "خدمة برو",
@@ -537,6 +625,13 @@ const dict: Record<Lang, Record<string, string>> = {
     "bookings.markComplete": "تحديد كمنجز",
     "bookings.cancel": "إلغاء",
     "bookings.leaveReview": "اكتب تقييمًا",
+    "bookings.offline": "غير متصل · عرض البيانات المخبأة",
+    "bookings.lastSync": "آخر مزامنة",
+    "bookings.addNote": "أضف ملاحظة خاصة (تظهر لك فقط، وتعمل دون إنترنت)",
+    "bookings.noteTitle": "ملاحظة خاصة",
+    "bookings.noteSub": "تُحفظ على جهازك وتبقى متاحة دون إنترنت. مثالية لرموز الدخول أو تفضيلات العميل.",
+    "bookings.notePh": "مثال: رمز البوابة 4287. يفضل الدفع نقدًا. موقف الزوار.",
+    "bookings.saveNote": "حفظ الملاحظة",
     "auth.welcomeBack": "مرحبًا بعودتك",
     "auth.signInSub": "سجّل الدخول إلى حسابك في خدمة برو",
     "auth.email": "البريد الإلكتروني",
@@ -680,6 +775,43 @@ const dict: Record<Lang, Record<string, string>> = {
     "portfolio.compressing": "جاري الضغط…",
     "portfolio.limit": "حتى 12 صورة",
     "common.retry": "إعادة المحاولة",
+    // Account settings
+    "account.section": "الحساب",
+    "account.subscription": "الاشتراك",
+    "account.subActive": "اشتراك نشط",
+    "account.subTrial": "فترة تجريبية",
+    "account.subDue": "الدفع مطلوب",
+    "account.subDeact": "معطّل",
+    "account.subDeleted": "محذوف",
+    "account.subManual": "معطّل يدويًا",
+    "account.daysLeftTrial": "متبقٍ {days} يومًا في الفترة التجريبية",
+    "account.daysLeftActive": "يتجدد خلال {days} يومًا",
+    "account.dueNow": "ادفع 1000 دج الآن لإبقاء ملفك مدرجًا.",
+    "account.willAutoDelete": "سيتم حذف الملف تلقائيًا بعد 12 شهرًا من عدم الدفع.",
+    "account.payNow": "ادفع 1000 دج",
+    "account.paying": "جارٍ المعالجة…",
+    "account.paySuccess": "تم استلام الدفع — شكرًا!",
+    "account.dangerZone": "منطقة الخطر",
+    "account.deactivate": "تعطيل الحساب",
+    "account.deactivateSub": "إخفاء ملفك مؤقتًا. يمكنك إعادة التفعيل في أي وقت.",
+    "account.reactivate": "إعادة تفعيل الحساب",
+    "account.reactivateSub": "استعد حسابك واجعل ملفك مرئيًا مرة أخرى.",
+    "account.delete": "حذف الحساب",
+    "account.deleteSub": "إزالة نهائية للحساب. لا يمكن التراجع.",
+    "account.confirmDeactivate": "تعطيل الحساب؟",
+    "account.confirmDeactivateSub": "سيتم إخفاء ملفك حتى تعيد التفعيل.",
+    "account.confirmDelete": "حذف الحساب؟",
+    "account.confirmDeleteSub": "هذا نهائي. سيتم إخفاء الحجوزات والتقييمات والرسائل ولن تستطيع تسجيل الدخول.",
+    "account.confirmReactivate": "إعادة تفعيل الحساب؟",
+    "account.confirmReactivateSub": "سيصبح ملفك مرئيًا للعملاء مرة أخرى.",
+    "account.cancel": "إلغاء",
+    "account.confirm": "تأكيد",
+    "account.deleted": "تم حذف الحساب",
+    "account.deletedSub": "تم حذف حسابك نهائيًا.",
+    "account.deactivated": "تم تعطيل الحساب",
+    "account.reactivated": "تم إعادة التفعيل",
+    "account.deactBanner": "حسابك معطّل حاليًا. أعد التفعيل لتظهر في البحث.",
+    "account.mockPay": "بوابة الدفع تجريبية في هذا الإصدار.",
   },
 };
 
@@ -715,14 +847,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const saved = await readLang();
       if (saved) setLangState(saved);
-      // Apply RTL layout when appropriate. On native this requires an app reload
-      // to take full effect for flex direction; text-level RTL still works.
+      // Apply RTL layout ONLY when Arabic is selected. On native this requires
+      // an app reload to take full effect for flex direction; text-level RTL
+      // (writingDirection) is applied per-component below.
       const shouldRTL = (saved || "en") === "ar";
       try {
-        if (I18nManager.isRTL !== shouldRTL) {
-          I18nManager.allowRTL(shouldRTL);
-          I18nManager.forceRTL(shouldRTL);
-        }
+        // Always write the desired state so an old "forceRTL(true)" from a
+        // previous session is explicitly cleared when the user is no longer
+        // on Arabic.
+        I18nManager.allowRTL(shouldRTL);
+        I18nManager.forceRTL(shouldRTL);
       } catch {}
     })();
   }, []);
@@ -733,10 +867,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     // Toggle RTL. Restart needed on native for full effect (user is prompted in UI).
     try {
       const rtl = l === "ar";
-      if (I18nManager.isRTL !== rtl) {
-        I18nManager.allowRTL(rtl);
-        I18nManager.forceRTL(rtl);
-      }
+      // Always write both flags so switching Arabic → English/French truly
+      // clears RTL, not just when the flag currently differs.
+      I18nManager.allowRTL(rtl);
+      I18nManager.forceRTL(rtl);
     } catch {}
   }, []);
 

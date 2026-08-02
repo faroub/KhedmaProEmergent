@@ -9,7 +9,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
-import { getItem, setItem } from "@/src/utils/storage";
+import { scheduleStore } from "@/src/db/localDb";
 
 const DAYS: { key: string; tKey: string }[] = [
   { key: "mon", tKey: "day.mon" },
@@ -37,7 +37,7 @@ LocaleConfig.locales["ar"] = {
   dayNamesShort: ["أحد", "اثن", "ثلا", "أرب", "خمي", "جمع", "سبت"],
 };
 
-const CACHE_KEY = "sp_schedule_cache";
+const CACHE_KEY = "sp_schedule_cache"; // legacy, no longer used — SQLite is source of truth
 
 export default function Schedule() {
   const { user } = useAuth();
@@ -56,27 +56,32 @@ export default function Schedule() {
   }, [lang]);
 
   const load = useCallback(async () => {
-    // Load cache first for instant offline display
-    try {
-      const cached = await getItem<any>(CACHE_KEY);
-      if (cached && cached.provider_id === user?.id) {
-        setHours(cached.working_hours || {});
-        setBreaks(cached.breaks || {});
-        setVacation(cached.vacation_days || []);
-      }
-    } catch {}
     if (!user) {
       setLoading(false);
       return;
     }
+    // Load cache first for instant offline display (SQLite on native, AsyncStorage on web)
+    try {
+      const cached = await scheduleStore.get(user.id);
+      if (cached) {
+        setHours((cached.working_hours as any) || {});
+        setBreaks((cached.breaks as any) || {});
+        setVacation(cached.vacation_days || []);
+      }
+    } catch {}
     try {
       const data: any = await api.getSchedule(user.id);
       setHours(data.working_hours || {});
       setBreaks(data.breaks || {});
       setVacation(data.vacation_days || []);
       setOffline(false);
-      // Cache for offline access
-      await setItem(CACHE_KEY, { provider_id: user.id, ...data });
+      // Persist to local DB for offline access
+      await scheduleStore.put(user.id, {
+        provider_id: user.id,
+        working_hours: data.working_hours || {},
+        breaks: data.breaks || {},
+        vacation_days: data.vacation_days || [],
+      });
     } catch (e: any) {
       // Only flag offline for network-style failures, not auth or missing data
       const msg = String(e?.message || "");
@@ -108,11 +113,17 @@ export default function Schedule() {
   };
 
   const save = async () => {
+    if (!user) return;
     setSaving(true);
     try {
       const payload = { working_hours: hours, breaks, vacation_days: vacation };
       await api.setSchedule(payload);
-      await setItem(CACHE_KEY, { provider_id: user?.id, ...payload });
+      await scheduleStore.put(user.id, {
+        provider_id: user.id,
+        working_hours: hours,
+        breaks,
+        vacation_days: vacation,
+      });
       setSaved(true);
       setOffline(false);
       setTimeout(() => setSaved(false), 2000);

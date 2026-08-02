@@ -1,6 +1,16 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,16 +19,8 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
-import { getItem, setItem } from "@/src/utils/storage";
-
-type Booking = {
-  id: string; provider_id: string; provider_name: string; provider_category?: string;
-  client_id: string; client_name: string;
-  scheduled_date: string; task_description: string; address: string;
-  rate_type: string; estimated_hours?: number; estimated_total?: number;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
-  reviewed?: boolean;
-};
+import { bookingsStore } from "@/src/db/localDb";
+import type { LocalBooking } from "@/src/db/schema";
 
 const STATUS_COLOR: Record<string, string> = {
   pending: theme.colors.warning,
@@ -31,33 +33,48 @@ export default function Bookings() {
   const { user } = useAuth();
   const router = useRouter();
   const { t } = useT();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<LocalBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<"all" | "pending" | "confirmed" | "completed">("all");
   const [offline, setOffline] = useState(false);
-
-  const cacheKey = user ? `sp_bookings_${user.id}` : "";
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [noteEditor, setNoteEditor] = useState<{ id: string; text: string } | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
 
   const load = useCallback(async () => {
-    // Load cache first for instant offline display
-    if (cacheKey) {
-      try {
-        const cached = await getItem<Booking[]>(cacheKey);
-        if (cached && cached.length) setBookings(cached);
-      } catch {}
+    if (!user) {
+      setLoading(false);
+      return;
     }
+    // 1) Instant offline-first read from SQLite
     try {
-      const data: any = await api.myBookings();
-      setBookings(data);
+      const cached = await bookingsStore.list(user.id);
+      if (cached.length) setBookings(cached);
+      const sync = await bookingsStore.getLastSync(user.id);
+      setLastSync(sync);
+    } catch {}
+    // 2) Refresh from server, upsert into local DB
+    try {
+      const data: any[] = await api.myBookings();
+      // Preserve local_notes from cache when merging server data
+      const cachedById = new Map((await bookingsStore.list(user.id)).map((b) => [b.id, b]));
+      const merged: LocalBooking[] = data.map((d) => ({
+        ...d,
+        local_notes: cachedById.get(d.id)?.local_notes ?? null,
+      }));
+      await bookingsStore.upsertMany(user.id, merged);
+      const fresh = await bookingsStore.list(user.id);
+      setBookings(fresh);
       setOffline(false);
-      if (cacheKey) await setItem(cacheKey, data);
+      const sync = await bookingsStore.getLastSync(user.id);
+      setLastSync(sync);
     } catch {
       setOffline(true);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [cacheKey]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -73,17 +90,41 @@ export default function Bookings() {
     }
   };
 
+  const openNote = (b: LocalBooking) => {
+    setNoteEditor({ id: b.id, text: b.local_notes || "" });
+  };
+
+  const saveNote = async () => {
+    if (!noteEditor || !user) return;
+    setSavingNote(true);
+    try {
+      await bookingsStore.setLocalNotes(noteEditor.id, user.id, noteEditor.text);
+      setBookings((prev) =>
+        prev.map((b) => (b.id === noteEditor.id ? { ...b, local_notes: noteEditor.text } : b))
+      );
+    } finally {
+      setSavingNote(false);
+      setNoteEditor(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>{t("bookings.title")}</Text>
         {offline && (
-          <View style={styles.offlineBadge}>
+          <View style={styles.offlineBadge} testID="offline-badge">
             <Ionicons name="cloud-offline-outline" size={12} color={theme.colors.warning} />
-            <Text style={styles.offlineText}>{t("schedule.offlineHint")}</Text>
+            <Text style={styles.offlineText}>{t("bookings.offline")}</Text>
           </View>
         )}
       </View>
+
+      {lastSync && (
+        <Text style={styles.syncedAt} testID="last-sync">
+          {t("bookings.lastSync")} · {new Date(lastSync).toLocaleTimeString()}
+        </Text>
+      )}
 
       <View style={styles.tabsContainer}>
         {(["all", "pending", "confirmed", "completed"] as const).map((tt) => (
@@ -107,7 +148,13 @@ export default function Bookings() {
           data={filtered}
           keyExtractor={(b) => b.id}
           contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 100, gap: theme.spacing.md }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.colors.brand} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              tintColor={theme.colors.brand}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="calendar-outline" size={40} color={theme.colors.muted} />
@@ -125,7 +172,15 @@ export default function Bookings() {
                     {item.provider_category || ""} • {new Date(item.scheduled_date).toLocaleDateString()}
                   </Text>
                 </View>
-                <View style={[styles.statusPill, { backgroundColor: `${STATUS_COLOR[item.status]}22`, borderColor: STATUS_COLOR[item.status] }]}>
+                <View
+                  style={[
+                    styles.statusPill,
+                    {
+                      backgroundColor: `${STATUS_COLOR[item.status]}22`,
+                      borderColor: STATUS_COLOR[item.status],
+                    },
+                  ]}
+                >
                   <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>
                     {item.status}
                   </Text>
@@ -134,35 +189,85 @@ export default function Bookings() {
               <Text style={styles.cardDesc} numberOfLines={2}>{item.task_description}</Text>
               <View style={styles.cardMeta}>
                 <Ionicons name="location-outline" size={13} color={theme.colors.muted} />
-                <Text style={styles.cardMetaText} numberOfLines={1}>{item.address}</Text>
+                <Text style={styles.cardMetaText} numberOfLines={2}>{item.address}</Text>
               </View>
+              {isProvider && item.client_phone && (
+                <View style={styles.cardMeta}>
+                  <Ionicons name="call-outline" size={13} color={theme.colors.muted} />
+                  <Text style={styles.cardMetaText} numberOfLines={1}>{item.client_phone}</Text>
+                </View>
+              )}
               {item.estimated_total ? (
                 <Text style={styles.cardTotal}>≈ {item.estimated_total} DZD</Text>
               ) : null}
 
+              {/* Provider-only offline note */}
+              {isProvider && (
+                <Pressable
+                  testID={`note-${item.id}`}
+                  onPress={() => openNote(item)}
+                  style={styles.noteBox}
+                >
+                  <Ionicons
+                    name={item.local_notes ? "document-text" : "create-outline"}
+                    size={14}
+                    color={item.local_notes ? theme.colors.brand : theme.colors.muted}
+                  />
+                  <Text
+                    style={[
+                      styles.noteText,
+                      { color: item.local_notes ? theme.colors.onSurfaceSecondary : theme.colors.muted },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {item.local_notes || t("bookings.addNote")}
+                  </Text>
+                </Pressable>
+              )}
+
               <View style={styles.actions}>
                 {isProvider && item.status === "pending" && (
                   <>
-                    <Pressable testID={`accept-${item.id}`} style={[styles.actionBtn, styles.actionPrimary]} onPress={() => updateStatus(item.id, "confirmed")}>
+                    <Pressable
+                      testID={`accept-${item.id}`}
+                      style={[styles.actionBtn, styles.actionPrimary]}
+                      onPress={() => updateStatus(item.id, "confirmed")}
+                    >
                       <Text style={styles.actionPrimaryText}>{t("bookings.accept")}</Text>
                     </Pressable>
-                    <Pressable testID={`decline-${item.id}`} style={[styles.actionBtn, styles.actionOutline]} onPress={() => updateStatus(item.id, "cancelled")}>
+                    <Pressable
+                      testID={`decline-${item.id}`}
+                      style={[styles.actionBtn, styles.actionOutline]}
+                      onPress={() => updateStatus(item.id, "cancelled")}
+                    >
                       <Text style={styles.actionOutlineText}>{t("bookings.decline")}</Text>
                     </Pressable>
                   </>
                 )}
                 {isProvider && item.status === "confirmed" && (
-                  <Pressable testID={`complete-${item.id}`} style={[styles.actionBtn, styles.actionPrimary]} onPress={() => updateStatus(item.id, "completed")}>
+                  <Pressable
+                    testID={`complete-${item.id}`}
+                    style={[styles.actionBtn, styles.actionPrimary]}
+                    onPress={() => updateStatus(item.id, "completed")}
+                  >
                     <Text style={styles.actionPrimaryText}>{t("bookings.markComplete")}</Text>
                   </Pressable>
                 )}
                 {!isProvider && (item.status === "pending" || item.status === "confirmed") && (
-                  <Pressable testID={`cancel-${item.id}`} style={[styles.actionBtn, styles.actionOutline]} onPress={() => updateStatus(item.id, "cancelled")}>
+                  <Pressable
+                    testID={`cancel-${item.id}`}
+                    style={[styles.actionBtn, styles.actionOutline]}
+                    onPress={() => updateStatus(item.id, "cancelled")}
+                  >
                     <Text style={styles.actionOutlineText}>{t("bookings.cancel")}</Text>
                   </Pressable>
                 )}
                 {!isProvider && item.status === "completed" && !item.reviewed && (
-                  <Pressable testID={`review-${item.id}`} style={[styles.actionBtn, styles.actionPrimary]} onPress={() => router.push(`/review/${item.id}`)}>
+                  <Pressable
+                    testID={`review-${item.id}`}
+                    style={[styles.actionBtn, styles.actionPrimary]}
+                    onPress={() => router.push(`/review/${item.id}`)}
+                  >
                     <Ionicons name="star" size={14} color={theme.colors.onBrandPrimary} />
                     <Text style={styles.actionPrimaryText}>{t("bookings.leaveReview")}</Text>
                   </Pressable>
@@ -172,14 +277,66 @@ export default function Bookings() {
           )}
         />
       )}
+
+      {/* Note editor */}
+      <Modal
+        visible={noteEditor !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNoteEditor(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setNoteEditor(null)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t("bookings.noteTitle")}</Text>
+            <Text style={styles.modalSub}>{t("bookings.noteSub")}</Text>
+            <TextInput
+              testID="note-input"
+              value={noteEditor?.text}
+              onChangeText={(v) => setNoteEditor((n) => (n ? { ...n, text: v } : null))}
+              placeholder={t("bookings.notePh")}
+              placeholderTextColor={theme.colors.muted}
+              multiline
+              style={styles.noteInput}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                testID="note-cancel"
+                onPress={() => setNoteEditor(null)}
+                style={[styles.modalBtn, styles.modalCancel]}
+              >
+                <Text style={styles.modalCancelText}>{t("account.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                testID="note-save"
+                onPress={saveNote}
+                disabled={savingNote}
+                style={[styles.modalBtn, styles.modalConfirm]}
+              >
+                {savingNote ? (
+                  <ActivityIndicator color={theme.colors.onBrandPrimary} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>{t("bookings.saveNote")}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.surface },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.xs },
   title: { color: theme.colors.onSurface, fontSize: 24, fontWeight: "800" },
+  syncedAt: { color: theme.colors.muted, fontSize: 11, paddingHorizontal: theme.spacing.xl, marginTop: 2 },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surfaceSecondary, borderWidth: 1, borderColor: theme.colors.warning },
   offlineText: { color: theme.colors.warning, fontSize: 11, fontWeight: "700" },
   tabsContainer: { flexDirection: "row", paddingHorizontal: theme.spacing.xl, gap: theme.spacing.sm, height: 56, alignItems: "center" },
@@ -200,15 +357,15 @@ const styles = StyleSheet.create({
   cardTitle: { color: theme.colors.onSurface, fontSize: 16, fontWeight: "700" },
   cardSub: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   cardDesc: { color: theme.colors.onSurfaceTertiary, fontSize: 13, lineHeight: 18 },
-  cardMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  cardMeta: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   cardMetaText: { color: theme.colors.muted, fontSize: 12, flex: 1 },
   cardTotal: { color: theme.colors.brand, fontSize: 14, fontWeight: "700" },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: theme.radius.pill, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
-  actions: { flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xs },
+  actions: { flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xs, flexWrap: "wrap" },
   actionBtn: {
-    flex: 1, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center",
-    height: 40, borderRadius: theme.radius.pill,
+    flex: 1, minWidth: 100, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center",
+    height: 40, borderRadius: theme.radius.pill, paddingHorizontal: 10,
   },
   actionPrimary: { backgroundColor: theme.colors.brand },
   actionPrimaryText: { color: theme.colors.onBrandPrimary, fontWeight: "700", fontSize: 13 },
@@ -216,4 +373,39 @@ const styles = StyleSheet.create({
   actionOutlineText: { color: theme.colors.onSurface, fontWeight: "600", fontSize: 13 },
   empty: { alignItems: "center", gap: theme.spacing.sm, paddingVertical: theme.spacing.xxxl },
   emptyText: { color: theme.colors.muted, fontSize: 14 },
+
+  // note box
+  noteBox: {
+    flexDirection: "row", gap: theme.spacing.sm, alignItems: "flex-start",
+    padding: theme.spacing.sm, borderRadius: theme.radius.md,
+    borderWidth: 1, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  noteText: { flex: 1, fontSize: 12, lineHeight: 17 },
+
+  // Modal
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  modalSheet: {
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderTopLeftRadius: theme.radius.lg, borderTopRightRadius: theme.radius.lg,
+    padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, gap: theme.spacing.md,
+  },
+  modalHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: theme.colors.borderStrong, marginBottom: theme.spacing.sm },
+  modalTitle: { color: theme.colors.onSurface, fontWeight: "800", fontSize: 18 },
+  modalSub: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: -theme.spacing.sm },
+  noteInput: {
+    minHeight: 120, borderWidth: 1, borderColor: theme.colors.border,
+    borderRadius: theme.radius.md, padding: theme.spacing.md,
+    color: theme.colors.onSurface, fontSize: 14, backgroundColor: theme.colors.surface,
+    textAlignVertical: "top",
+  },
+  modalActions: { flexDirection: "row", gap: theme.spacing.md },
+  modalBtn: {
+    flex: 1, height: 46, borderRadius: theme.radius.pill,
+    alignItems: "center", justifyContent: "center",
+  },
+  modalCancel: { borderWidth: 1, borderColor: theme.colors.border },
+  modalCancelText: { color: theme.colors.onSurface, fontWeight: "700" },
+  modalConfirm: { backgroundColor: theme.colors.brand },
+  modalConfirmText: { color: theme.colors.onBrandPrimary, fontWeight: "800" },
 });

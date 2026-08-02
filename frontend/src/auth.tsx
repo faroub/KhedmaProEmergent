@@ -24,6 +24,10 @@ export type User = {
   baladiya?: string;
   cross_wilaya?: boolean;
   portfolio_images?: string[];
+  is_manually_deactivated?: boolean;
+  manually_deactivated_at?: string | null;
+  is_deleted?: boolean;
+  last_paid_at?: string | null;
 };
 
 type AuthCtx = {

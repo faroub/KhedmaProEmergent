@@ -276,9 +276,51 @@ def make_token(user_id: str, role: str) -> str:
 
 
 def compute_subscription(user: dict) -> dict:
-    """Compute subscription status for provider based on created_at."""
+    """Compute subscription status for provider based on created_at.
+    Also honors manual deactivation & soft-delete flags on the user doc.
+
+    Returns dict with keys: trial_ends_at, subscription_status, days_until_due,
+    active, should_soft_delete (bool — for callers to persist).
+    """
+    now = datetime.now(timezone.utc)
+
+    # Soft-deleted or manually deactivated users take priority for status.
+    if user.get("is_deleted"):
+        return {
+            "trial_ends_at": None,
+            "subscription_status": "deleted",
+            "days_until_due": None,
+            "active": False,
+            "should_soft_delete": False,
+        }
+
     if user["role"] != Role.service_provider.value:
-        return {"trial_ends_at": None, "subscription_status": None, "days_until_due": None, "active": True}
+        # Clients / others — only manual deactivation applies.
+        if user.get("is_manually_deactivated"):
+            return {
+                "trial_ends_at": None,
+                "subscription_status": "manually_deactivated",
+                "days_until_due": None,
+                "active": False,
+                "should_soft_delete": False,
+            }
+        return {
+            "trial_ends_at": None,
+            "subscription_status": None,
+            "days_until_due": None,
+            "active": True,
+            "should_soft_delete": False,
+        }
+
+    # ---- Provider path ----
+    if user.get("is_manually_deactivated"):
+        return {
+            "trial_ends_at": None,
+            "subscription_status": "manually_deactivated",
+            "days_until_due": None,
+            "active": False,
+            "should_soft_delete": False,
+        }
 
     created_at = user["created_at"]
     if isinstance(created_at, str):
@@ -287,7 +329,6 @@ def compute_subscription(user: dict) -> dict:
         created_at = created_at.replace(tzinfo=timezone.utc)
 
     trial_end = created_at + timedelta(days=TRIAL_MONTHS * 30)
-    now = datetime.now(timezone.utc)
     last_paid_at = user.get("last_paid_at")
     if isinstance(last_paid_at, str):
         last_paid_at = datetime.fromisoformat(last_paid_at.replace("Z", "+00:00"))
@@ -302,6 +343,7 @@ def compute_subscription(user: dict) -> dict:
                 "subscription_status": "active",
                 "days_until_due": days_left,
                 "active": True,
+                "should_soft_delete": False,
             }
 
     # Check trial
@@ -312,6 +354,7 @@ def compute_subscription(user: dict) -> dict:
             "subscription_status": "trial",
             "days_until_due": days_left,
             "active": True,
+            "should_soft_delete": False,
         }
 
     # Trial expired. Deactivation window = 12 months after trial ended
@@ -322,14 +365,32 @@ def compute_subscription(user: dict) -> dict:
             "subscription_status": "due",
             "days_until_due": 0,
             "active": False,
+            "should_soft_delete": False,
         }
-    # Fully deactivated
+    # Auto soft-delete: unpaid for 12 months past trial → deleted
     return {
         "trial_ends_at": trial_end,
-        "subscription_status": "deactivated",
+        "subscription_status": "deleted",
         "days_until_due": 0,
         "active": False,
+        "should_soft_delete": True,
     }
+
+
+async def enforce_lifecycle(user: dict) -> dict:
+    """Persist auto soft-delete when subscription reveals we should. Returns the
+    (possibly-updated) user document. Safe to call on every fetch."""
+    sub = compute_subscription(user)
+    if sub.get("should_soft_delete") and not user.get("is_deleted"):
+        now = datetime.now(timezone.utc).isoformat()
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"is_deleted": True, "deleted_at": now, "deleted_reason": "auto_unpaid_12mo"}},
+        )
+        user["is_deleted"] = True
+        user["deleted_at"] = now
+        user["deleted_reason"] = "auto_unpaid_12mo"
+    return user
 
 
 def serialize_user(doc: dict, public: bool = False) -> dict:
@@ -357,6 +418,10 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "baladiya": doc.get("baladiya"),
         "cross_wilaya": doc.get("cross_wilaya", False),
         "portfolio_images": doc.get("portfolio_images", []),
+        "is_manually_deactivated": bool(doc.get("is_manually_deactivated")),
+        "is_deleted": bool(doc.get("is_deleted")),
+        "manually_deactivated_at": doc.get("manually_deactivated_at"),
+        "last_paid_at": doc.get("last_paid_at"),
     }
     if not public:
         out["email"] = doc["email"]
@@ -378,6 +443,10 @@ async def current_user(token: Annotated[Optional[str], Depends(oauth2_scheme)]) 
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # Trigger lifecycle enforcement (auto soft-delete after 12mo unpaid).
+    user = await enforce_lifecycle(user)
+    if user.get("is_deleted"):
+        raise HTTPException(status_code=410, detail="Account has been deleted")
     return user
 
 
@@ -390,6 +459,11 @@ async def optional_current_user(token: Annotated[Optional[str], Depends(oauth2_s
     except jwt.InvalidTokenError:
         return None
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return None
+    user = await enforce_lifecycle(user)
+    if user.get("is_deleted"):
+        return None
     return user
 
 
@@ -441,6 +515,10 @@ async def login(body: LoginIn):
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    # Trigger lifecycle & block deleted accounts.
+    user = await enforce_lifecycle(user)
+    if user.get("is_deleted"):
+        raise HTTPException(status_code=410, detail="This account has been deleted")
     token = make_token(user["id"], user["role"])
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
@@ -468,12 +546,19 @@ async def list_providers(
     search: Optional[str] = None,
     wilaya: Optional[str] = None,
 ):
-    query = {"role": Role.service_provider.value}
+    query = {
+        "role": Role.service_provider.value,
+        # Hide soft-deleted & manually-deactivated from public marketplace
+        "$and": [
+            {"$or": [{"is_deleted": {"$exists": False}}, {"is_deleted": False}]},
+            {"$or": [{"is_manually_deactivated": {"$exists": False}}, {"is_manually_deactivated": False}]},
+        ],
+    }
     if category:
         query["category"] = category
     if wilaya:
         # Provider matches when their home wilaya matches, OR they've opted in to cross-wilaya travel.
-        query["$or"] = [{"wilaya_code": wilaya}, {"cross_wilaya": True}]
+        query["$and"].append({"$or": [{"wilaya_code": wilaya}, {"cross_wilaya": True}]})
     if search:
         s_or = [
             {"full_name": {"$regex": search, "$options": "i"}},
@@ -481,14 +566,14 @@ async def list_providers(
             {"city": {"$regex": search, "$options": "i"}},
             {"baladiya": {"$regex": search, "$options": "i"}},
         ]
-        if "$or" in query:
-            query = {"$and": [{"$or": query.pop("$or")}, {"$or": s_or}, query]}
-        else:
-            query["$or"] = s_or
+        query["$and"].append({"$or": s_or})
     docs = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
-    # Only include active providers
+    # Only include active providers (also runs auto soft-delete lifecycle)
     result = []
     for d in docs:
+        d = await enforce_lifecycle(d)
+        if d.get("is_deleted"):
+            continue
         s = serialize_user(d, public=True)
         if s["active"]:
             result.append(s)
@@ -504,6 +589,9 @@ async def get_provider(provider_id: str):
         {"_id": 0, "password_hash": 0},
     )
     if not doc:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    doc = await enforce_lifecycle(doc)
+    if doc.get("is_deleted"):
         raise HTTPException(status_code=404, detail="Provider not found")
     return serialize_user(doc, public=True)
 
@@ -527,6 +615,12 @@ async def create_booking(
     )
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
+    provider = await enforce_lifecycle(provider)
+    if provider.get("is_deleted") or provider.get("is_manually_deactivated"):
+        raise HTTPException(status_code=410, detail="This provider is no longer available")
+    prov_sub = compute_subscription(provider)
+    if not prov_sub["active"]:
+        raise HTTPException(status_code=410, detail="This provider's subscription is inactive")
 
     # Determine client identity: either logged-in client or guest
     if user and user["role"] == Role.client.value:
@@ -688,12 +782,99 @@ async def create_review(
 
 
 # ============ SUBSCRIPTION ============
+@api_router.get("/subscription/status")
+async def subscription_status(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
+    sub = compute_subscription(user)
+    return {
+        "role": user["role"],
+        "subscription_status": sub["subscription_status"],
+        "active": sub["active"],
+        "days_until_due": sub["days_until_due"],
+        "trial_ends_at": sub["trial_ends_at"],
+        "last_paid_at": user.get("last_paid_at"),
+        "fee_dzd": SUBSCRIPTION_FEE_DZD,
+        "trial_months": TRIAL_MONTHS,
+        "auto_delete_months": DEACTIVATION_MONTHS,
+        "is_manually_deactivated": bool(user.get("is_manually_deactivated")),
+        "is_deleted": bool(user.get("is_deleted")),
+    }
+
+
 @api_router.post("/subscription/pay")
 async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
-    now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one({"id": user["id"]}, {"$set": {"last_paid_at": now}})
+    """MOCK payment — records the fee and extends listing by 30 days.
+    Also clears any manual deactivation so paying reactivates the account.
+    Real gateway integration (Stripe / local) can slot in here later.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "last_paid_at": now_iso,
+            "is_manually_deactivated": False,
+            "manually_deactivated_at": None,
+        }},
+    )
+    # Record payment history for audit
+    await db.subscription_payments.insert_one({
+        "id": str(uuid.uuid4()),
+        "provider_id": user["id"],
+        "amount_dzd": SUBSCRIPTION_FEE_DZD,
+        "paid_at": now_iso,
+        "method": "mock",
+    })
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return {"success": True, "amount_dzd": SUBSCRIPTION_FEE_DZD, "user": serialize_user(updated)}
+
+
+# ============ ACCOUNT LIFECYCLE (manual) ============
+@api_router.post("/users/me/deactivate")
+async def deactivate_account(user: Annotated[dict, Depends(current_user)]):
+    """Manually deactivate the current user's account. Works for both clients
+    and providers. A deactivated provider is hidden from the marketplace, and
+    a deactivated client cannot log in until reactivation."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "is_manually_deactivated": True,
+            "manually_deactivated_at": now_iso,
+        }},
+    )
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return {"success": True, "user": serialize_user(updated)}
+
+
+@api_router.post("/users/me/reactivate")
+async def reactivate_account(user: Annotated[dict, Depends(current_user)]):
+    """Reactivate a manually-deactivated account (subscription state is
+    re-evaluated automatically for providers)."""
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "is_manually_deactivated": False,
+            "manually_deactivated_at": None,
+        }},
+    )
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return {"success": True, "user": serialize_user(updated)}
+
+
+@api_router.post("/users/me/delete")
+async def delete_account(user: Annotated[dict, Depends(current_user)]):
+    """Soft-delete the current account. Data is retained but the account is
+    hidden from every listing, cannot log in, and is treated as gone."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "is_deleted": True,
+            "deleted_at": now_iso,
+            "deleted_reason": "user_requested",
+            "is_manually_deactivated": True,
+        }},
+    )
+    return {"success": True, "id": user["id"], "deleted_at": now_iso}
 
 
 # ============ OTP AUTH ============
@@ -827,6 +1008,11 @@ async def verify_otp(body: OtpVerifyIn):
         }
         await db.users.insert_one(user_doc)
         user = user_doc
+    else:
+        # Existing user — run lifecycle & block deleted accounts.
+        user = await enforce_lifecycle(user)
+        if user.get("is_deleted"):
+            raise HTTPException(status_code=410, detail="This account has been deleted")
 
     token = make_token(user["id"], user["role"])
     return {

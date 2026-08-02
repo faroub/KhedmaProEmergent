@@ -47,6 +47,15 @@ MongoDB collections: `users`, `bookings`, `reviews`. All docs use UUID string `i
 - New-user flow: OTP creates the user with a placeholder email `+213XXXXXXXXX@phone.khedmapro.dz`, then the app routes to a profile completion screen (name + city + provider category/rates when applicable). Role captured on first verify is never overwritten on subsequent OTP sign-ins.
 - Frontend: new `/(auth)/otp.tsx` (2-step: phone → 6-digit code with a 30 s resend timer) and `/(auth)/complete-profile.tsx`. "Continue with phone" entry points added on onboarding and on the sign-in screen.
 
+## Iteration 5 additions — Wilaya + Pin Drop + Portfolio + Reports + Booking Type
+- **58 Algerian wilayas** (province code + EN/FR/AR names) served by `GET /api/wilayas`. Users pick a wilaya + free-text baladiya on their profile.
+- **`/api/providers?wilaya=<code>`** — matches providers whose home wilaya matches OR who have `cross_wilaya=true`. Prevents an IT tech in Algiers from being offered a job in Blida unless they opt in.
+- **Interactive pin-drop map** on the booking screen — Leaflet + OpenStreetMap tiles inside a WebView (native) / iframe (web). Works in Expo Go, web preview, and native builds without any API key. Sends `location_lat` / `location_lng` to the booking.
+- **Booking type toggle** — Instant book (listed rate) vs Request quote (custom price for complex jobs).
+- **Provider portfolio gallery** — `PATCH /api/users/me/portfolio` accepts up to 12 base64 JPEGs. Client-side compression via `expo-image-manipulator` (resize 1200px + quality 0.7) before upload; per-image 900 KB cap enforced server-side. Gallery rendered horizontally on the provider detail screen.
+- **Report a Provider** — flag icon in the provider header opens a modal with 6 reason chips + optional details. `POST /api/reports` requires client auth and stores a moderation entry with `status: open`.
+- Fresh DB reset — reseeded 12 providers with `wilaya_code` + `cross_wilaya` + baladiya on each.
+
 ## Business Enhancement
 Subscription revenue model built-in: providers monetize the platform with a fair 3-month free trial then 1000 DZD/month recurring — the app auto-deactivates listings when unpaid, protecting client trust.
 

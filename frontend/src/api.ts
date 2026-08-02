@@ -17,7 +17,7 @@ async function request<T = any>(path: string, opts: FetchOpts = {}): Promise<T> 
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
   if (!res.ok) {
-    if (res.status === 401) await clearToken();
+    if (res.status === 401 || res.status === 410) await clearToken();
     const msg = (data && (data.detail || data.message)) || `Request failed (${res.status})`;
     throw new Error(typeof msg === "string" ? msg : "Request failed");
   }
@@ -65,6 +65,11 @@ export const api = {
 
   paySubscription: () =>
     request("/subscription/pay", { method: "POST" }),
+  subscriptionStatus: () => request("/subscription/status"),
+
+  deactivateAccount: () => request("/users/me/deactivate", { method: "POST" }),
+  reactivateAccount: () => request("/users/me/reactivate", { method: "POST" }),
+  deleteAccount: () => request("/users/me/delete", { method: "POST" }),
 
   // OTP auth
   otpRequest: (phone: string) =>
