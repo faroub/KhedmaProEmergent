@@ -41,8 +41,17 @@ MongoDB collections: `users`, `bookings`, `reviews`. All docs use UUID string `i
 ## Business Enhancement
 Subscription revenue model built-in: providers monetize the platform with a fair 3-month free trial then 1000 DZD/month recurring — the app auto-deactivates listings when unpaid, protecting client trust.
 
-## Non-goals (MVP)
-- Real payment processor (Stripe) — subscription payment is currently a status-toggle endpoint (MOCKED PAYMENT).
-- Chat/messaging between client & provider.
+## Iteration 3 additions
+- **Address autocomplete** on booking address field — powered by OpenStreetMap Nominatim (no API key), scoped to Algeria (countrycodes=dz), 350 ms debounce, min 3 chars.
+- **Provider Schedule** (`/(provider)/schedule.tsx`) using `react-native-calendars` — working hours per day (Mon–Sun), open/closed toggle, time-picker modal, vacation days marker. Persists via `PUT /api/schedule`; publicly readable via `GET /api/schedule/{provider_id}`.
+- **Offline cache** for both provider Schedule and per-user Bookings, using `@/src/utils/storage`. UI shows an "Offline · showing cached data" badge when the API is unreachable.
+- **Real-time chat** via FastAPI WebSocket (`/api/ws/chat?token=<JWT>`) + REST fallback (`/api/chats/*`). Bubbles UI, safety banner ("no phone numbers needed"), Messages tab in both client and provider layouts. WebSocket manager is in-memory (single-instance only — needs Redis pub/sub for multi-replica).
+- **RTL support** — `I18nManager.forceRTL()` toggled with the language; text-level RTL applied via `writingDirection: "rtl"` where needed. Full flex-direction RTL takes effect after an app restart on native.
+- **Data safety** — public `/api/providers` endpoints omit `email` and `phone`. Passwords are bcrypt-hashed and must be ≥ 8 chars.
+
+## Non-goals (still MVP)
+- Real payment processor (Stripe/Chargily/EDAHABIA) — subscription payment is **MOCKED**.
+- react-native-maps + live location tracking + background location — SKIPPED per user request.
+- OTP phone-number authentication — planned for the next iteration.
 - Push notifications.
-- Provider photo upload flow.
+- Provider photo upload.
