@@ -251,3 +251,14 @@
 ## agent_communication
   - agent: "testing"
     message: "iteration_8 complete. 20/20 new pytest cases pass in /app/backend/tests/test_portfolio_verification.py (report /app/test_reports/pytest/pytest_iter8.xml). All requested frontend testIDs verified on mobile viewport 390×844. All portfolio + verification mutations rolled back via session-scoped Motor cleanup — provider1 is back to unverified/empty for future test runs. No blocking issues found in Groups A/B/C. Note for future runs: on the web preview, JWT is in-memory only, so use in-app tab navigation to move between screens rather than `page.goto`, otherwise auth state is dropped."
+
+## iteration_9 — admin_education category split (regression)
+  - task_id: "category_split_regression"
+    status: "PASS"
+    scope: "backend GET /api/categories + /api/providers filter; frontend guest home chip strip in EN/FR/AR"
+    backend: "5/5 pytest passing in /app/backend/tests/test_category_split.py (JUnit /app/test_reports/pytest/pytest_iter9_category_split.xml). Legacy admin_education absent from /api/categories and from Mongo (count_documents == 0). admin_consulting → Leila Bensalem, education → Nassim Bouzid. Legacy filter returns []."
+    frontend: "10/10 Playwright assertions passing (mobile 390×844). Both cat-chip-admin_consulting and cat-chip-education render on the client home tab as guest. Legacy cat-chip-admin_education is gone. Tapping Education chip loads Nassim Bouzid; tapping Administrative Consultants loads Leila Bensalem. Localized labels verified in EN / FR (Consultants administratifs, Éducation (cours particuliers)) / AR (استشاريون إداريون, التعليم (دروس خصوصية)). Old Arabic string دعم إداري وتعليمي absent from AR home screen."
+
+## agent_communication
+  - agent: "testing"
+    message: "iteration_9 complete. Read-only regression for the admin_education → admin_consulting + education split. Backend 5/5 and Frontend 10/10 all green. No mutations to seed data. See /app/test_reports/iteration_9.json for the full breakdown."

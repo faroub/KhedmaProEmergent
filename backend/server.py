@@ -55,7 +55,8 @@ CATEGORIES = [
     {"id": "painting", "name": "Painting", "icon": "color-palette"},
     {"id": "landscaping", "name": "Landscaping", "icon": "leaf"},
     {"id": "it_support", "name": "IT Support", "icon": "laptop"},
-    {"id": "admin_education", "name": "Admin Education", "icon": "school"},
+    {"id": "admin_consulting", "name": "Administrative Consultants", "icon": "briefcase"},
+    {"id": "education", "name": "Education (Private Tutoring)", "icon": "school"},
     {"id": "photography", "name": "Photography", "icon": "camera"},
     {"id": "moving", "name": "Moving", "icon": "cube"},
 ]
@@ -1497,11 +1498,12 @@ async def seed_data():
         {"full_name": "Sofiane Kaci", "category": "painting", "hourly_rate": 700, "task_rate": 2800, "city": "Algiers", "wilaya_code": "16", "baladiya": "Kouba", "cross_wilaya": True, "bio": "Interior/exterior painting, decorative finishes.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
         {"full_name": "Nadia Haddad", "category": "landscaping", "hourly_rate": 600, "task_rate": 2200, "city": "Blida", "wilaya_code": "09", "baladiya": "Blida Centre", "cross_wilaya": True, "bio": "Garden design and maintenance for villas.", "avatar_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400"},
         {"full_name": "Riad Zerouki", "category": "it_support", "hourly_rate": 1500, "task_rate": 4000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Cheraga", "cross_wilaya": False, "bio": "PC repair, network setup, remote support.", "avatar_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400"},
-        {"full_name": "Leila Bensalem", "category": "admin_education", "hourly_rate": 1200, "task_rate": 3500, "city": "Oran", "wilaya_code": "31", "baladiya": "Oran Centre", "cross_wilaya": False, "bio": "Tutor and admin coach for university applications.", "avatar_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400"},
+        {"full_name": "Leila Bensalem", "category": "admin_consulting", "hourly_rate": 1200, "task_rate": 3500, "city": "Oran", "wilaya_code": "31", "baladiya": "Oran Centre", "cross_wilaya": False, "bio": "Administrative consultant — help with paperwork, permits, university applications.", "avatar_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400"},
         {"full_name": "Mehdi Fares", "category": "photography", "hourly_rate": 2000, "task_rate": 8000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Alger Centre", "cross_wilaya": True, "bio": "Wedding, event, and portrait photography.", "avatar_url": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400"},
         {"full_name": "Salim Ouhadj", "category": "moving", "hourly_rate": 1200, "task_rate": 5000, "city": "Algiers", "wilaya_code": "16", "baladiya": "Bab El Oued", "cross_wilaya": True, "bio": "Careful moving service with team & truck.", "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"},
         {"full_name": "Fatima Zohra", "category": "cleaning", "hourly_rate": 550, "task_rate": 2100, "city": "Setif", "wilaya_code": "19", "baladiya": "Sétif Centre", "cross_wilaya": False, "bio": "Reliable home cleaning, deep-clean specialist.", "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400"},
         {"full_name": "Bilal Rahmani", "category": "electrical", "hourly_rate": 950, "task_rate": 2900, "city": "Algiers", "wilaya_code": "16", "baladiya": "El Harrach", "cross_wilaya": False, "bio": "Emergency electrical services, 24/7 available.", "avatar_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"},
+        {"full_name": "Nassim Bouzid", "category": "education", "hourly_rate": 1000, "task_rate": 3000, "city": "Oran", "wilaya_code": "31", "baladiya": "Oran Centre", "cross_wilaya": True, "bio": "Private tutor for math, physics and BAC prep. All levels.", "avatar_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400"},
     ]
 
     for i, p in enumerate(seed_providers):
@@ -1603,6 +1605,23 @@ async def on_startup():
     await db.users.create_index("wilaya_code")
     await db.reports.create_index("provider_id")
     await db.users.create_index("verification_status")
+
+    # One-shot category migration: the previous "admin_education" category was
+    # split into "admin_consulting" and "education (private tutoring)". Existing
+    # providers on the old key are moved to Administrative Consultants since
+    # that was the historically dominant use case.
+    try:
+        migrated = await db.users.update_many(
+            {"category": "admin_education"},
+            {"$set": {"category": "admin_consulting"}},
+        )
+        if migrated.modified_count:
+            logger.info(
+                "Migrated %d providers from admin_education → admin_consulting",
+                migrated.modified_count,
+            )
+    except Exception as e:
+        logger.warning("Category migration skipped: %s", e)
 
     # Seed a default admin account if none exists — used for the manual
     # verification review flow. Credentials are documented in

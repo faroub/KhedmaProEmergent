@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 9 — Regression for admin_education category split into admin_consulting + education. Backend: 5/5 pytest passing (/app/backend/tests/test_category_split.py, JUnit at /app/test_reports/pytest/pytest_iter9_category_split.xml). GET /api/categories returns exactly one admin_consulting ('Administrative Consultants') and one education ('Education (Private Tutoring)') entry, admin_education is gone. GET /api/providers?category=admin_consulting returns Leila Bensalem with category='admin_consulting'. GET /api/providers?category=education returns Nassim Bouzid with category='education'. GET /api/providers?category=admin_education returns []. Mongo direct check: db.users.count_documents({category:'admin_education'}) == 0 (migration succeeded). Frontend (Playwright, 390×844, http://localhost:3000): guest flow Onboarding → Continue as guest → Home chip strip shows both new chips with correct testIDs cat-chip-admin_consulting and cat-chip-education, no legacy cat-chip-admin_education, no 'Admin Education' text on the screen. Tapping the Education chip reloads the provider list and shows Nassim Bouzid card; tapping Administrative Consultants shows Leila Bensalem. Localized labels verified in all 3 languages: EN 'Administrative Consultants' / 'Education (Private Tutoring)', FR 'Consultants administratifs' / 'Éducation (cours particuliers)', AR 'استشاريون إداريون' / 'التعليم (دروس خصوصية)'. Old Arabic string 'دعم إداري وتعليمي' is absent from the home screen in Arabic mode.",
+  "subtask_results": {
+    "backend": {
+      "1_categories_split": "PASS",
+      "2_providers_admin_consulting_leila": "PASS",
+      "3_providers_education_nassim": "PASS",
+      "4_providers_legacy_admin_education_empty": "PASS",
+      "5_mongo_count_admin_education_zero": "PASS"
+    },
+    "frontend": {
+      "1_guest_home_shows_both_new_chips_no_legacy": "PASS",
+      "2_education_chip_loads_nassim": "PASS",
+      "3_admin_consulting_chip_loads_leila": "PASS",
+      "4a_fr_localized_labels": "PASS",
+      "4b_ar_localized_labels": "PASS",
+      "4c_no_admin_education_or_old_ar_string": "PASS"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_category_split.py",
+    "/app/test_reports/pytest/pytest_iter9_category_split.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "One-shot migration in server.py updates rows where category='admin_education' → 'admin_consulting' on startup; both Leila (admin_consulting) and Nassim (education) are seeded directly with the new keys, so no legacy rows remain. Idempotent.",
+    "cat-chip testIDs are derived from category id (`cat-chip-${c.id}`); adding new categories in the future does not require testID changes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_category_split.py (new)",
+    "/app/test_reports/pytest/pytest_iter9_category_split.xml (new)",
+    "/app/test_reports/iteration_9.json (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (10/10 assertions)"},
+  "seed_data_creation": "None — read-only regression as specified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 9 covered ONLY the admin_education category split. Two brand-new category IDs are now live: admin_consulting (chip label 'Administrative Consultants', French 'Consultants administratifs', Arabic 'استشاريون إداريون') and education (chip label 'Education (Private Tutoring)', French 'Éducation (cours particuliers)', Arabic 'التعليم (دروس خصوصية)'). Leila Bensalem (provider8) is on admin_consulting; Nassim Bouzid (provider13) is on education. Legacy category 'admin_education' returns an empty provider list and no Mongo rows carry it. testIDs: cat-chip-admin_consulting, cat-chip-education. Do NOT retest anything from iterations 4/7/8.",
+  "rca_of_issue": "N/A — no defects observed."
+}
