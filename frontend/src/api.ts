@@ -65,7 +65,24 @@ export const api = {
   paySubscription: () =>
     request("/subscription/pay", { method: "POST" }),
 
+  // Schedule
+  getSchedule: (providerId: string) =>
+    request(`/schedule/${providerId}`, { auth: false }),
+  setSchedule: (payload: any) =>
+    request("/schedule", { method: "PUT", body: JSON.stringify(payload) }),
+
+  // Chat
+  myChats: () => request("/chats/mine"),
+  chatHistory: (otherId: string) => request(`/chats/${otherId}/messages`),
+  sendMessage: (otherId: string, text: string) =>
+    request(`/chats/${otherId}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+
   seed: () => request("/seed", { method: "POST", auth: false }),
+};
+
+export const WS_URL = (token: string) => {
+  const base = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/^http/, "ws");
+  return `${base}/api/ws/chat?token=${encodeURIComponent(token)}`;
 };
 
 export async function bootstrapAuth(): Promise<any | null> {

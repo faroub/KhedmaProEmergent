@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -128,6 +128,19 @@ class ReviewCreate(BaseModel):
     provider_id: Optional[str] = None
     rating: int = Field(ge=1, le=5)
     comment: str
+
+
+class ScheduleIn(BaseModel):
+    # working_hours: { "mon": {"start": "08:00", "end": "17:00"}, ... }
+    working_hours: dict
+    # breaks per day, e.g. { "mon": [{"start":"12:00","end":"13:00"}] }
+    breaks: dict = {}
+    # ISO date strings, e.g. ["2026-06-10", "2026-06-11"]
+    vacation_days: List[str] = []
+
+
+class ChatMessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
 
 
 # ============ HELPERS ============
@@ -548,6 +561,172 @@ async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.servi
     return {"success": True, "amount_dzd": SUBSCRIPTION_FEE_DZD, "user": serialize_user(updated)}
 
 
+# ============ SCHEDULE ============
+DEFAULT_HOURS = {
+    "mon": {"start": "08:00", "end": "17:00"},
+    "tue": {"start": "08:00", "end": "17:00"},
+    "wed": {"start": "08:00", "end": "17:00"},
+    "thu": {"start": "08:00", "end": "17:00"},
+    "fri": {"start": "08:00", "end": "12:00"},
+    "sat": {"start": "09:00", "end": "16:00"},
+    "sun": None,
+}
+
+
+@api_router.get("/schedule/{provider_id}")
+async def get_schedule(provider_id: str):
+    doc = await db.schedules.find_one({"provider_id": provider_id}, {"_id": 0})
+    if not doc:
+        return {
+            "provider_id": provider_id,
+            "working_hours": DEFAULT_HOURS,
+            "breaks": {},
+            "vacation_days": [],
+        }
+    return doc
+
+
+@api_router.put("/schedule")
+async def set_schedule(
+    body: ScheduleIn,
+    user: Annotated[dict, Depends(require_role(Role.service_provider))],
+):
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "provider_id": user["id"],
+        "working_hours": body.working_hours,
+        "breaks": body.breaks,
+        "vacation_days": body.vacation_days,
+        "updated_at": now,
+    }
+    await db.schedules.update_one(
+        {"provider_id": user["id"]}, {"$set": doc}, upsert=True
+    )
+    return doc
+
+
+# ============ CHAT ============
+class WSManager:
+    """Simple in-memory websocket registry keyed by user id."""
+
+    def __init__(self):
+        self.sockets: dict[str, list[WebSocket]] = {}
+
+    async def connect(self, user_id: str, ws: WebSocket):
+        await ws.accept()
+        self.sockets.setdefault(user_id, []).append(ws)
+
+    def disconnect(self, user_id: str, ws: WebSocket):
+        lst = self.sockets.get(user_id, [])
+        if ws in lst:
+            lst.remove(ws)
+        if not lst:
+            self.sockets.pop(user_id, None)
+
+    async def send_to(self, user_id: str, message: dict):
+        for ws in list(self.sockets.get(user_id, [])):
+            try:
+                await ws.send_json(message)
+            except Exception:
+                self.disconnect(user_id, ws)
+
+
+ws_manager = WSManager()
+
+
+def _thread_id(a: str, b: str) -> str:
+    return "|".join(sorted([a, b]))
+
+
+@api_router.get("/chats/mine")
+async def my_chats(user: Annotated[dict, Depends(current_user)]):
+    """Return distinct conversations for the current user with last message + counterpart preview."""
+    pipeline = [
+        {"$match": {"$or": [{"from_id": user["id"]}, {"to_id": user["id"]}]}},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$thread_id",
+            "last_text": {"$first": "$text"},
+            "last_at": {"$first": "$created_at"},
+            "from_id": {"$first": "$from_id"},
+            "to_id": {"$first": "$to_id"},
+        }},
+        {"$sort": {"last_at": -1}},
+    ]
+    threads = await db.messages.aggregate(pipeline).to_list(500)
+    out = []
+    for t in threads:
+        other_id = t["to_id"] if t["from_id"] == user["id"] else t["from_id"]
+        other = await db.users.find_one({"id": other_id}, {"_id": 0, "password_hash": 0})
+        if not other:
+            continue
+        out.append({
+            "other_id": other_id,
+            "other_name": other["full_name"],
+            "other_avatar": other.get("avatar_url"),
+            "other_role": other["role"],
+            "last_text": t["last_text"],
+            "last_at": t["last_at"],
+        })
+    return out
+
+
+@api_router.get("/chats/{other_id}/messages")
+async def chat_history(
+    other_id: str,
+    user: Annotated[dict, Depends(current_user)],
+):
+    tid = _thread_id(user["id"], other_id)
+    msgs = await db.messages.find({"thread_id": tid}, {"_id": 0}).sort("created_at", 1).to_list(2000)
+    return msgs
+
+
+@api_router.post("/chats/{other_id}/messages", status_code=201)
+async def send_message(
+    other_id: str,
+    body: ChatMessageIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    other = await db.users.find_one({"id": other_id}, {"_id": 0})
+    if not other:
+        raise HTTPException(status_code=404, detail="Recipient not found")
+    msg = {
+        "id": str(uuid.uuid4()),
+        "thread_id": _thread_id(user["id"], other_id),
+        "from_id": user["id"],
+        "from_name": user["full_name"],
+        "to_id": other_id,
+        "text": body.text,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.messages.insert_one(msg)
+    msg.pop("_id", None)
+    # Fanout via websocket
+    await ws_manager.send_to(other_id, {"type": "message", "message": msg})
+    await ws_manager.send_to(user["id"], {"type": "message", "message": msg})
+    return msg
+
+
+@app.websocket("/api/ws/chat")
+async def ws_chat(websocket: WebSocket, token: str):
+    """Authenticated chat WebSocket. Client connects with ?token=<JWT>."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["sub"]
+    except jwt.InvalidTokenError:
+        await websocket.close(code=1008)
+        return
+    await ws_manager.connect(user_id, websocket)
+    try:
+        while True:
+            # Keep connection alive; we only push server->client
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(user_id, websocket)
+    except Exception:
+        ws_manager.disconnect(user_id, websocket)
+
+
 # ============ SEED (DEV ONLY) ============
 @api_router.post("/seed")
 async def seed_data():
@@ -662,6 +841,9 @@ async def on_startup():
     await db.bookings.create_index("client_id")
     await db.bookings.create_index("provider_id")
     await db.reviews.create_index("provider_id")
+    await db.messages.create_index("thread_id")
+    await db.messages.create_index([("thread_id", 1), ("created_at", 1)])
+    await db.schedules.create_index("provider_id", unique=True)
 
 
 @app.on_event("shutdown")
