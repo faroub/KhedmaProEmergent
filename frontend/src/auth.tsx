@@ -23,11 +23,18 @@ export type User = {
   wilaya_code?: string;
   baladiya?: string;
   cross_wilaya?: boolean;
-  portfolio_images?: string[];
+  portfolio_images?: (string | { url: string; caption?: string | null; tags?: string[]; is_cover?: boolean })[];
   is_manually_deactivated?: boolean;
   manually_deactivated_at?: string | null;
   is_deleted?: boolean;
   last_paid_at?: string | null;
+  verification_status?: "unverified" | "pending" | "verified" | "rejected";
+  is_verified?: boolean;
+  verification_documents?: { id: string; type: string; url: string; note?: string | null; uploaded_at?: string }[];
+  verification_reject_reason?: string | null;
+  verification_submitted_at?: string | null;
+  verification_reviewed_at?: string | null;
+  is_admin?: boolean;
 };
 
 type AuthCtx = {

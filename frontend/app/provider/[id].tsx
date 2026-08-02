@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, ImageBackground, Modal, TextInput, FlatList,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, ImageBackground, Modal, TextInput, FlatList, Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -11,6 +11,8 @@ import { api } from "@/src/api";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { useAuth } from "@/src/auth";
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 export default function ProviderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +28,7 @@ export default function ProviderDetail() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [viewerIdx, setViewerIdx] = useState<number | null>(null);
 
   const REPORT_REASONS = [
     { key: "no_show", tKey: "report.reasons.noShow" },
@@ -118,10 +121,12 @@ export default function ProviderDetail() {
 
           <View style={styles.nameRow}>
             <Text style={styles.name}>{provider.full_name}</Text>
-            <View style={styles.verified}>
-              <Ionicons name="shield-checkmark" size={14} color={theme.colors.onBrandPrimary} />
-              <Text style={styles.verifiedText}>{t("provider.verified")}</Text>
-            </View>
+            {provider.is_verified && (
+              <View style={styles.verified} testID="verified-badge">
+                <Ionicons name="shield-checkmark" size={14} color={theme.colors.onBrandPrimary} />
+                <Text style={styles.verifiedText}>{t("verify.badgeShort")}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.metaRow}>
@@ -165,9 +170,34 @@ export default function ProviderDetail() {
                 keyExtractor={(_, i) => `p${i}`}
                 contentContainerStyle={{ gap: 8 }}
                 showsHorizontalScrollIndicator={false}
-                renderItem={({ item, index }) => (
-                  <Image source={{ uri: item }} testID={`portfolio-${index}`} style={styles.portfolioImg} contentFit="cover" />
-                )}
+                renderItem={({ item, index }) => {
+                  const url = typeof item === "string" ? item : item?.url;
+                  const caption = typeof item === "string" ? null : item?.caption;
+                  const tags = typeof item === "string" ? [] : item?.tags || [];
+                  const isCover = typeof item === "string" ? false : !!item?.is_cover;
+                  return (
+                    <Pressable
+                      testID={`portfolio-${index}`}
+                      onPress={() => setViewerIdx(index)}
+                      style={styles.portfolioTile}
+                    >
+                      <Image source={{ uri: url }} style={styles.portfolioImg} contentFit="cover" />
+                      {isCover && (
+                        <View style={styles.portfolioCoverBadge}>
+                          <Ionicons name="star" size={10} color="#fff" />
+                          <Text style={styles.portfolioCoverText}>{t("portfolio.cover")}</Text>
+                        </View>
+                      )}
+                      {(caption || tags.length > 0) && (
+                        <View style={styles.portfolioCaption}>
+                          <Text style={styles.portfolioCaptionText} numberOfLines={1}>
+                            {caption || t(`portfolio.tag_${tags[0]}`)}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                }}
               />
             </>
           )}
@@ -201,6 +231,63 @@ export default function ProviderDetail() {
           )}
         </View>
       </ScrollView>
+
+      {/* Full-screen gallery viewer */}
+      <Modal
+        visible={viewerIdx !== null}
+        animationType="fade"
+        onRequestClose={() => setViewerIdx(null)}
+        statusBarTranslucent
+        transparent={false}
+      >
+        <View style={styles.viewerRoot}>
+          <FlatList
+            data={provider?.portfolio_images || []}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={viewerIdx || 0}
+            getItemLayout={(_, i) => ({
+              length: SCREEN_W,
+              offset: SCREEN_W * i,
+              index: i,
+            })}
+            keyExtractor={(_, i) => `v${i}`}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const url = typeof item === "string" ? item : item?.url;
+              const caption = typeof item === "string" ? null : item?.caption;
+              const tags = typeof item === "string" ? [] : item?.tags || [];
+              return (
+                <View style={styles.viewerPage}>
+                  <Image source={{ uri: url }} style={styles.viewerImg} contentFit="contain" />
+                  {(caption || tags.length > 0) && (
+                    <View style={styles.viewerMeta}>
+                      {caption ? <Text style={styles.viewerCaption}>{caption}</Text> : null}
+                      {tags.length > 0 ? (
+                        <View style={styles.viewerTags}>
+                          {tags.map((tg: string) => (
+                            <View key={tg} style={styles.viewerTag}>
+                              <Text style={styles.viewerTagText}>{t(`portfolio.tag_${tg}`)}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+              );
+            }}
+          />
+          <Pressable
+            testID="detail-viewer-close"
+            onPress={() => setViewerIdx(null)}
+            style={styles.viewerClose}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={22} color="#fff" />
+          </Pressable>
+        </View>
+      </Modal>
 
       <SafeAreaView edges={["bottom"]} style={styles.ctaBar}>
         <Pressable
@@ -334,6 +421,43 @@ const styles = StyleSheet.create({
   },
   writeReviewText: { color: theme.colors.brand, fontSize: 12, fontWeight: "700" },
   portfolioImg: { width: 140, height: 140, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceSecondary },
+  portfolioTile: { width: 140, height: 140, borderRadius: theme.radius.md, overflow: "hidden", position: "relative" },
+  portfolioCoverBadge: {
+    position: "absolute", top: 6, left: 6,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    paddingHorizontal: 6, paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  portfolioCoverText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  portfolioCaption: {
+    position: "absolute", left: 0, right: 0, bottom: 0,
+    paddingHorizontal: 8, paddingVertical: 5,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  portfolioCaptionText: { color: "#fff", fontSize: 11, fontWeight: "600" },
+
+  // Full-screen viewer
+  viewerRoot: { flex: 1, backgroundColor: "#000" },
+  viewerPage: { width: SCREEN_W, height: SCREEN_H, justifyContent: "center", backgroundColor: "#000" },
+  viewerImg: { width: SCREEN_W, height: SCREEN_H },
+  viewerClose: {
+    position: "absolute", top: 48, right: 20,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center", justifyContent: "center",
+  },
+  viewerMeta: {
+    position: "absolute", left: 0, right: 0, bottom: 60,
+    paddingHorizontal: 24, gap: 8,
+  },
+  viewerCaption: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  viewerTags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  viewerTag: {
+    paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.18)", borderRadius: theme.radius.pill,
+  },
+  viewerTagText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   sectionTitle: { color: theme.colors.onSurface, fontSize: 18, fontWeight: "700" },
   noReviews: { color: theme.colors.muted, fontSize: 13 },
   reviewCard: {

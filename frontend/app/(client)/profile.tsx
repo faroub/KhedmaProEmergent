@@ -18,6 +18,7 @@ import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
 import { api } from "@/src/api";
+import { VerificationCard } from "@/src/VerificationCard";
 
 type ConfirmKind = "deactivate" | "reactivate" | "delete" | null;
 
@@ -184,6 +185,14 @@ export default function Profile() {
           <Row icon="call" label={t("profile.phone")} value={user.phone || "—"} />
           <Row icon="location" label={t("profile.city")} value={user.city || "—"} />
         </View>
+
+        {/* ============ Verification (providers only) ============ */}
+        {isProvider && (
+          <>
+            <Text style={styles.sectionLabel}>{t("verify.title")}</Text>
+            <VerificationCard />
+          </>
+        )}
 
         {/* ============ Subscription (providers only) ============ */}
         {isProvider && (

@@ -8,7 +8,7 @@ import logging
 import uuid
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Annotated
+from typing import List, Optional, Annotated, Union
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import bcrypt
@@ -241,15 +241,46 @@ class ProfileCompleteIn(BaseModel):
     cross_wilaya: Optional[bool] = None
 
 
+class PortfolioItemIn(BaseModel):
+    """One entry in a provider's portfolio gallery."""
+    url: str = Field(min_length=1)  # data URI or http(s) URL
+    caption: Optional[str] = Field(default=None, max_length=140)
+    tags: List[str] = Field(default_factory=list, max_length=6)
+    is_cover: bool = False
+
+
 class PortfolioUpdateIn(BaseModel):
-    # Base64-encoded compressed images (client-side compression via expo-image-manipulator)
-    portfolio_images: List[str] = Field(default_factory=list, max_length=12)
+    # Accept either legacy string list (base64/URLs) or rich objects.
+    # Objects support caption / tags / cover flag.
+    portfolio_images: List[Union[str, PortfolioItemIn]] = Field(default_factory=list, max_length=20)
 
 
 class ReportIn(BaseModel):
     provider_id: str
     reason: str = Field(min_length=2, max_length=64)
     details: Optional[str] = Field(default=None, max_length=1000)
+
+
+# ============ VERIFICATION ============
+class VerificationDocType(str, Enum):
+    id_recto = "id_recto"
+    id_verso = "id_verso"
+    certification = "certification"
+    background_check = "background_check"
+
+
+class VerificationDocIn(BaseModel):
+    type: VerificationDocType
+    url: str = Field(min_length=1)  # base64 data-URI, aggressively compressed client-side
+    note: Optional[str] = Field(default=None, max_length=300)
+
+
+class VerificationSubmitIn(BaseModel):
+    documents: List[VerificationDocIn] = Field(default_factory=list, max_length=8)
+
+
+class VerificationRejectIn(BaseModel):
+    reason: str = Field(min_length=2, max_length=500)
 
 
 # ============ HELPERS ============
@@ -417,15 +448,35 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "wilaya_code": doc.get("wilaya_code"),
         "baladiya": doc.get("baladiya"),
         "cross_wilaya": doc.get("cross_wilaya", False),
-        "portfolio_images": doc.get("portfolio_images", []),
+        "portfolio_images": [
+            (
+                {"url": p, "caption": None, "tags": [], "is_cover": i == 0}
+                if isinstance(p, str)
+                else {
+                    "url": p.get("url"),
+                    "caption": p.get("caption"),
+                    "tags": p.get("tags", []) or [],
+                    "is_cover": bool(p.get("is_cover")),
+                }
+            )
+            for i, p in enumerate(doc.get("portfolio_images", []) or [])
+        ],
         "is_manually_deactivated": bool(doc.get("is_manually_deactivated")),
         "is_deleted": bool(doc.get("is_deleted")),
         "manually_deactivated_at": doc.get("manually_deactivated_at"),
         "last_paid_at": doc.get("last_paid_at"),
+        "verification_status": doc.get("verification_status", "unverified"),
+        "is_verified": doc.get("verification_status") == "verified",
     }
     if not public:
         out["email"] = doc["email"]
         out["phone"] = doc.get("phone")
+        # Full verification payload (documents included) is private
+        out["verification_documents"] = doc.get("verification_documents", [])
+        out["verification_reject_reason"] = doc.get("verification_reject_reason")
+        out["verification_submitted_at"] = doc.get("verification_submitted_at")
+        out["verification_reviewed_at"] = doc.get("verification_reviewed_at")
+        out["is_admin"] = bool(doc.get("is_admin"))
     return out
 
 
@@ -1061,16 +1112,181 @@ async def set_portfolio(
     body: PortfolioUpdateIn,
     user: Annotated[dict, Depends(require_role(Role.service_provider))],
 ):
-    # Guard against oversized payloads (approx 900 KB per image after compression)
-    for img in body.portfolio_images:
-        if not isinstance(img, str) or len(img) > 900_000:
+    # Normalize entries to a consistent {url, caption, tags, is_cover} shape.
+    # We keep legacy string entries readable by clients that don't yet understand
+    # the object form by also mirroring the URL to a flat list.
+    normalized: list[dict] = []
+    cover_index: Optional[int] = None
+    for idx, img in enumerate(body.portfolio_images):
+        if isinstance(img, str):
+            url = img
+            item = {"url": url, "caption": None, "tags": [], "is_cover": False}
+        else:
+            url = img.url
+            item = {
+                "url": img.url,
+                "caption": img.caption,
+                "tags": img.tags or [],
+                "is_cover": bool(img.is_cover),
+            }
+        # Data-URIs can get large after aggressive compression; keep guard at 900 KB.
+        if len(url) > 900_000:
             raise HTTPException(status_code=413, detail="Image too large, please compress further")
+        if item["is_cover"] and cover_index is None:
+            cover_index = idx
+        normalized.append(item)
+    # Ensure at most one cover flag survives.
+    if cover_index is not None:
+        for i, it in enumerate(normalized):
+            it["is_cover"] = i == cover_index
+    else:
+        # Default: first image is the cover
+        if normalized:
+            normalized[0]["is_cover"] = True
+
     await db.users.update_one(
         {"id": user["id"]},
-        {"$set": {"portfolio_images": body.portfolio_images}},
+        {"$set": {"portfolio_images": normalized}},
     )
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return {"portfolio_images": updated.get("portfolio_images", [])}
+
+
+# ============ VERIFICATION ============
+def require_admin(user: dict) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+@api_router.get("/verification/status")
+async def verification_status(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
+    return {
+        "status": user.get("verification_status", "unverified"),
+        "documents": user.get("verification_documents", []),
+        "reject_reason": user.get("verification_reject_reason"),
+        "submitted_at": user.get("verification_submitted_at"),
+        "reviewed_at": user.get("verification_reviewed_at"),
+    }
+
+
+@api_router.post("/verification/submit")
+async def verification_submit(
+    body: VerificationSubmitIn,
+    user: Annotated[dict, Depends(require_role(Role.service_provider))],
+):
+    if not body.documents:
+        raise HTTPException(status_code=400, detail="At least one document is required")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    # Guard document size (same 900 KB cap as portfolio).
+    docs = []
+    for d in body.documents:
+        if len(d.url) > 900_000:
+            raise HTTPException(status_code=413, detail="Document too large, please compress further")
+        docs.append({
+            "id": str(uuid.uuid4()),
+            "type": d.type.value,
+            "url": d.url,
+            "note": d.note,
+            "uploaded_at": now_iso,
+        })
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "verification_documents": docs,
+            "verification_status": "pending",
+            "verification_submitted_at": now_iso,
+            "verification_reject_reason": None,
+            "verification_reviewed_at": None,
+        }},
+    )
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return serialize_user(updated)
+
+
+@api_router.delete("/verification/documents/{doc_id}")
+async def verification_remove_doc(
+    doc_id: str,
+    user: Annotated[dict, Depends(require_role(Role.service_provider))],
+):
+    # Only allow removal while pending or after rejection (not once approved).
+    status = user.get("verification_status")
+    if status == "verified":
+        raise HTTPException(status_code=409, detail="Cannot modify documents on a verified account")
+    docs = [d for d in (user.get("verification_documents") or []) if d.get("id") != doc_id]
+    await db.users.update_one({"id": user["id"]}, {"$set": {"verification_documents": docs}})
+    return {"success": True, "documents": docs}
+
+
+# ---- Admin review endpoints ----
+@api_router.get("/admin/verification/pending")
+async def admin_list_pending(user: Annotated[dict, Depends(current_user)]):
+    require_admin(user)
+    docs = await db.users.find(
+        {"role": Role.service_provider.value, "verification_status": "pending"},
+        {"_id": 0, "password_hash": 0},
+    ).to_list(200)
+    return [serialize_user(d) for d in docs]
+
+
+@api_router.get("/admin/verification/{provider_id}")
+async def admin_get_provider_verification(
+    provider_id: str,
+    user: Annotated[dict, Depends(current_user)],
+):
+    require_admin(user)
+    doc = await db.users.find_one(
+        {"id": provider_id, "role": Role.service_provider.value},
+        {"_id": 0, "password_hash": 0},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return serialize_user(doc)
+
+
+@api_router.post("/admin/verification/{provider_id}/approve")
+async def admin_verify_approve(
+    provider_id: str,
+    user: Annotated[dict, Depends(current_user)],
+):
+    require_admin(user)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.users.update_one(
+        {"id": provider_id, "role": Role.service_provider.value},
+        {"$set": {
+            "verification_status": "verified",
+            "verification_reviewed_at": now_iso,
+            "verification_reviewer_id": user["id"],
+            "verification_reject_reason": None,
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    updated = await db.users.find_one({"id": provider_id}, {"_id": 0})
+    return serialize_user(updated)
+
+
+@api_router.post("/admin/verification/{provider_id}/reject")
+async def admin_verify_reject(
+    provider_id: str,
+    body: VerificationRejectIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    require_admin(user)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.users.update_one(
+        {"id": provider_id, "role": Role.service_provider.value},
+        {"$set": {
+            "verification_status": "rejected",
+            "verification_reviewed_at": now_iso,
+            "verification_reviewer_id": user["id"],
+            "verification_reject_reason": body.reason,
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    updated = await db.users.find_one({"id": provider_id}, {"_id": 0})
+    return serialize_user(updated)
 
 
 # ============ REPORTS ============
@@ -1386,6 +1602,35 @@ async def on_startup():
     await db.otp_challenges.create_index("expires_at", expireAfterSeconds=0)
     await db.users.create_index("wilaya_code")
     await db.reports.create_index("provider_id")
+    await db.users.create_index("verification_status")
+
+    # Seed a default admin account if none exists — used for the manual
+    # verification review flow. Credentials are documented in
+    # /app/memory/test_credentials.md.
+    admin = await db.users.find_one({"is_admin": True})
+    if not admin:
+        admin_email = "admin@khedmapro.dz"
+        existing = await db.users.find_one({"email": admin_email})
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if existing:
+            await db.users.update_one({"id": existing["id"]}, {"$set": {"is_admin": True}})
+        else:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": admin_email,
+                "phone": None,
+                "password_hash": hash_password("admin123"),
+                "full_name": "khedmaPro Admin",
+                "role": Role.client.value,   # placeholder role — is_admin gates admin endpoints
+                "city": "Alger",
+                "is_admin": True,
+                "rating": 0.0,
+                "reviews_count": 0,
+                "created_at": now_iso,
+                "profile_complete": True,
+                "auth_methods": ["password"],
+            })
+            logger.info("Seeded default admin account (email=%s)", admin_email)
 
 
 @app.on_event("shutdown")

@@ -3,6 +3,13 @@ import { clearToken, readToken, saveToken } from "./authStorage";
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 export const API_URL = `${BASE}/api`;
 
+export type PortfolioItem = {
+  url: string;
+  caption?: string | null;
+  tags?: string[];
+  is_cover?: boolean;
+};
+
 type FetchOpts = RequestInit & { auth?: boolean };
 
 async function request<T = any>(path: string, opts: FetchOpts = {}): Promise<T> {
@@ -71,6 +78,20 @@ export const api = {
   reactivateAccount: () => request("/users/me/reactivate", { method: "POST" }),
   deleteAccount: () => request("/users/me/delete", { method: "POST" }),
 
+  // Verification (provider)
+  verificationStatus: () => request("/verification/status"),
+  submitVerification: (documents: { type: string; url: string; note?: string | null }[]) =>
+    request("/verification/submit", { method: "POST", body: JSON.stringify({ documents }) }),
+  deleteVerificationDoc: (docId: string) =>
+    request(`/verification/documents/${encodeURIComponent(docId)}`, { method: "DELETE" }),
+
+  // Admin
+  adminListPending: () => request("/admin/verification/pending"),
+  adminGetProvider: (id: string) => request(`/admin/verification/${encodeURIComponent(id)}`),
+  adminApprove: (id: string) => request(`/admin/verification/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+  adminReject: (id: string, reason: string) =>
+    request(`/admin/verification/${encodeURIComponent(id)}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),
@@ -88,7 +109,7 @@ export const api = {
 
   wilayas: () => request("/wilayas", { auth: false }),
 
-  updatePortfolio: (images: string[]) =>
+  updatePortfolio: (images: (string | PortfolioItem)[]) =>
     request("/users/me/portfolio", { method: "PATCH", body: JSON.stringify({ portfolio_images: images }) }),
 
   reportProvider: (payload: { provider_id: string; reason: string; details?: string }) =>
