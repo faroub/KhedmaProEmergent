@@ -459,7 +459,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "provider.noReviews": "Aucun avis pour l'instant. Soyez le premier !",
     "provider.perHour": "DZD / heure",
     "provider.perTask": "DZD / tâche",
-    "provider.requestBooking": "Demander une réservation",
+    "provider.requestBooking": "Réserver",
     "provider.writeReview": "Laisser un avis",
     "booking.title": "Demander une réservation",
     "booking.selectDate": "Choisir la date",

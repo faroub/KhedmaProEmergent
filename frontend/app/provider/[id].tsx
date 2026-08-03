@@ -300,7 +300,7 @@ export default function ProviderDetail() {
         </Pressable>
         <Pressable
           testID="request-booking-btn"
-          style={styles.cta}
+          style={[styles.cta, isRTL && { flexDirection: "row-reverse" }]}
           onPress={() => router.push(`/booking/new?providerId=${provider.id}`)}
         >
           <Text
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   msgBtnText: { color: theme.colors.brand, fontWeight: "700", fontSize: 14 },
   cta: {
-    flex: 1,
+    flex: 2,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: theme.spacing.sm,
     backgroundColor: theme.colors.brand, paddingVertical: 16,
     paddingHorizontal: theme.spacing.md,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: theme.colors.onBrandPrimary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
     flexShrink: 1,
