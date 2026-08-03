@@ -19,6 +19,8 @@ from . import (
     reports,
     metadata,
     seed,
+    phone_and_flags,
+    webhooks,
 )
 
 
@@ -37,4 +39,6 @@ def build_api_router() -> APIRouter:
     api.include_router(reports.router)
     api.include_router(metadata.router)
     api.include_router(seed.router)
+    api.include_router(phone_and_flags.router)
+    api.include_router(webhooks.router)
     return api

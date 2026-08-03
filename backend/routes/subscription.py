@@ -34,9 +34,19 @@ async def subscription_status(user: Annotated[dict, Depends(require_role(Role.se
 
 @router.post("/subscription/pay")
 async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
-    """MOCK payment — records the fee and extends listing by 30 days.
-    Also clears any manual deactivation. Slot a real gateway in here later.
-    """
+    """Provider monthly subscription (1000 DZD). Uses Chargily Pay when
+    configured, else falls back to a MOCK success (dev/preview environments)."""
+    from routes.webhooks import ALLOW_MOCK_PAYMENTS, create_checkout, is_chargily_enabled
+
+    if is_chargily_enabled():
+        # Real payment — return a Chargily hosted checkout URL. The webhook is
+        # authoritative for actually granting access (`last_paid_at` update).
+        return await create_checkout(user["id"], user.get("email", ""), user.get("full_name", ""))
+
+    if not ALLOW_MOCK_PAYMENTS:
+        raise HTTPException(status_code=503, detail="Payment provider is not configured")
+
+    # MOCK — legacy behavior kept for local dev.
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"id": user["id"]},
@@ -52,6 +62,7 @@ async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.servi
         "amount_dzd": SUBSCRIPTION_FEE_DZD,
         "paid_at": now_iso,
         "method": "mock",
+        "status": "paid",
     })
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    return {"success": True, "amount_dzd": SUBSCRIPTION_FEE_DZD, "user": serialize_user(updated)}
+    return {"provider": "mock", "success": True, "amount_dzd": SUBSCRIPTION_FEE_DZD, "user": serialize_user(updated)}

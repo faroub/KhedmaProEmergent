@@ -84,6 +84,10 @@ export default function Bookings() {
   const updateStatus = async (id: string, status: string) => {
     try {
       await api.updateBookingStatus(id, status);
+      // When client confirms completion → prompt for review immediately.
+      if (!isProvider && status === "completed") {
+        router.push(`/review/${id}`);
+      }
       load();
     } catch (e: any) {
       console.log(e);
@@ -250,7 +254,22 @@ export default function Bookings() {
                     style={[styles.actionBtn, styles.actionPrimary]}
                     onPress={() => updateStatus(item.id, "completed")}
                   >
-                    <Text style={styles.actionPrimaryText}>{t("bookings.markComplete")}</Text>
+                    <Text style={styles.actionPrimaryText}>{t("bookings.markWorkDone")}</Text>
+                  </Pressable>
+                )}
+                {isProvider && item.status === "awaiting_confirmation" && (
+                  <View style={[styles.actionBtn, styles.actionOutline]}>
+                    <Text style={styles.actionOutlineText}>{t("bookings.awaitingClient")}</Text>
+                  </View>
+                )}
+                {!isProvider && item.status === "awaiting_confirmation" && (
+                  <Pressable
+                    testID={`confirm-done-${item.id}`}
+                    style={[styles.actionBtn, styles.actionPrimary]}
+                    onPress={() => updateStatus(item.id, "completed")}
+                  >
+                    <Ionicons name="checkmark-done" size={14} color={theme.colors.onBrandPrimary} />
+                    <Text style={styles.actionPrimaryText}>{t("bookings.confirmDone")}</Text>
                   </Pressable>
                 )}
                 {!isProvider && (item.status === "pending" || item.status === "confirmed") && (

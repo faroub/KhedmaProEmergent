@@ -92,6 +92,17 @@ export const api = {
   adminReject: (id: string, reason: string) =>
     request(`/admin/verification/${encodeURIComponent(id)}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
 
+  // Phone reveal (behind bookings)
+  revealPhone: (otherId: string) =>
+    request<{ phone: string | null; full_name: string }>(
+      `/users/${encodeURIComponent(otherId)}/phone`
+    ),
+
+  // Admin flag queue
+  adminListFlags: () => request<any[]>("/admin/flags"),
+  adminClearFlag: (providerId: string) =>
+    request(`/admin/flags/${encodeURIComponent(providerId)}/clear`, { method: "POST" }),
+
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),

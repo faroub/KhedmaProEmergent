@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 11 — Backend + frontend smoke pass for 4 new features. Backend: 18/18 tests PASS in /app/backend/tests/test_iter11_new_features.py — phone-reveal gate + logging, two-step booking completion (all 6 state transitions), auto-flagging (seed stale → cancel trigger → provider gets is_flagged=true + search_penalty=100 + is_manually_deactivated=true + flags row), admin flag list + clear, Chargily webhook missing-signature=400, /subscription/pay mock regression. Additionally verified out-of-band (temporarily set CHARGILY_WEBHOOK_SECRET=test_dummy_key + restart): bogus signature=403 'Invalid signature', valid HMAC=400 'Invalid event' (empty payload). Env restored. Frontend smoke: provider1 login → Profile → pay-btn → subscription flipped from 'Free trial · 89 days' to 'Active subscription · Renews in 29 days' (mock success confirmed via state change; toast text 'Payment received — thank you!' is present in i18n dict as account.paySuccess but auto-dismissed before Playwright capture — no crash, no red screen). Bookings tab loads with 'bookings-tab-all' testID + 'No bookings yet' empty state. Cleanup complete: 0 leftover test bookings, 0 test client rows, 0 flags for provider1, provider1 reset (is_flagged=false, search_penalty=0, is_manually_deactivated=false, last_paid_at=null, completion_rate unset).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_new_features.py",
+    "/app/test_reports/pytest/pytest_iter11.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "webhooks.py signature guard order: `if not CHARGILY_WEBHOOK_SECRET or not signature: 400 Missing signature`. When no server secret is set, all incoming requests (even those with a header) get 400 Missing signature rather than 403 Invalid signature. This is defensible (server can't verify anyway) but slightly misleading for callers — the message says 'missing' when in fact the *server* has no secret. Consider distinguishing the two cases via error detail (e.g. 503 'Webhook not configured' when secret is unset). Not a blocker.",
+    "bookings.py::_recompute_and_maybe_flag consecutive-stale loop breaks on the newest 'completed' booking. This is correct per the spec ('consecutive from newest until a completed one'), but be aware that a single test/dev completed booking will silence the stale-check permanently unless a new pending/confirmed booking is created after it. Not a bug; documenting for future test authors.",
+    "phone_and_flags.py: reveal endpoint does not rate-limit repeated calls — a viewer with a single confirmed booking can query the phone endpoint arbitrarily many times and each call inserts a phone_reveals row. Consider dedup by (viewer_id,target_id,booking_id) or a per-hour cap. Non-blocking.",
+    "clear_flag endpoint reactivates the user unconditionally (is_manually_deactivated=false). If the account was manually deactivated by the *user* prior to the auto-flag (deactivated_reason != 'flagged_auto'), this will inadvertently reactivate them. Consider gating the reactivate step on `deactivated_reason == 'flagged_auto'`. Minor."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter11_new_features.py (new — 18 pytest cases, full teardown)"
+  ],
+  "success_rate": {
+    "backend": "18/18 (100%) — all 4 features + regression",
+    "frontend": "smoke-only, 3/3 checks pass (login, pay-btn click flips subscription state, bookings-tab-all testID + empty-state)"
+  },
+  "seed_data_creation": "During tests: 1 throwaway client (TEST_iter11_client_<uuid>@example.com), 4 stale confirmed bookings, ~3 fresh bookings, phone_reveals rows, no chargily events. All removed in fixture teardown + explicit post-run reset. provider1 reset to clean state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter11 features are fully covered by /app/backend/tests/test_iter11_new_features.py — run with `pytest tests/test_iter11_new_features.py -v --override-ini='addopts='` (avoid xdist because state fixture is scope=module). The webhook signature-verified path (403 branch) requires CHARGILY_WEBHOOK_SECRET set — the test file only verifies the 400 branch and documents this. To test 403 manually, add CHARGILY_WEBHOOK_SECRET=<anything> to /app/backend/.env, restart backend, curl -X POST -H 'signature: bogus' /api/webhooks/chargily -d '{}' → expect 403. IMPORTANT: setting CHARGILY_SECRET_KEY (not the webhook secret) would disable the mock branch on /subscription/pay — use CHARGILY_WEBHOOK_SECRET alone to keep mock pay working.",
+  "rca_of_issue": "N/A — no defects found. All specified behaviors match the spec: phone reveal gated by booking status ∈ {confirmed, awaiting_confirmation, completed}, 400 on own id, phone_reveals row inserted on success; provider PATCH completed on confirmed → awaiting_confirmation with provider_marked_done_at, client PATCH completed on awaiting_confirmation → completed with client_confirmed_done_at, client cannot set confirmed (403), provider cannot skip pending → completed (400); auto-flag triggers on 3+ stale confirmed and sets is_flagged/search_penalty=100/is_manually_deactivated=true/flag row; admin /flags lists and /clear resolves + reactivates; webhook missing sig 400, bogus sig 403 (verified out-of-band), valid HMAC accepted; mock /subscription/pay unchanged."
+}

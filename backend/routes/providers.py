@@ -45,7 +45,8 @@ async def list_providers(
         s = serialize_user(d, public=True)
         if s["active"]:
             result.append(s)
-    result.sort(key=lambda x: x["rating"], reverse=True)
+    # Sort: flagged providers (search_penalty > 0) go last; then by rating desc.
+    result.sort(key=lambda x: (bool(x.get("search_penalty")), -x.get("rating", 0)))
     return result
 
 

@@ -13,6 +13,7 @@ class Role(str, Enum):
 class BookingStatus(str, Enum):
     pending = "pending"
     confirmed = "confirmed"
+    awaiting_confirmation = "awaiting_confirmation"
     completed = "completed"
     cancelled = "cancelled"
 

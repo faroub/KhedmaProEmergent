@@ -50,9 +50,19 @@ export default function Profile() {
   const onPay = async () => {
     setPaying(true);
     try {
-      await api.paySubscription();
-      await refresh();
-      showToast(t("account.paySuccess"));
+      const r: any = await api.paySubscription();
+      if (r && r.checkout_url) {
+        // Real Chargily flow — open the hosted checkout in the in-app browser.
+        // Payment confirmation happens via server webhook; we refresh status on return.
+        const WB = await import("expo-web-browser");
+        await WB.openBrowserAsync(r.checkout_url);
+        await refresh();
+        showToast(t("account.paySuccess"));
+      } else {
+        // Mock success path
+        await refresh();
+        showToast(t("account.paySuccess"));
+      }
     } catch (e: any) {
       showToast(e?.message || "Error");
     }

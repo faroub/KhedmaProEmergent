@@ -166,6 +166,8 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "last_paid_at": doc.get("last_paid_at"),
         "verification_status": doc.get("verification_status", "unverified"),
         "is_verified": doc.get("verification_status") == "verified",
+        "is_flagged": bool(doc.get("is_flagged")),
+        "search_penalty": doc.get("search_penalty", 0),
     }
     if not public:
         out["email"] = doc["email"]
