@@ -1,0 +1,44 @@
+{
+  "summary": "Frontend re-verify (iter 14): (1) FR CTA truncation bug on /provider/{id} is FIXED across EN, FR, and AR — confirmed via DOM measurements on 390x844 web preview. (2) New landing page at `/` renders all required elements and CTA navigations work. One MINOR truncation regression detected on the landing page's two secondary buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/index.tsx secondary landing buttons",
+        "issue": "On 390x844 web preview both secondary buttons show ellipsis: 'onboarding-otp-btn' EN 'Continue with phone number' → 'Continue with pho…' (scrollWidth=129 > clientWidth=127) and 'continue-as-provider-btn' EN 'I'm a service provider' → 'I'm a service provi…' (scrollWidth=133 > clientWidth=127). Overflow is only 2–6px so tightening icon+gap or paddingHorizontal from theme.spacing.sm to a smaller value (or shortening the OTP label to 'Sign in with phone') would fix. Reference: /app/frontend/app/index.tsx:144-161 and styles.secondaryBtn (line 306) styles.secondaryBtnText (line 319). Priority: LOW (cosmetic, only in EN on narrow viewport).",
+        "testID": "onboarding-otp-btn, continue-as-provider-btn",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "Text (adjustsFontSizeToFit) — still present on request-booking-btn",
+        "issue": "provider/[id].tsx still passes adjustsFontSizeToFit + minimumFontScale to the CTA Text (lines 306-314). These props are a no-op on react-native-web. This is now HARMLESS because the FR label was shortened to 'Réserver' and the button was widened via flex:2, so text fits natively. Consider removing the dead props for cleanliness."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/screens/landing_en.png",
+    "/app/test_reports/screens/cta_en_retest.png",
+    "/app/test_reports/screens/cta_fr_retest3.png",
+    "/app/test_reports/screens/cta_ar_retest3.png"
+  ],
+  "action_items": [
+    "OPTIONAL: Shorten the OTP button label from 'Continue with phone number' to a shorter phrase (e.g. 'Phone sign-in' / 'OTP sign-in') OR reduce styles.secondaryBtn paddingHorizontal/gap by ~4px so both landing secondary buttons stop showing ellipsis in EN on 390px viewport. Overflow is only 2–6px.",
+    "OPTIONAL cleanup: Remove now-dead adjustsFontSizeToFit + minimumFontScale + allowFontScaling props from the Request Booking CTA Text in /app/frontend/app/provider/[id].tsx:308-311 (fix no longer relies on them)."
+  ],
+  "critical_code_review_comments": [
+    "provider/[id].tsx: styles.cta { flex: 2 } + ctaText { fontSize: 14, flexShrink: 1 } + shortened FR label produce a robust fit across EN(115px)/FR(60px)/AR(52px) within the ~225px button. isRTL row-reverse also correctly moves the arrow icon to the LEFT of the Arabic text (verified visually in cta_ar_retest3.png).",
+    "app/index.tsx: All required testIDs present (landing-hero, landing-features, landing-trust, browse-services-btn, onboarding-otp-btn, continue-as-provider-btn, go-to-login-btn, onboarding-lang-switcher, feature-landing.f1Title..f4Title). Trust bar shows 58/3/90 with correct labels. Pilot badge 'MADE FOR ALGERIA' renders. Brand row 'khedmaPro' with gradient logo renders.",
+    "app/index.tsx: The two secondary btns pass numberOfLines={1} + flexShrink:1 but on 390px viewport the natural text width still marginally exceeds container width, so react-native-web ellipsizes. Same class of issue as the previously-fixed CTA (numberOfLines→ellipsis on web)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested", "frontend": "95%"},
+  "seed_data_creation": "None. Used existing seeded provider Amina Cherif (id 4a3e8dd7-5e6b-4fab-9039-199d7a637a59).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Landing→home nav is fine but note: router.replace('/(client)/home') resolves to '/home' URL (Expo Router group). Language state persists across router.push/replace navigations in the SPA session (verified: switching to FR on landing then pushing to /provider/{id} still shows 'Réserver'/'Nettoyage'/'Avis'). It resets only on hard page.goto() reload since SecureStore returns null on web. Provider cards on /home use testID pattern 'provider-{id}' (NOT 'provider-card-{id}'). Measured CTA widths on 390x844: btn=225px; EN text=115px, FR text=60px, AR text=52px — all fit with plenty of margin.",
+  "rca_of_issue": "Original bug RCA (from iter 13): FR label 'Demander une réservation' overflowed the CTA text container because react-native-web ignores adjustsFontSizeToFit + minimumFontScale. Applied fix: (a) FR label shortened to 'Réserver' in src/language.tsx:492; (b) styles.cta given flex:2 (vs message btn flex-implicit); (c) ctaText fontSize reduced 16→14; (d) flexDirection:'row-reverse' added when isRTL so arrow visually leads in Arabic. Verification (this iter): EN/FR/AR all render with textScrollWidth==textClientWidth (no overflow), no ellipsis in any of the three renderings. RE-VERIFICATION PASSED."
+}

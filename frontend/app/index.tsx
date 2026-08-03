@@ -1,5 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ImageBackground, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ImageBackground,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +16,20 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
+
+type Feature = {
+  icon: keyof typeof Ionicons.glyphMap;
+  titleKey: string;
+  subKey: string;
+  color: string;
+};
+
+const FEATURES: Feature[] = [
+  { icon: "shield-checkmark", titleKey: "landing.f1Title", subKey: "landing.f1Sub", color: "#3B82F6" },
+  { icon: "flash", titleKey: "landing.f2Title", subKey: "landing.f2Sub", color: "#F59E0B" },
+  { icon: "chatbubbles", titleKey: "landing.f3Title", subKey: "landing.f3Sub", color: "#10B981" },
+  { icon: "star", titleKey: "landing.f4Title", subKey: "landing.f4Sub", color: "#EAB308" },
+];
 
 export default function Index() {
   const router = useRouter();
@@ -33,57 +55,110 @@ export default function Index() {
         resizeMode="cover"
       />
       <LinearGradient
-        colors={["rgba(11,17,32,0.4)", "rgba(11,17,32,0.85)", "#0B1120"]}
+        colors={["rgba(11,17,32,0.55)", "rgba(11,17,32,0.9)", "#0B1120"]}
         locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.topRow}>
           <View style={styles.brandRow}>
-            <View style={styles.brandDot}>
-              <Ionicons name="hammer" size={18} color={theme.colors.onBrandPrimary} />
-            </View>
+            <LinearGradient
+              colors={[theme.colors.brand, "#F59E0B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.brandLogoBox}
+            >
+              <Ionicons name="hammer" size={20} color="#0B1120" />
+            </LinearGradient>
             <Text style={styles.brandText}>{t("app.name")}</Text>
           </View>
           <LanguageSwitcher compact testID="onboarding-lang-switcher" />
         </View>
 
-        <View style={styles.heroBlock}>
-          <Text style={[styles.heroTitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
-            {t("onboarding.title")}
-          </Text>
-          <Text style={[styles.heroSubtitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
-            {t("onboarding.subtitle")}
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.heroBlock} testID="landing-hero">
+            <View style={styles.pilotBadge}>
+              <Ionicons name="location" size={12} color={theme.colors.brand} />
+              <Text style={styles.pilotBadgeText}>{t("landing.pilotBadge")}</Text>
+            </View>
+            <Text style={[styles.heroTitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
+              {t("landing.heroTitle")}
+            </Text>
+            <Text style={[styles.heroSubtitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
+              {t("landing.heroSubtitle")}
+            </Text>
+          </View>
+
+          {/* Feature grid 2x2 */}
+          <View style={styles.featureGrid} testID="landing-features">
+            {FEATURES.map((f) => (
+              <View key={f.titleKey} style={styles.featureCard} testID={`feature-${f.titleKey}`}>
+                <View style={[styles.featureIconWrap, { backgroundColor: `${f.color}22`, borderColor: `${f.color}44` }]}>
+                  <Ionicons name={f.icon} size={18} color={f.color} />
+                </View>
+                <Text style={styles.featureTitle} numberOfLines={1}>{t(f.titleKey)}</Text>
+                <Text style={styles.featureSub} numberOfLines={2}>{t(f.subKey)}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Trust bar */}
+          <View style={styles.trustBar} testID="landing-trust">
+            <View style={styles.trustItem}>
+              <Text style={styles.trustNumber}>58</Text>
+              <Text style={styles.trustLabel}>{t("landing.trustWilayas")}</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Text style={styles.trustNumber}>3</Text>
+              <Text style={styles.trustLabel}>{t("landing.trustLangs")}</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Text style={styles.trustNumber}>90</Text>
+              <Text style={styles.trustLabel}>{t("landing.trustTrial")}</Text>
+            </View>
+          </View>
+        </ScrollView>
 
         <View style={styles.actions}>
           <Pressable
             testID="browse-services-btn"
             onPress={() => router.replace("/(client)/home")}
-            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              isRTL && { flexDirection: "row-reverse" },
+              pressed && { opacity: 0.85 },
+            ]}
           >
-            <Text style={styles.primaryBtnText}>{t("onboarding.browse")}</Text>
+            <Ionicons name="search" size={16} color={theme.colors.onBrandPrimary} />
+            <Text style={styles.primaryBtnText} numberOfLines={1}>
+              {t("onboarding.browse")}
+            </Text>
             <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={18} color={theme.colors.onBrandPrimary} />
           </Pressable>
 
-          <Pressable
-            testID="onboarding-otp-btn"
-            onPress={() => router.push("/(auth)/otp")}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
-          >
-            <Ionicons name="phone-portrait-outline" size={16} color={theme.colors.onSurface} />
-            <Text style={styles.secondaryBtnText}>{t("otp.title")}</Text>
-          </Pressable>
-
-          <Pressable
-            testID="continue-as-provider-btn"
-            onPress={() => router.push({ pathname: "/(auth)/register", params: { role: "service_provider" } })}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
-          >
-            <Ionicons name="briefcase" size={16} color={theme.colors.onSurface} />
-            <Text style={styles.secondaryBtnText}>{t("onboarding.iamProvider")}</Text>
-          </Pressable>
+          <View style={styles.dualBtnRow}>
+            <Pressable
+              testID="onboarding-otp-btn"
+              onPress={() => router.push("/(auth)/otp")}
+              style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Ionicons name="phone-portrait-outline" size={16} color={theme.colors.onSurface} />
+              <Text style={styles.secondaryBtnText} numberOfLines={1}>{t("otp.title")}</Text>
+            </Pressable>
+            <Pressable
+              testID="continue-as-provider-btn"
+              onPress={() => router.push({ pathname: "/(auth)/register", params: { role: "service_provider" } })}
+              style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Ionicons name="briefcase" size={16} color={theme.colors.onSurface} />
+              <Text style={styles.secondaryBtnText} numberOfLines={1}>{t("onboarding.iamProvider")}</Text>
+            </Pressable>
+          </View>
 
           <Pressable
             testID="go-to-login-btn"
@@ -91,7 +166,8 @@ export default function Index() {
             style={styles.loginLink}
           >
             <Text style={styles.loginLinkText}>
-              {t("onboarding.haveAccount")} <Text style={{ color: theme.colors.brand }}>{t("onboarding.signIn")}</Text>
+              {t("onboarding.haveAccount")}{" "}
+              <Text style={{ color: theme.colors.brand, fontWeight: "700" }}>{t("onboarding.signIn")}</Text>
             </Text>
           </Pressable>
         </View>
@@ -103,49 +179,144 @@ export default function Index() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.surface },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
-  container: { flex: 1, paddingHorizontal: theme.spacing.xl, justifyContent: "space-between", paddingVertical: theme.spacing.xl },
-  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
-  brandDot: {
-    width: 32, height: 32, borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.brand,
-    alignItems: "center", justifyContent: "center",
+  container: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.lg,
   },
-  brandText: { color: theme.colors.onSurface, fontSize: 18, fontWeight: "700", letterSpacing: 0.4 },
-  heroBlock: { marginTop: theme.spacing.xxl },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.md,
+  },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  brandLogoBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandText: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+
+  scrollContent: { paddingBottom: theme.spacing.lg },
+
+  heroBlock: { marginTop: theme.spacing.lg },
+  pilotBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(234, 179, 8, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(234, 179, 8, 0.35)",
+    marginBottom: theme.spacing.md,
+  },
+  pilotBadgeText: { color: theme.colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 0.3 },
+
   heroTitle: {
     color: theme.colors.onSurface,
-    fontSize: 40,
+    fontSize: 34,
     fontWeight: "800",
-    lineHeight: 46,
+    lineHeight: 40,
     letterSpacing: -0.5,
   },
   heroSubtitle: {
     color: theme.colors.onSurfaceSecondary,
-    fontSize: 16,
-    lineHeight: 22,
-    marginTop: theme.spacing.lg,
-    maxWidth: 340,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: theme.spacing.md,
+    maxWidth: 360,
   },
-  actions: { gap: theme.spacing.md, marginBottom: theme.spacing.lg },
+
+  featureGrid: {
+    marginTop: theme.spacing.xl,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
+  },
+  featureCard: {
+    flexGrow: 1,
+    flexBasis: "47%",
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: "rgba(21,30,50,0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 6,
+  },
+  featureIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  featureTitle: { color: theme.colors.onSurface, fontSize: 14, fontWeight: "800" },
+  featureSub: { color: theme.colors.onSurfaceSecondary, fontSize: 12, lineHeight: 16 },
+
+  trustBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: theme.spacing.lg,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: "rgba(21,30,50,0.6)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  trustItem: { flex: 1, alignItems: "center" },
+  trustNumber: { color: theme.colors.brand, fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
+  trustLabel: { color: theme.colors.onSurfaceTertiary, fontSize: 10, fontWeight: "600", marginTop: 2, textAlign: "center" },
+  trustDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.12)" },
+
+  actions: { gap: theme.spacing.sm, marginTop: theme.spacing.md },
   primaryBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: theme.colors.brand,
-    paddingVertical: 18,
+    paddingVertical: 16,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.pill,
     gap: theme.spacing.sm,
   },
-  primaryBtnText: { color: theme.colors.onBrandPrimary, fontSize: 16, fontWeight: "700" },
+  primaryBtnText: {
+    color: theme.colors.onBrandPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+    flexShrink: 1,
+    textAlign: "center",
+  },
+  dualBtnRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
   secondaryBtn: {
-    flexDirection: "row", gap: theme.spacing.sm,
-    paddingVertical: 18,
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: theme.spacing.sm,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
     backgroundColor: "rgba(21,30,50,0.6)",
-    alignItems: "center", justifyContent: "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  secondaryBtnText: { color: theme.colors.onSurface, fontSize: 16, fontWeight: "600" },
-  loginLink: { alignItems: "center", paddingTop: theme.spacing.md },
+  secondaryBtnText: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "700", flexShrink: 1 },
+  loginLink: { alignItems: "center", paddingTop: theme.spacing.sm },
   loginLinkText: { color: theme.colors.onSurfaceSecondary, fontSize: 14 },
 });
