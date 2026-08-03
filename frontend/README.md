@@ -1,50 +1,59 @@
-# Welcome to your Expo app 👋
+# Frontend — Quick Start
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo SDK 54 + expo-router + TypeScript. See `/app/README.md` for the full guide.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run locally
 
 ```bash
-npm run reset-project
+cd frontend
+yarn install
+yarn expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Once Metro is up:
+- Press `w` for **web preview** (http://localhost:8081)
+- Press `i` for **iOS simulator** (requires Xcode)
+- Press `a` for **Android emulator** (requires Android Studio)
+- Scan the QR code with **Expo Go** on your phone
 
-## Learn more
+## Env vars (`.env`)
 
-To learn more about developing your project with Expo, look at the following resources:
+```ini
+EXPO_PUBLIC_BACKEND_URL=http://localhost:8001
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**⚠ Real-device testing:** replace `localhost` with your machine's LAN IP (e.g., `http://192.168.1.42:8001`) and open firewall port 8001.
 
-## Join the community
+## File layout
 
-Join our community of developers creating universal apps.
+```
+app/                      # expo-router file-based routes
+├── index.tsx             # landing page
+├── (auth)/               # login, register, OTP
+├── (client)/             # client tabs: home / bookings / messages / profile
+├── (provider)/           # provider tabs: dashboard / bookings / etc.
+├── admin/                # admin verification + flags queues
+├── booking/, chat/,      # detail screens
+└── provider/[id].tsx     # public provider profile
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+src/                      # everything else
+├── api.ts                # typed API client
+├── auth.tsx              # auth context
+├── language.tsx          # i18n (EN/FR/AR) with RTL support
+└── *.tsx                 # shared components
+```
+
+## Testing
+
+```bash
+yarn tsc --noEmit                    # TypeScript type check
+yarn eslint app src --ext .ts,.tsx   # lint (if configured)
+```
+
+## Common issues
+
+| Problem | Fix |
+|---------|-----|
+| Blank screen | `yarn expo start -c` (clear cache) |
+| "Network request failed" | Set `EXPO_PUBLIC_BACKEND_URL` to LAN IP, not localhost |
+| Push notifications don't fire | Expected — only work in production builds |
