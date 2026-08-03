@@ -20,11 +20,13 @@ Feature code has moved to focused modules:
 - `routes/*.py`       — one file per feature area
 """
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
 from database import client, db
 from routes import build_api_router
@@ -39,6 +41,13 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="khedmaPro API")
 app.include_router(build_api_router())
+
+# Marketing website (static HTML). Mounted at /api/site because Kubernetes
+# ingress routes /api/* to this backend service. html=True enables directory
+# index resolution so /api/site/ serves index.html.
+_site_dir = os.path.join(os.path.dirname(__file__), "site")
+if os.path.isdir(_site_dir):
+    app.mount("/api/site", StaticFiles(directory=_site_dir, html=True), name="site")
 
 # WebSocket chat lives on the app directly (path already includes /api).
 app.add_api_websocket_route("/api/ws/chat", ws_chat)
