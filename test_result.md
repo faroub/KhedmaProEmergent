@@ -379,3 +379,45 @@ JUnit: `/app/test_reports/pytest/pytest_iter12.xml`
 - The DZ phone regex accepts any of: `+213555010101`, `00213555010101`, `0555010101`. Landlines (leading 2/3/4) are rejected — providers must have a mobile number.
 - Wilaya selection uses the shared `WilayaPicker` (already used on the client home). Search + 58 wilayas supported in EN/FR/AR.
 - Reveal endpoint contract unchanged — only unlocks the phone when at least one booking between the two parties is in `confirmed`, `awaiting_confirmation`, or `completed` state.
+
+---
+## Iteration 15 — Package rename + best-effort phone verification + wilaya backfill (Aug 2026)
+
+### Package rename (P0)
+- `app.json`: `ios.bundleIdentifier` and `android.package` both changed from `com.emergent.serviceproapp.porjq5` to **`com.khedmapro.app`** (matches user-provided `google-services.json`).
+
+### Best-effort phone verification (P2)
+- **Schema**: added `phone_verified: bool` + `phone_verified_at` to user docs. `serialize_user` exposes `phone_verified`.
+- **OTP flow (`routes/otp.py`)**: `POST /auth/otp/verify` now sets `phone_verified=True` for both the new-user and existing-user branches.
+- **New endpoint** `POST /auth/verify-my-phone` — authenticated user submits a code to verify the phone already on file. Reuses the existing OTP challenge; does NOT mint a new token. Returns updated serialized user.
+- **Booking gate** (`routes/bookings.py::update_booking_status`): providers cannot transition a booking to `confirmed`, `awaiting_confirmation`, or `completed` unless `phone_verified=True`. Providers CAN still `cancel` (never dead-end the user).
+- **Seed** (`routes/seed.py`): seeded providers get `phone_verified=True` + `phone_verified_at` so demo flows work out of the box. Existing DB providers migrated via one-shot mongosh update.
+- **Frontend**:
+  * `src/PhoneVerifyBanner.tsx` — full red banner + modal flow (Send code → Enter 6-digit → Verify). Rendered on provider dashboard AND at the top of the shared bookings list (only visible when `user.role === "service_provider" && !phone_verified`). Screenshot confirmed on the dashboard.
+  * `src/api.ts::verifyMyPhone(code)` helper.
+  * `User` type extended with `phone_verified?: boolean`.
+  * EN/FR/AR strings for the entire flow.
+- **Testing note**: OTP remains MOCKED — deterministic bcrypt hash of code `910428` is inserted directly in `iter15` tests to avoid depending on backend stdout.
+
+### Wilaya backfill endpoint (P2)
+- **New endpoint** `POST /api/admin/backfill/wilaya` (admin only). Body: `{default_wilaya: "16", dry_run: false}`.
+  * Validates the wilaya against the 58-entry list → 400 on bad codes.
+  * `dry_run=true` returns `{dry_run, would_update, default_wilaya}` without writing.
+  * Live run returns `{updated, default_wilaya}` and stamps `wilaya_backfilled_at`.
+  * Idempotent — subsequent runs return `updated: 0`.
+- Called once via `mongosh` on the test DB to backfill existing seeded providers.
+
+### Iteration 15 test suite
+- `backend/tests/test_iter15_phone_verify_backfill.py`: **12/12 pass**
+  * `phone_verified=False` at registration.
+  * `verify-my-phone` happy path (deterministic mock OTP), invalid code (401), malformed body (422), unauthenticated (401).
+  * Booking confirmation blocked for unverified provider (403) with human-readable detail; cancels remain allowed.
+  * Verified provider can confirm (200).
+  * Backfill: admin-only (403), dry-run no-write, live write, idempotency, rejects bad code.
+
+### Regression
+**Full suite: 145/145 pass** serially (`-n 0`). Zero regressions.
+
+### Next Action Items
+- ⏭ Real SMS provider — currently OTP is MOCKED (fixed code `910428`). For prod launch, integrate an SMS gateway (Twilio, Vonage, or a local Algerian provider).
+- ⏭ Optional: expose a shortcut on the profile screen to trigger phone verification without leaving the tab.

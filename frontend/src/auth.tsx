@@ -36,6 +36,7 @@ export type User = {
   verification_submitted_at?: string | null;
   verification_reviewed_at?: string | null;
   is_admin?: boolean;
+  phone_verified?: boolean;
 };
 
 type AuthCtx = {

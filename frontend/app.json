@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.serviceproapp.porjq5",
+      "bundleIdentifier": "com.khedmapro.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Find service providers near you"
       }
@@ -21,7 +21,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.serviceproapp.porjq5",
+      "package": "com.khedmapro.app",
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",

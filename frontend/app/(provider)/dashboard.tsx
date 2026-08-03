@@ -9,6 +9,7 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { PortfolioManager } from "@/src/PortfolioManager";
+import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
@@ -57,8 +58,9 @@ export default function Dashboard() {
         contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.colors.brand} />}
       >
-        <Text style={styles.hello}>{t("home.hello")}, {user?.full_name?.split(" ")[0]}</Text>
-        <Text style={styles.sub}>{t("dash.subDesc")}</Text>
+        <Text style={styles.hello}>{t("home.hello")}, {user?.full_name?.split(" ")[0]}</Text>        <Text style={styles.sub}>{t("dash.subDesc")}</Text>
+
+        <PhoneVerifyBanner />
 
         {/* Subscription banner */}
         <View style={styles.subBanner} testID="subscription-banner">

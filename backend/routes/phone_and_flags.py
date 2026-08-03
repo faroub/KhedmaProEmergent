@@ -80,3 +80,59 @@ async def clear_flag(provider_id: str, user: Annotated[dict, Depends(current_use
         }},
     )
     return {"success": True}
+
+
+
+# =========================================================================
+# Admin: one-shot wilaya backfill for legacy provider accounts
+# =========================================================================
+from pydantic import BaseModel, Field
+from reference_data import WILAYAS
+
+_VALID_WILAYA_CODES = {w["code"] for w in WILAYAS}
+
+
+class WilayaBackfillIn(BaseModel):
+    default_wilaya: str = Field(default="16", min_length=2, max_length=2)
+    dry_run: bool = False
+
+
+@router.post("/admin/backfill/wilaya")
+async def backfill_wilaya(
+    body: WilayaBackfillIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Assign a default wilaya to all providers missing one.
+
+    - `default_wilaya` MUST be a valid 2-digit DZ wilaya code (defaults to "16" = Alger).
+    - `dry_run=True` returns the count of affected providers without writing.
+    Idempotent: subsequent calls are no-ops.
+    """
+    require_admin(user)
+    if body.default_wilaya not in _VALID_WILAYA_CODES:
+        raise HTTPException(status_code=400, detail=f"Invalid wilaya_code: {body.default_wilaya}")
+
+    q = {
+        "role": "service_provider",
+        "$or": [
+            {"wilaya_code": {"$exists": False}},
+            {"wilaya_code": None},
+            {"wilaya_code": ""},
+        ],
+    }
+    count = await db.users.count_documents(q)
+    if body.dry_run:
+        return {"dry_run": True, "would_update": count, "default_wilaya": body.default_wilaya}
+
+    if count == 0:
+        return {"updated": 0, "default_wilaya": body.default_wilaya}
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.users.update_many(
+        q,
+        {"$set": {
+            "wilaya_code": body.default_wilaya,
+            "wilaya_backfilled_at": now_iso,
+        }},
+    )
+    return {"updated": res.modified_count, "default_wilaya": body.default_wilaya}

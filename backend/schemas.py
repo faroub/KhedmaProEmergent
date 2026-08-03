@@ -87,6 +87,12 @@ class OtpVerifyIn(BaseModel):
     role: Role = Role.client
 
 
+class VerifyMyPhoneIn(BaseModel):
+    """OTP verification for an authenticated user (marks phone as verified,
+    does NOT create/return a session token)."""
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 # ---------- Profile / portfolio ----------
 class ProfileCompleteIn(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)

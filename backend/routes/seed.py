@@ -60,6 +60,8 @@ async def seed_data():
             "password_hash": hash_password("password123"),
             "role": Role.service_provider.value,
             "phone": f"+21355500{i+1:04d}",
+            "phone_verified": True,  # seeded providers are pre-verified
+            "phone_verified_at": datetime.now(timezone.utc).isoformat(),
             "rating": round(3.8 + (i % 5) * 0.25, 2),
             "reviews_count": 5 + i * 2,
             "created_at": datetime.now(timezone.utc).isoformat(),

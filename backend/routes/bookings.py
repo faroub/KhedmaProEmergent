@@ -146,6 +146,22 @@ async def update_booking_status(
     if user["role"] == Role.service_provider.value:
         if booking["provider_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not your booking")
+        # Best-effort phone verification: providers cannot confirm bookings
+        # (or mark them done) until they verify their phone number. Cancels
+        # remain allowed — never dead-end the user.
+        if (
+            new_status
+            in (
+                BookingStatus.confirmed.value,
+                BookingStatus.completed.value,  # would become awaiting_confirmation
+                BookingStatus.awaiting_confirmation.value,
+            )
+            and not user.get("phone_verified")
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Please verify your phone number to accept bookings",
+            )
         # Provider: pending→confirmed, confirmed→awaiting_confirmation (was completed), any→cancelled
         if new_status == BookingStatus.completed.value:
             # Provider "completing" now means they marked their side done; wait for client.

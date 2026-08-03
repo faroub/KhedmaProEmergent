@@ -120,6 +120,12 @@ export const api = {
     if (data.access_token) await saveToken(data.access_token);
     return data;
   },
+  /** Verify the phone of the CURRENTLY authenticated user (best-effort phone verification). */
+  verifyMyPhone: (code: string) =>
+    request<{ phone_verified: boolean; user: any }>("/auth/verify-my-phone", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   completeProfile: (payload: any) =>
     request("/users/me/profile", { method: "PATCH", body: JSON.stringify(payload) }),
 
