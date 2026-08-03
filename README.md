@@ -44,6 +44,80 @@ Optional but nice: **VS Code**, **mongosh** (CLI for MongoDB).
 
 ## 🚀 One-time setup
 
+**Choose one path:**
+
+- **🐳 Docker (recommended for most devs)** — jump to [Docker Compose](#-docker-compose-one-command-dev).
+- **🖥 Native (full control, best for Expo real-device testing)** — follow the steps below.
+
+---
+
+## 🐳 Docker Compose (one-command dev)
+
+Skip installing MongoDB and juggling Python environments — just run:
+
+```bash
+docker compose up
+```
+
+That starts:
+
+| Service | Port | What |
+|---------|------|------|
+| `mongo` | 27017 | MongoDB 6, persisted in a named volume |
+| `backend` | 8001 | FastAPI with `--reload` (edits hot-reload) |
+
+Everything is now at:
+- API: http://localhost:8001
+- Swagger: http://localhost:8001/docs
+- Marketing site: http://localhost:8001/api/site/
+
+### Seed sample data
+
+```bash
+curl -X POST http://localhost:8001/api/seed
+```
+
+### Include Metro/Expo too
+
+Metro is intentionally NOT in the default profile because **Expo Go on your phone needs Metro reachable on your LAN** and Docker networking on some hosts makes that painful.
+
+If you only want the web preview (or you're on Docker Desktop, which forwards ports transparently):
+
+```bash
+docker compose --profile expo up
+```
+
+Adds a `frontend` container exposing Metro on `http://localhost:8081`. For phone/QR scanning, edit `docker-compose.yml` and set `EXPO_PACKAGER_HOSTNAME` to your machine's LAN IP.
+
+Otherwise, run the frontend natively (**recommended** — see [Native setup](#-native-setup) below):
+
+```bash
+cd frontend && yarn install && yarn expo start
+```
+
+### Common Docker commands
+
+```bash
+docker compose up -d                    # detached
+docker compose logs -f backend          # tail backend logs
+docker compose exec backend pytest -n 0 # run tests
+docker compose exec mongo mongosh khedmapro
+docker compose down                     # stop
+docker compose down -v                  # stop + WIPE the mongo volume (fresh DB)
+```
+
+### File map for Docker
+
+- `docker-compose.yml` — orchestration
+- `backend/Dockerfile` — Python 3.11 slim + `uvicorn --reload`
+- `frontend/Dockerfile` — Node 20 slim + `yarn expo start --host lan` (only when `--profile expo`)
+
+---
+
+## 🖥 Native setup
+
+Same as Docker, but you install everything on the host — best for full Expo Go real-device testing.
+
 ### 1. Clone
 
 ```bash

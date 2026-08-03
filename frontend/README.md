@@ -2,7 +2,7 @@
 
 Expo SDK 54 + expo-router + TypeScript. See `/app/README.md` for the full guide.
 
-## Run locally
+## Run locally (recommended — Expo Go real-device testing works out of the box)
 
 ```bash
 cd frontend
@@ -57,3 +57,14 @@ yarn eslint app src --ext .ts,.tsx   # lint (if configured)
 | Blank screen | `yarn expo start -c` (clear cache) |
 | "Network request failed" | Set `EXPO_PUBLIC_BACKEND_URL` to LAN IP, not localhost |
 | Push notifications don't fire | Expected — only work in production builds |
+
+## Run with Docker (optional)
+
+Metro can also run inside Docker via the `expo` profile:
+
+```bash
+# from repo root
+docker compose --profile expo up
+```
+
+⚠️ **Real-device (phone) testing works better natively** because Expo Go needs Metro reachable on your LAN. Docker Desktop (macOS/Windows) usually forwards ports fine, but on native Linux Docker you may need to set `EXPO_PACKAGER_HOSTNAME` to your machine's LAN IP in `docker-compose.yml`.

@@ -2,7 +2,17 @@
 
 FastAPI + MongoDB + static marketing site. See `/app/README.md` for the full guide.
 
-## Run locally
+## Run with Docker (easiest)
+
+From the repo root:
+
+```bash
+docker compose up
+```
+
+This spins up MongoDB and the backend together. API on http://localhost:8001, marketing site at http://localhost:8001/api/site/.
+
+## Run locally (native)
 
 ```bash
 cd backend

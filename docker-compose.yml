@@ -1,0 +1,104 @@
+# khedmaPro — one-command dev environment.
+#
+# Default: starts MongoDB + FastAPI backend (the two hardest deps to set up).
+#          Run Metro/Expo yourself on the host via `yarn expo start`. This is
+#          the recommended workflow because Expo Go needs to hit Metro on
+#          your LAN, and running Metro inside Docker adds NAT complexity.
+#
+# Optional: `docker compose --profile expo up` also runs Metro in Docker.
+#           Only useful for the web preview, not for phone QR scanning.
+#
+# Usage
+# -----
+#   docker compose up                # backend + mongo (recommended)
+#   docker compose up -d             # ... in the background
+#   docker compose logs -f backend   # tail backend logs
+#   docker compose down              # stop everything
+#   docker compose down -v           # ... AND wipe the mongo volume (fresh DB)
+#   docker compose --profile expo up # ... also spin up the Metro dev server
+#
+# After the stack is up:
+#   API:            http://localhost:8001
+#   Swagger:        http://localhost:8001/docs
+#   Marketing site: http://localhost:8001/api/site/
+#   Metro (if expo profile): http://localhost:8081
+#
+# Sample data
+# -----------
+#   curl -X POST http://localhost:8001/api/seed
+
+services:
+  mongo:
+    image: mongo:6
+    container_name: khedmapro-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: khedmapro-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: khedmapro
+      # Change JWT_SECRET before shipping. It's fine as-is for local dev.
+      JWT_SECRET: local-dev-jwt-secret-change-me-please-32chars
+      JWT_EXPIRE_MINUTES: "1440"
+      EMERGENT_PUSH_KEY: placeholder
+      # CHARGILY_SECRET_KEY: ${CHARGILY_SECRET_KEY:-}  # uncomment for real payments
+    ports:
+      - "8001:8001"
+    # Mount the source read-write so uvicorn --reload picks up code changes.
+    volumes:
+      - ./backend:/app
+      - backend-venv:/app/.venv  # keep Python deps cached across restarts
+    working_dir: /app
+    command: uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+
+  # OPTIONAL: Expo/Metro dev server. Enable with `--profile expo`.
+  # Note: Expo Go on a real device requires Metro to be reachable on your
+  # LAN. On Docker Desktop (macOS/Windows), this works out of the box via
+  # localhost binding. On native Linux Docker, you may need to set
+  # `EXPO_PACKAGER_HOSTNAME=<your-lan-ip>` in .env for real-device testing.
+  frontend:
+    profiles: ["expo"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: khedmapro-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
+      # Uncomment + set your LAN IP for real-device QR scanning:
+      # EXPO_PACKAGER_HOSTNAME: 192.168.1.42
+    ports:
+      - "8081:8081"   # Metro bundler
+      - "19000:19000" # Expo dev tools (legacy)
+      - "19001:19001" # Metro websocket
+      - "19002:19002" # Expo dev tools UI
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    working_dir: /app
+    command: sh -c "yarn install --frozen-lockfile && yarn expo start --host lan --port 8081"
+
+volumes:
+  mongo-data:
+  backend-venv:
+  frontend-node-modules:
