@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { api, WS_URL } from "@/src/api";
 import { readToken } from "@/src/authStorage";
 import { useAuth } from "@/src/auth";
+import { RevealPhoneButton } from "@/src/RevealPhoneButton";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 
@@ -112,7 +113,9 @@ export default function ChatScreen() {
           <Ionicons name="chevron-back" size={24} color={theme.colors.onSurface} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>{otherName || t("chat.title")}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerReveal}>
+          <RevealPhoneButton otherId={otherId} compact testID="chat-reveal-phone" />
+        </View>
       </View>
 
       <View style={styles.safetyBanner}>
@@ -173,6 +176,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   title: { color: theme.colors.onSurface, fontSize: 16, fontWeight: "700", flex: 1, textAlign: "center" },
+  headerReveal: { minWidth: 40, alignItems: "flex-end", justifyContent: "center", maxWidth: 180 },
   safetyBanner: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8, marginHorizontal: theme.spacing.md, marginTop: theme.spacing.sm, borderRadius: theme.radius.sm, backgroundColor: theme.colors.brandTertiary },
   safetyText: { color: theme.colors.onBrandTertiary, fontSize: 11, flex: 1 },
   bubble: { maxWidth: "78%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },

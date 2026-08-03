@@ -10,6 +10,7 @@ import { useAuth } from "@/src/auth";
 import { api } from "@/src/api";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { WilayaPicker } from "@/src/WilayaPicker";
 
 type Category = { id: string; name: string; icon: string };
 
@@ -27,6 +28,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+  const [wilayaCode, setWilayaCode] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
@@ -39,14 +41,34 @@ export default function Register() {
     api.categories().then((c: any) => setCategories(c)).catch(() => {});
   }, []);
 
+  // Phone must be Algerian mobile: leading 5/6/7 followed by 8 digits after normalization.
+  const isValidDzPhone = (raw: string) => {
+    const s = raw.replace(/[\s().-]/g, "");
+    let national = s;
+    if (s.startsWith("+213")) national = s.slice(4);
+    else if (s.startsWith("00213")) national = s.slice(5);
+    else if (s.startsWith("0")) national = s.slice(1);
+    return /^[567]\d{8}$/.test(national);
+  };
+
   const onSubmit = async () => {
     if (!fullName || !email || !password) {
       setError(t("auth.errFill"));
       return;
     }
-    if (role === "service_provider" && !category) {
-      setError(t("auth.errCategory"));
-      return;
+    if (role === "service_provider") {
+      if (!category) {
+        setError(t("auth.errCategory"));
+        return;
+      }
+      if (!phone.trim() || !isValidDzPhone(phone.trim())) {
+        setError(t("auth.errPhoneProvider"));
+        return;
+      }
+      if (!wilayaCode) {
+        setError(t("auth.errWilaya"));
+        return;
+      }
     }
     setSubmitting(true);
     setError(null);
@@ -64,6 +86,7 @@ export default function Register() {
         payload.bio = bio || undefined;
         payload.hourly_rate = hourlyRate ? parseFloat(hourlyRate) : undefined;
         payload.task_rate = taskRate ? parseFloat(taskRate) : undefined;
+        payload.wilaya_code = wilayaCode || undefined;
       }
       const u = await register(payload);
       router.replace(u.role === "service_provider" ? "/(provider)/dashboard" : "/(client)/home");
@@ -113,8 +136,16 @@ export default function Register() {
           <Field label={t("auth.password")}>
             <TextInput testID="reg-password-input" style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" placeholderTextColor={theme.colors.muted} />
           </Field>
-          <Field label={t("auth.phoneOptional")}>
-            <TextInput testID="reg-phone-input" style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+213 …" placeholderTextColor={theme.colors.muted} />
+          <Field label={role === "service_provider" ? t("auth.phoneRequired") : t("auth.phoneOptional")}>
+            <TextInput
+              testID="reg-phone-input"
+              style={styles.input}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="+213 …"
+              placeholderTextColor={theme.colors.muted}
+            />
           </Field>
           <Field label={t("auth.cityOptional")}>
             <TextInput testID="reg-city-input" style={styles.input} value={city} onChangeText={setCity} placeholder="Algiers" placeholderTextColor={theme.colors.muted} />
@@ -122,6 +153,14 @@ export default function Register() {
 
           {role === "service_provider" && (
             <>
+              <Text style={styles.sectionLabel}>{t("auth.wilayaRequired")}</Text>
+              <WilayaPicker
+                testID="reg-wilaya-picker"
+                value={wilayaCode}
+                onSelect={(code) => setWilayaCode(code)}
+                label={t("wilaya.select")}
+              />
+
               <Text style={styles.sectionLabel}>{t("auth.category")}</Text>
               <View style={styles.categoryGrid}>
                 {categories.map((c) => (

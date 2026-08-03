@@ -20,6 +20,7 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { bookingsStore } from "@/src/db/localDb";
+import { RevealPhoneButton } from "@/src/RevealPhoneButton";
 import type { LocalBooking } from "@/src/db/schema";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -201,6 +202,23 @@ export default function Bookings() {
                   <Text style={styles.cardMetaText} numberOfLines={1}>{item.client_phone}</Text>
                 </View>
               )}
+              {/* Reveal counterpart phone: provider→guest bookings inline the phone
+                  already (client_phone above). For every other booking, use the
+                  gated reveal endpoint which only unlocks after confirmation. */}
+              {(() => {
+                const counterpartId = isProvider ? item.client_id : item.provider_id;
+                const alreadyShown = isProvider && !!item.client_phone;
+                if (!counterpartId || counterpartId.startsWith("guest:") || alreadyShown) return null;
+                return (
+                  <View style={styles.revealRow}>
+                    <RevealPhoneButton
+                      otherId={counterpartId}
+                      bookingStatus={item.status}
+                      testID={`reveal-${item.id}`}
+                    />
+                  </View>
+                );
+              })()}
               {item.estimated_total ? (
                 <Text style={styles.cardTotal}>≈ {item.estimated_total} DZD</Text>
               ) : null}
@@ -401,6 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   noteText: { flex: 1, fontSize: 12, lineHeight: 17 },
+  revealRow: { marginTop: 2 },
 
   // Modal
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
