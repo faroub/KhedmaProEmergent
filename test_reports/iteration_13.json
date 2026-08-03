@@ -1,0 +1,59 @@
+{
+  "summary": "Frontend-only review of (a) provider detail 'Request Booking' CTA alignment in EN/FR/AR and (b) the new consolidated Filters pill + bottom-sheet on client home. Filters feature is fully working (pill, badge, dropdowns, verified switch, Apply/Reset/Close). English CTA renders correctly centered. Arabic CTA text is centered and does NOT overflow. HOWEVER: on web preview the French label 'Demander une réservation' is TRUNCATED with an ellipsis (shows 'Demander une réser…') because React Native's adjustsFontSizeToFit prop is not honored on react-native-web. On native builds (iOS/Android) it should work, but user was verifying on the web preview so this is still a visible bug. Also, in Arabic on the web preview the arrow icon stays on the RIGHT of the text (icon name flips arrow-back vs arrow-forward, but its position does not flip because the button's flex-direction is 'row' and container dir remains LTR); the context note said RTL layout quirks on web are acceptable so this is reported as minor.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "provider/[id].tsx CTA 'Request Booking'",
+        "issue": "French text 'Demander une réservation' is truncated with ellipsis on web preview (measured scrollWidth=202 > clientWidth=175, overflowX=true). React Native Web ignores adjustsFontSizeToFit + minimumFontScale, so numberOfLines={1} just truncates instead of shrinking font. On native builds the shrink should work, but web preview still shows 'Demander une réser…'. Reference: /app/frontend/app/provider/[id].tsx:306-314 and styles.cta at line 490-504.",
+        "testID": "request-booking-btn",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "provider/[id].tsx (Arabic)",
+        "issues": [
+          "On web preview only: arrow icon still appears to the RIGHT of the Arabic text 'طلب حجز' (children[0]=text at left=73px, children[1]=icon at left=145px, flexDirection='row', document.dir='ltr'). Switching the icon name to 'arrow-back' changes only its glyph, not its position. Acceptable per context note but worth surfacing."
+        ]
+      }
+    ],
+    "react_native_issues": [
+      {
+        "component": "Text (adjustsFontSizeToFit)",
+        "issue": "adjustsFontSizeToFit + minimumFontScale are native-only props and are ignored by react-native-web. The current CTA fix therefore does NOT prevent truncation on the web preview. Reference: /app/frontend/app/provider/[id].tsx:308-311. Consider one of: (a) render the CTA with a smaller fontSize (e.g. 14) so all three languages fit natively; (b) make the Message button icon-only to give the CTA more horizontal room; (c) use flex:2 on styles.cta so it wins more of the row; (d) branch by lang for smaller FR fontSize."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/screens/cta_en.png",
+    "/app/test_reports/screens/cta_fr_real.png",
+    "/app/test_reports/screens/cta_ar_real.png",
+    "/app/test_reports/screens/home_search_filter_pill.png",
+    "/app/test_reports/screens/filters_sheet_open.png",
+    "/app/test_reports/screens/home_after_apply.png",
+    "/app/test_reports/screens/home_after_reset.png"
+  ],
+  "action_items": [
+    "Fix French CTA truncation on the web preview. Recommended: give styles.cta { flex: 2 } (or reduce Message btn footprint) AND drop ctaText fontSize to 14 to guarantee the FR label fits without ellipsis on 390px width. Current measurements: btn=225px wide, FR natural text width=202px, but clientWidth after icon+gap+padding=175px → 27px shortfall.",
+    "Optional: for Arabic web preview, if we want the arrow visually on the LEFT of the text, we need to also flip flexDirection to 'row-reverse' when isRTL is true (not just swap the icon name). Not required per context note.",
+    "Optional: keep numberOfLines={1} but also add lineBreakMode='clip' so a native fallback would clip instead of ellipsize if adjustsFontSizeToFit ever fails; still native will apply the shrink correctly."
+  ],
+  "critical_code_review_comments": [
+    "provider/[id].tsx: The CTA relies on adjustsFontSizeToFit which is a no-op on react-native-web. Since the app is served through a web preview (and users may open the app there), this fix does not cover the web case.",
+    "FiltersSheet.tsx and home.tsx: clean split, well-typed props, testIDs present. No issues found.",
+    "home.tsx activeCount formula '(scope !== \"5\" ? 1 : 0) + (selectedCat ? 1 : 0) + (verifiedOnly ? 1 : 0)' behaves as specified. Note: for guests without GPS the effect auto-flips scope to 'country', so the badge lights up '1' on first render even though the user hasn't touched the filters. Consider treating the auto-fallback scope as 'default' for badge purposes if you want a truly clean initial state.",
+    "styles.filtersRow in home.tsx is defined but no longer used (leftover from the old two-dropdown layout). Safe to delete."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested", "frontend": "80%"},
+  "seed_data_creation": "None. Used existing seeded provider Amina Cherif (id 4a3e8dd7-5e6b-4fab-9039-199d7a637a59).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Language switching only persists inside the current SPA session; a page.goto() reload resets Lang to EN. To test EN/FR/AR, load '/', switch language via [data-testid=\"onboarding-lang-switcher\"] + [data-testid=\"lang-option-fr|ar|en\"], then navigate INSIDE the SPA by clicking [data-testid=\"browse-services-btn\"] and a provider card. Measure the CTA with: document.querySelector('[data-testid=\"request-booking-btn\"]') then compare scrollWidth vs clientWidth on the inner text div — if scrollWidth > clientWidth the text is being truncated. On native builds the check should instead confirm the fontSize was auto-shrunk by adjustsFontSizeToFit.",
+  "rca_of_issue": "French CTA truncation RCA: react-native-web does not implement the adjustsFontSizeToFit + minimumFontScale props (they are iOS/Android only). Consequently, when numberOfLines={1} is set, the browser applies white-space:nowrap + text-overflow:ellipsis and the text is clipped once it exceeds the flex container's available width. Measurements confirm this: on 390x844 viewport, the CTA button = 225px wide; the Message button + arrow icon + horizontal padding + gap consume enough width that the inner ctaText Text has clientWidth=175px, but the natural width of 'Demander une réservation' at fontSize 16 fontWeight 700 is 202px → 27px overflow → ellipsis. Reproduction steps: (1) open '/' (2) switch lang to Français via onboarding-lang-switcher → lang-option-fr (3) tap Browse services (4) tap any provider card (5) look at the yellow 'Demander une réservation' button — it shows 'Demander une réser…'. Fix options are listed in action_items."
+}

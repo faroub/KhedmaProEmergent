@@ -13,7 +13,8 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { WilayaPicker } from "@/src/WilayaPicker";
-import { Dropdown, type DropdownOption } from "@/src/Dropdown";
+import { type DropdownOption } from "@/src/Dropdown";
+import { FiltersSheet, FiltersPill } from "@/src/FiltersSheet";
 import { getClientLocation, peekLocationCache, type Coords } from "@/src/utils/location";
 
 // Radius presets in kilometers. "wilaya" and "country" are sentinel scopes.
@@ -51,6 +52,8 @@ export default function Home() {
   const [scope, setScope] = useState<ScopeKey>("5");
   const [coords, setCoords] = useState<Coords | null>(peekLocationCache());
   const [locationDenied, setLocationDenied] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Resolve GPS lazily the first time a radius scope is active. If permission
   // is denied, fall back to the user's profile wilaya (or All Algeria).
@@ -111,6 +114,10 @@ export default function Home() {
   };
 
   const featured = useMemo(() => providers.slice(0, 5), [providers]);
+  const displayed = useMemo(
+    () => (verifiedOnly ? providers.filter((p: any) => p.is_verified) : providers),
+    [providers, verifiedOnly]
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -140,66 +147,27 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.brand} />}
       >
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={theme.colors.muted} />
-          <TextInput
-            testID="search-input"
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t("home.searchPlaceholder")}
-            placeholderTextColor={theme.colors.muted}
-            returnKeyType="search"
+        <View style={styles.searchRow}>
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={18} color={theme.colors.muted} />
+            <TextInput
+              testID="search-input"
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("home.searchPlaceholder")}
+              placeholderTextColor={theme.colors.muted}
+              returnKeyType="search"
+            />
+          </View>
+          <FiltersPill
+            testID="filters-pill"
+            activeCount={
+              (scope !== "5" ? 1 : 0) + (selectedCat ? 1 : 0) + (verifiedOnly ? 1 : 0)
+            }
+            label={t("filters.title")}
+            onPress={() => setFiltersOpen(true)}
           />
-        </View>
-
-        <View style={styles.filtersRow}>
-          <View style={{ flex: 1 }}>
-            <Dropdown
-              testID="scope-dropdown"
-              triggerIcon="locate-outline"
-              value={scope}
-              placeholder={t("home.scope.filterBy")}
-              sheetTitle={t("home.scope.filterBy")}
-              onSelect={(v) => {
-                const key = (v || "5") as ScopeKey;
-                setScope(key);
-                if (key !== "wilaya") setWilayaCode(null);
-              }}
-              options={SCOPE_PRESETS.map<DropdownOption>((p) => ({
-                value: p.key,
-                label:
-                  p.key === "wilaya"
-                    ? t("home.scope.wilaya")
-                    : p.key === "country"
-                    ? t("home.scope.country")
-                    : t("home.scope.km", { km: p.km! }),
-                icon:
-                  p.key === "country"
-                    ? "flag-outline"
-                    : p.key === "wilaya"
-                    ? "map-outline"
-                    : "locate-outline",
-              }))}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Dropdown
-              testID="category-dropdown"
-              triggerIcon="grid-outline"
-              value={selectedCat}
-              placeholder={t("home.categoryFilter")}
-              sheetTitle={t("home.categories")}
-              allowNull
-              allowNullLabel={t("home.all")}
-              onSelect={(v) => setSelectedCat(v)}
-              options={categories.map<DropdownOption>((c) => ({
-                value: c.id,
-                label: t(`cat.${c.id}`),
-                icon: c.icon as any,
-              }))}
-            />
-          </View>
         </View>
 
         {locationDenied && SCOPE_PRESETS.find((p) => p.key === scope)?.km != null && (
@@ -295,19 +263,19 @@ export default function Home() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t("home.allProviders")}</Text>
-          <Text style={styles.sectionCount}>{providers.length}</Text>
+          <Text style={styles.sectionCount}>{displayed.length}</Text>
         </View>
 
         {loading ? (
           <ActivityIndicator color={theme.colors.brand} style={{ marginTop: theme.spacing.xl }} />
-        ) : providers.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="search-outline" size={40} color={theme.colors.muted} />
             <Text style={styles.emptyText}>{t("home.noResults")}</Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: theme.spacing.xl, gap: theme.spacing.md }}>
-            {providers.map((p) => (
+            {displayed.map((p) => (
               <Pressable
                 key={p.id}
                 testID={`provider-${p.id}`}
@@ -349,6 +317,45 @@ export default function Home() {
           </View>
         )}
       </ScrollView>
+
+      <FiltersSheet
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        state={{ scope, category: selectedCat, verifiedOnly }}
+        scopeOptions={SCOPE_PRESETS.map<DropdownOption>((p) => ({
+          value: p.key,
+          label:
+            p.key === "wilaya"
+              ? t("home.scope.wilaya")
+              : p.key === "country"
+              ? t("home.scope.country")
+              : t("home.scope.km", { km: p.km! }),
+          icon:
+            p.key === "country"
+              ? "flag-outline"
+              : p.key === "wilaya"
+              ? "map-outline"
+              : "locate-outline",
+        }))}
+        categoryOptions={categories.map<DropdownOption>((c) => ({
+          value: c.id,
+          label: t(`cat.${c.id}`),
+          icon: c.icon as any,
+        }))}
+        onApply={(next) => {
+          const key = (next.scope || "5") as ScopeKey;
+          setScope(key);
+          if (key !== "wilaya") setWilayaCode(null);
+          setSelectedCat(next.category);
+          setVerifiedOnly(!!next.verifiedOnly);
+        }}
+        onReset={() => {
+          setScope("5");
+          setSelectedCat(null);
+          setVerifiedOnly(false);
+          setWilayaCode(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -375,8 +382,9 @@ const styles = StyleSheet.create({
   },
   signInText: { color: theme.colors.onBrandPrimary, fontWeight: "700", fontSize: 13 },
   searchWrap: {
+    flex: 1,
     flexDirection: "row", alignItems: "center", gap: theme.spacing.sm,
-    marginHorizontal: theme.spacing.xl, paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.surfaceSecondary,
     borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border,
   },
@@ -404,6 +412,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.xl,
+    marginTop: theme.spacing.md,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.xl,
+    gap: theme.spacing.sm,
     marginTop: theme.spacing.md,
   },
   chip: {

@@ -303,7 +303,15 @@ export default function ProviderDetail() {
           style={styles.cta}
           onPress={() => router.push(`/booking/new?providerId=${provider.id}`)}
         >
-          <Text style={styles.ctaText}>{t("provider.requestBooking")}</Text>
+          <Text
+            style={styles.ctaText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            allowFontScaling={false}
+          >
+            {t("provider.requestBooking")}
+          </Text>
           <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={18} color={theme.colors.onBrandPrimary} />
         </Pressable>
       </SafeAreaView>
@@ -482,7 +490,16 @@ const styles = StyleSheet.create({
   cta: {
     flex: 1,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: theme.spacing.sm,
-    backgroundColor: theme.colors.brand, paddingVertical: 16, borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.brand, paddingVertical: 16,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.pill,
   },
-  ctaText: { color: theme.colors.onBrandPrimary, fontSize: 16, fontWeight: "700" },
+  ctaText: {
+    color: theme.colors.onBrandPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    flexShrink: 1,
+    includeFontPadding: false,
+  },
 });
