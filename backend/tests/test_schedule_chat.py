@@ -54,12 +54,16 @@ def client_ctx(s):
 class TestSchedule:
     def test_default_schedule_returned_when_none_saved(self, s):
         # Use a fresh provider id that has no schedule saved
+        # (phone + wilaya are now mandatory for providers)
+        import random
+        tail = "".join(str(random.randint(0, 9)) for _ in range(8))
         r = s.post(f"{API}/auth/register", json={
             "email": f"TEST_prov_{uuid.uuid4().hex[:6]}@x.dz",
             "password": "password123", "role": "service_provider",
             "full_name": "TEST Prov", "category": "plumbing",
+            "phone": f"+2135{tail}", "wilaya_code": "16",
         })
-        assert r.status_code == 201
+        assert r.status_code == 201, r.text
         pid = r.json()["user"]["id"]
         r2 = s.get(f"{API}/schedule/{pid}")
         assert r2.status_code == 200

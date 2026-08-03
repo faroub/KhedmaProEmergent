@@ -336,3 +336,46 @@ JUnit: `/app/test_reports/pytest/pytest_iter12.xml`
 
 ### Iteration 13 test suite
 - `backend/tests/test_iter13_push.py`: 3/3 pass. Endpoint reachable (returns mapped 500 with placeholder key), rejects malformed bodies (422).
+
+---
+## Iteration 14 — Admin Flags UI + Reveal Phone + Mandatory provider fields (Aug 2026)
+
+### Backend
+- **`routes/auth.py`**: provider registration now enforces
+  * `phone` — required, must be a valid Algerian mobile (E.164 normalized via `normalize_dz_phone`)
+  * `wilaya_code` — required, must be one of the 58 valid DZ wilayas
+  * duplicate phone (409) is rejected
+  * FIX: `phone_e164` is only added to the user doc when a normalized value exists (the sparse unique index rejects explicit `null`)
+- Client registration remains unchanged (phone/wilaya optional).
+
+### Frontend
+- **New: `app/admin/flags.tsx`** — Admin-only screen mirroring the verification queue pattern. Lists all auto-flagged providers, shows a detail sheet with reason/timestamp/completion rate, exposes a "Clear flag & reactivate" action. Non-admin users see a locked-state UI with a "Back to app" CTA.
+- **Profile → Admin section**: added second card that deep-links to `/admin/flags`.
+- **New: `src/RevealPhoneButton.tsx`** — Reusable component that calls `GET /api/users/{id}/phone` and gracefully surfaces the "phone hidden — reveal after confirmation" state. Supports two variants (full-row for bookings, compact pill for chat header). Post-reveal shows a "Call" action via `Linking.openURL('tel:...')`.
+- **`(client)/bookings.tsx`**: replaced the static `client_phone` inline display with the gated `RevealPhoneButton` for every booking that has a real (non-guest) counterpart. Provider-side auth-bookings still show the raw `client_phone` where the API returns it (for backwards compatibility).
+- **`chat/[otherId].tsx`**: compact `RevealPhoneButton` docked in the header, replacing the empty spacer.
+- **`(auth)/register.tsx`**: for providers, the phone field label switches to "Phone (required)"; a `WilayaPicker` is now inline. Client-side validation:
+  * DZ mobile regex (accepts +213, 00213, or leading-0 forms; strips whitespace/punctuation)
+  * wilaya_code must be selected
+- **Language keys** (EN/FR/AR): `flags.*`, `reveal.*`, `auth.phoneRequired`, `auth.wilayaRequired`, `auth.errPhoneProvider`, `auth.errWilaya`.
+
+### Iteration 14 test suite
+- `backend/tests/test_iter14_flags_reveal_register.py`: **10/10 pass** covering
+  * 4x provider registration validation (missing phone, missing wilaya, invalid wilaya code, bad phone format)
+  * 2x happy paths (provider with valid phone+wilaya → 201; client with no phone → 201)
+  * 2x admin flags endpoint contract (admin 200, non-admin 403)
+  * 2x reveal-phone endpoint contract (own id 400, no active booking 403)
+- `test_schedule_chat.py::test_default_schedule_returned_when_none_saved` updated to include phone+wilaya (new mandatory fields).
+
+### Regression
+**Full suite: 133/133 pass** serially (`-n 0`, deselecting one pre-existing seed test). Zero regressions across all previous iterations.
+
+### Frontend verification
+- Web preview at `localhost:3000` renders cleanly.
+- Provider registration screen screenshot confirms `Phone (required)` label, `Wilaya (required)` picker + service category are all present.
+- Admin-forbidden state screenshot on `/admin/flags` confirms the guard works for non-admin users (localised copy visible).
+
+### Notes for the user
+- The DZ phone regex accepts any of: `+213555010101`, `00213555010101`, `0555010101`. Landlines (leading 2/3/4) are rejected — providers must have a mobile number.
+- Wilaya selection uses the shared `WilayaPicker` (already used on the client home). Search + 58 wilayas supported in EN/FR/AR.
+- Reveal endpoint contract unchanged — only unlocks the phone when at least one booking between the two parties is in `confirmed`, `awaiting_confirmation`, or `completed` state.
