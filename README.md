@@ -108,9 +108,48 @@ docker compose down -v                  # stop + WIPE the mongo volume (fresh DB
 
 ### File map for Docker
 
-- `docker-compose.yml` — orchestration
-- `backend/Dockerfile` — Python 3.11 slim + `uvicorn --reload`
-- `frontend/Dockerfile` — Node 20 slim + `yarn expo start --host lan` (only when `--profile expo`)
+- `docker-compose.yml` — dev orchestration (bind-mounted source, hot reload)
+- `docker-compose.prod.yml` — prod overlay (uses `Dockerfile.prod`, read-only rootfs, hides Mongo port)
+- `backend/Dockerfile` — dev image (Python 3.11 slim + `uvicorn --reload`)
+- `backend/Dockerfile.prod` — **production** image (multi-stage, non-root user, wheels-only install, `gunicorn -k uvicorn.workers.UvicornWorker`, `tini` as PID 1, HEALTHCHECK, `read_only: true`, `cap_drop: ALL`, `no-new-privileges`)
+- `frontend/Dockerfile` — dev-only Metro image (only used when `--profile expo`)
+
+### 🏭 Running the production image
+
+Ready to self-host? Use the prod overlay — it builds `Dockerfile.prod` and hardens the runtime:
+
+```bash
+# One-liner build + boot (backend + mongo, no dev bind mounts):
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# View logs
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend
+
+# Update to a new image
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# Stop
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
+
+**What the prod image gives you:**
+| Feature | How |
+|---------|-----|
+| Small final image | Multi-stage: builder → runtime. No `gcc`, no `.venv`, no build tooling in the shipped layer. |
+| Non-root | Runs as UID 10001 (user `app`). |
+| No wheel building at runtime | Wheels built in stage 1, installed offline (`--no-index --find-links`) in stage 2. |
+| Fast fail-over | `gunicorn` master + N uvicorn workers (`WEB_CONCURRENCY=4` by default). Set higher for beefier hosts. |
+| Signal-safe shutdown | `tini` as PID 1 → gunicorn graceful shutdown → uvicorn workers drain. |
+| Healthcheck | Built into Docker; probes `/api/categories` every 30s. |
+| Hardened runtime | Read-only filesystem, dropped all Linux capabilities, `no-new-privileges`. |
+
+**Tunables** (override in `docker-compose.prod.yml` or `-e`):
+- `WEB_CONCURRENCY` — number of uvicorn workers (rule of thumb: `2 * cpu + 1`, capped at ~8)
+- `GUNICORN_TIMEOUT` — request timeout (default 60s)
+- `GUNICORN_KEEPALIVE` — keep-alive seconds (default 5)
+
+**Env vars** — the prod overlay reads `./backend/.env` via `env_file`. Make sure it contains real secrets (`JWT_SECRET`, `EMERGENT_PUSH_KEY`, `CHARGILY_SECRET_KEY`, etc.) — never commit these.
 
 ---
 

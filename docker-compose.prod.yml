@@ -1,0 +1,47 @@
+# Production overlay for docker-compose.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What it changes vs. the default (dev) compose:
+#   - backend uses Dockerfile.prod (multi-stage, non-root, gunicorn+uvicorn workers).
+#   - No bind mount of source (image is self-contained).
+#   - Dropped `--reload` (workers handle scale).
+#   - Restart policy: on-failure with a higher retry.
+#   - Optional env-file override so real secrets stay out of docker-compose.yml.
+#   - Metro/frontend profile is NOT included — the RN app is built as an
+#     Android / iOS binary, not served by Metro in production.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: on-failure:5
+    # Blank out the dev bind mount + venv cache from the default file.
+    volumes: []
+    # Blank out the dev command; the Dockerfile.prod's CMD (gunicorn) is used.
+    command: []
+    # Real secrets belong here, NOT in the compose file. Create /app/backend/.env
+    # with MONGO_URL, JWT_SECRET, EMERGENT_PUSH_KEY, CHARGILY_SECRET_KEY, etc.
+    env_file:
+      - ./backend/.env
+    environment:
+      # Sane prod defaults; adjust to your host's CPU count.
+      WEB_CONCURRENCY: "4"
+      GUNICORN_TIMEOUT: "60"
+      GUNICORN_KEEPALIVE: "5"
+    # Read-only rootfs + writable /tmp for defense-in-depth.
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Drop all Linux capabilities we don't need.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  mongo:
+    restart: on-failure:5
+    # Don't publish 27017 to the host in prod — only the backend needs it.
+    ports: []

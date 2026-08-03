@@ -1,0 +1,82 @@
+# Production Dockerfile — multi-stage, non-root, wheels only.
+#
+# Build:
+#   docker build -f Dockerfile.prod -t khedmapro-backend:latest .
+# Run standalone (needs MONGO_URL etc. injected):
+#   docker run -p 8001:8001 --env-file .env khedmapro-backend:latest
+# Or via docker-compose.prod.yml (recommended, wires mongo up too):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# =========================================================================
+# STAGE 1 — builder: install compilers + build every dep into a wheel dir.
+# =========================================================================
+FROM python:3.11-slim AS builder
+
+# Compilers for anything that ships without a manylinux wheel (e.g., bcrypt
+# on some arches). Cleared before the runtime image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /wheels
+
+# Only requirements.txt is copied — max layer caching until deps change.
+COPY requirements.txt ./
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+
+# =========================================================================
+# STAGE 2 — runtime: distroless-ish. No compilers. Non-root. Wheels only.
+# =========================================================================
+FROM python:3.11-slim AS runtime
+
+# tini gives us proper PID 1 signal handling so SIGTERM cleanly stops
+# gunicorn -> uvicorn -> uvloop workers on `docker stop`.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 app \
+    && useradd  --system --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app
+
+WORKDIR /app
+
+# Bring wheels in, install offline (no network, no compilers), then delete.
+COPY --from=builder /wheels /wheels
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+    && rm -rf /wheels
+
+# Copy source. Owned by the non-root `app` user.
+COPY --chown=app:app . .
+
+# Python hygiene.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    # Tunables — override at run time.
+    HOST=0.0.0.0 \
+    PORT=8001 \
+    WEB_CONCURRENCY=4 \
+    GUNICORN_TIMEOUT=60 \
+    GUNICORN_KEEPALIVE=5
+
+USER app
+
+EXPOSE 8001
+
+# Startup probe: /api/categories is a cheap public endpoint that hits Mongo.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+  CMD python -c "import urllib.request,sys;\
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:${PORT:-8001}/api/categories',timeout=3).status==200 else 1)"
+
+# tini as PID 1 → gunicorn master → N uvicorn workers.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["sh", "-c", "exec gunicorn server:app \
+      --workers ${WEB_CONCURRENCY} \
+      --worker-class uvicorn.workers.UvicornWorker \
+      --bind ${HOST}:${PORT} \
+      --timeout ${GUNICORN_TIMEOUT} \
+      --keep-alive ${GUNICORN_KEEPALIVE} \
+      --graceful-timeout 30 \
+      --access-logfile - \
+      --error-logfile -"]
