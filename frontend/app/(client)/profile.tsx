@@ -342,6 +342,22 @@ export default function Profile() {
           <Ionicons name="chevron-forward" size={18} color={theme.colors.error} />
         </Pressable>
 
+        <Pressable
+          testID="switch-role-btn"
+          onPress={async () => {
+            await logout();
+            router.replace("/");
+          }}
+          style={styles.switchRoleCard}
+        >
+          <Ionicons name="swap-horizontal-outline" size={22} color={theme.colors.brand} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchRoleTitle}>{t("account.switchRole")}</Text>
+            <Text style={styles.switchRoleSub}>{t("account.switchRoleSub")}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceTertiary} />
+        </Pressable>
+
         <Pressable testID="logout-btn" onPress={onLogout} style={styles.logout}>
           <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
           <Text style={styles.logoutText}>{t("profile.signOut")}</Text>
@@ -619,6 +635,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.error,
   },
   logoutText: { color: theme.colors.error, fontSize: 15, fontWeight: "700" },
+  switchRoleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  switchRoleTitle: { color: theme.colors.onSurface, fontWeight: "700", fontSize: 15 },
+  switchRoleSub: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
 
   // Toast
   toast: {
