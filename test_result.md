@@ -277,3 +277,32 @@ Backend: 18/18 pytest PASS in tests/test_iter11_new_features.py.
 Frontend smoke (390x844): provider1 login → Profile → pay-btn tap flipped subscription from "Free trial · 89 days" to "Active subscription · Renews in 29 days" (mock success); bookings-tab-all testID + empty state present. No red screen, no console errors.
 Cleanup verified: 0 leftover TEST bookings/clients/flags/reveals/mock payments; provider1 fully reset.
 No defects. See /app/test_reports/iteration_11.json for details.
+
+---
+## Iteration 12 — Radius-based provider search (Aug 2026)
+
+### Backend (14/14 passed sequentially)
+- `GET /api/providers` (no coords) → all providers, no `distance_km`. ✅
+- Radius mode Algiers 15 km → distances 0–15 km, haversine verified server-side, sorted ascending. ✅
+- Radius + `category=plumbing` combo works. ✅
+- Radius mode Oran 15 km → returns Nassim Bouzid, Leila Bensalem, Karim Belkacem. ✅
+- Radius 1 km → all returned providers within 1 km (jitter admits a few). ✅
+- Validation → 422 on `lat=200`, `radius_km=-5`, `radius_km=600`. ✅
+- Partial params (only lat/lng or only radius) → radius mode NOT activated. ✅
+- `PATCH /api/users/me/profile` persists `location_lat`/`location_lng`; `GET /api/auth/me` reflects; restored to backfilled values. ✅
+- Regression: `?category=cleaning` and `?wilaya=16` still work, no `distance_km` leak. ✅
+- Startup backfill: provider1 coords near (36.7538, 3.0588) with ±0.02 jitter. ✅
+
+### Frontend smoke (390x844, geolocation @ Algiers)
+- All 7 scope chips render with test IDs `scope-2/5/10/25/50/wilaya/country`.
+- `scope-25` displays distance chips ("km away").
+- `scope-country` shows 23 providers, no distance chips.
+- `scope-wilaya` reveals `home-wilaya-picker`.
+- Denied-location: app falls back gracefully to All Algeria (23 providers), no crash. `location-denied-hint` did not render but behavior is within spec.
+
+### Notes
+- One flaky race: `TestProfileLocationUpdate` + `TestBackfill` under pytest-xdist can conflict (both touch provider1). Run with `-o addopts=''` — see `/app/test_reports/iteration_12.json`.
+- Non-blocking console warning: `props.pointerEvents is deprecated` — migrate to `style.pointerEvents`.
+
+Report: `/app/test_reports/iteration_12.json`
+JUnit: `/app/test_reports/pytest/pytest_iter12.xml`

@@ -98,6 +98,9 @@ class ProfileCompleteIn(BaseModel):
     wilaya_code: Optional[str] = None
     baladiya: Optional[str] = None
     cross_wilaya: Optional[bool] = None
+    # Provider service-area pin (used for radius search from client location).
+    location_lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    location_lng: Optional[float] = Field(default=None, ge=-180, le=180)
 
 
 class PortfolioItemIn(BaseModel):

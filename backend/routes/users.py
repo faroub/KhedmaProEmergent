@@ -27,6 +27,10 @@ async def complete_profile(
         update["baladiya"] = body.baladiya
     if body.cross_wilaya is not None:
         update["cross_wilaya"] = body.cross_wilaya
+    if body.location_lat is not None:
+        update["location_lat"] = body.location_lat
+    if body.location_lng is not None:
+        update["location_lng"] = body.location_lng
     if user["role"] == Role.service_provider.value:
         if not body.category:
             raise HTTPException(status_code=400, detail="Category required for providers")

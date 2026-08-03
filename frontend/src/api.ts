@@ -50,11 +50,16 @@ export const api = {
   },
 
   categories: () => request("/categories", { auth: false }),
-  providers: (params?: { category?: string; search?: string; wilaya?: string }) => {
+  providers: (params?: { category?: string; search?: string; wilaya?: string; lat?: number; lng?: number; radius_km?: number }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.search) q.set("search", params.search);
     if (params?.wilaya) q.set("wilaya", params.wilaya);
+    if (params?.lat != null && params?.lng != null && params?.radius_km != null) {
+      q.set("lat", String(params.lat));
+      q.set("lng", String(params.lng));
+      q.set("radius_km", String(params.radius_km));
+    }
     const qs = q.toString();
     return request(`/providers${qs ? `?${qs}` : ""}`, { auth: false });
   },

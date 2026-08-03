@@ -147,6 +147,8 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "wilaya_code": doc.get("wilaya_code"),
         "baladiya": doc.get("baladiya"),
         "cross_wilaya": doc.get("cross_wilaya", False),
+        "location_lat": doc.get("location_lat"),
+        "location_lng": doc.get("location_lng"),
         "portfolio_images": [
             (
                 {"url": p, "caption": None, "tags": [], "is_cover": i == 0}

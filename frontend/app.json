@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.serviceproapp.porjq5"
+      "bundleIdentifier": "com.emergent.serviceproapp.porjq5",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Find service providers near you"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +21,11 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.serviceproapp.porjq5"
+      "package": "com.emergent.serviceproapp.porjq5",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -36,7 +43,13 @@
           "backgroundColor": "#000000"
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow khedmaPro to use your location to find nearby service providers."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
