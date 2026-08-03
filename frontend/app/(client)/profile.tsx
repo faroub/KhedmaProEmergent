@@ -19,6 +19,7 @@ import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
 import { api } from "@/src/api";
 import { VerificationCard } from "@/src/VerificationCard";
+import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
 
 type ConfirmKind = "deactivate" | "reactivate" | "delete" | null;
 
@@ -229,6 +230,7 @@ export default function Profile() {
         {/* ============ Verification (providers only) ============ */}
         {isProvider && (
           <>
+            <PhoneVerifyBanner />
             <Text style={styles.sectionLabel}>{t("verify.title")}</Text>
             <VerificationCard />
           </>
