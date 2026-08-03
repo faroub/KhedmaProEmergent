@@ -306,3 +306,33 @@ No defects. See /app/test_reports/iteration_11.json for details.
 
 Report: `/app/test_reports/iteration_12.json`
 JUnit: `/app/test_reports/pytest/pytest_iter12.xml`
+
+---
+## Iteration 13 — Push notifications (Emergent-managed relay) (Aug 2026)
+
+### Backend
+- New route `/api/register-push` (POST) added via `backend/routes/push.py`. Body `{user_id, platform, device_token}` → forwards to `POST /api/v1/push/users/register` with `X-Push-Key: $EMERGENT_PUSH_KEY`.
+- `send_push(recipients, data, idempotency_key?)` helper: hits `POST /api/v1/push/trigger`. Skips guest recipient IDs (`guest:*`), dedupes, chunks at 100. Never raises to caller.
+- Wired non-blocking `send_push` calls into event handlers:
+  * Bookings: new booking → provider; PATCH status → counterpart (confirmed / awaiting_confirmation / completed / cancelled).
+  * Messages: new chat message → recipient.
+  * Reviews: new review → provider.
+  * Verification: admin approve/reject → provider.
+- `.env`: `EMERGENT_PUSH_KEY=placeholder` added (deployer replaces at build time).
+- Regression: 120/120 tests pass serially (`-n 0`). The xdist-parallel failures on iter11 auth-flag classes are pre-existing (shared class state + `--dist loadscope`), not caused by push.
+
+### Frontend
+- `expo-notifications` (0.32.17) + `expo-device` (8.0.10) installed via `yarn expo install`.
+- `app.json`: `expo.plugins` includes `expo-notifications` block; `expo.android.googleServicesFile: "./google-services.json"`; `POST_NOTIFICATIONS` permission added.
+- `frontend/google-services.json` provisioned from user-uploaded artifact (Firebase project `khedmapro-69441`).
+- `app/_layout.tsx`: module-scope `setNotificationHandler`, Android `setNotificationChannelAsync("default", MAX)`, `addNotificationResponseReceivedListener` + `getLastNotificationResponseAsync` cold-start check, denied-permission weekly nudge via AsyncStorage. Web-guarded throughout.
+- `src/push.ts`: `registerForPush(userId)` — requests permission → `getDevicePushTokenAsync()` (native, NOT Expo token) → POST `/api/register-push`.
+- Called from `AuthProvider.login/register/refresh` and on bootstrap when a session exists.
+
+### Notes
+- **Package name mismatch**: the user-supplied `google-services.json` targets `com.khedmapro.app`, while `app.json` has `com.emergent.serviceproapp.porjq5`. Android FCM registration will only succeed after either (a) regenerating the Firebase Android app with the correct package or (b) updating `expo.android.package`. This does NOT affect the code path — only the delivered notification will fail silently on Android until the package matches.
+- Push notifications do NOT work in Expo Go or on web (all APIs guarded off). Must be tested on a production/dev-client build after `Publish` → `Generate`.
+- `EMERGENT_PUSH_KEY` is intentionally left as `placeholder`; the deployer replaces this at build time. Do NOT edit.
+
+### Iteration 13 test suite
+- `backend/tests/test_iter13_push.py`: 3/3 pass. Endpoint reachable (returns mapped 500 with placeholder key), rejects malformed bodies (422).

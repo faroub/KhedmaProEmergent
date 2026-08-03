@@ -21,6 +21,7 @@ from . import (
     seed,
     phone_and_flags,
     webhooks,
+    push,
 )
 
 
@@ -41,4 +42,5 @@ def build_api_router() -> APIRouter:
     api.include_router(seed.router)
     api.include_router(phone_and_flags.router)
     api.include_router(webhooks.router)
+    api.include_router(push.router)
     return api

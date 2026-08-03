@@ -22,9 +22,11 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.emergent.serviceproapp.porjq5",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -48,6 +50,13 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow khedmaPro to use your location to find nearby service providers."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0EA5A4"
         }
       ]
     ],

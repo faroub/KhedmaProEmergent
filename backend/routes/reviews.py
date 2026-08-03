@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from database import db
 from deps import require_role
+from routes.push import send_push
 from schemas import BookingStatus, ReviewCreate, Role
 
 router = APIRouter(tags=["reviews"])
@@ -72,4 +73,21 @@ async def create_review(
         {"$set": {"rating": round(avg, 2), "reviews_count": count}},
     )
     doc.pop("_id", None)
+
+    # Notify provider of the new review (non-blocking).
+    try:
+        stars = "★" * int(round(body.rating))
+        await send_push(
+            recipients=[provider_id],
+            data={
+                "title": f"New review {stars}",
+                "message": (body.comment or f"{user['full_name']} rated you {body.rating}/5")[:120],
+                "action_url": "/(provider)/profile",
+            },
+            idempotency_key=f"review:{review_id}",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+
     return doc

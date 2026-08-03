@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1056713348064",
+    "project_id": "khedmapro-69441",
+    "storage_bucket": "khedmapro-69441.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1056713348064:android:865694cfd6fab92ebe9185",
+        "android_client_info": {
+          "package_name": "com.khedmapro.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7Ys4MSeUbC_ZH10LHV60i1UMhOMREBd0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

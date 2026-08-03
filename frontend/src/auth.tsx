@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { bootstrapAuth, api } from "./api";
+import { registerForPush } from "./push";
 
 export type User = {
   id: string;
@@ -61,12 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await api.seed();
       } catch {}
+      // Register for push if already signed in.
+      if (u?.id) registerForPush(u.id);
     })();
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const data: any = await api.login(email, password);
     setUser(data.user);
+    if (data.user?.id) registerForPush(data.user.id);
     return data.user as User;
   }, []);
 
@@ -76,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { saveToken } = await import("./authStorage");
     if (data.access_token) await saveToken(data.access_token);
     setUser(data.user);
+    if (data.user?.id) registerForPush(data.user.id);
     return data.user as User;
   }, []);
 
@@ -88,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const u = await api.me();
       setUser(u);
+      if ((u as any)?.id) registerForPush((u as any).id);
     } catch {}
   }, []);
 

@@ -13,6 +13,7 @@ from config import (
 )
 from database import db
 from deps import current_user, optional_current_user
+from routes.push import send_push
 from schemas import BookingCreate, BookingStatus, BookingStatusUpdate, Role
 from subscription import compute_subscription, enforce_lifecycle
 
@@ -91,6 +92,22 @@ async def create_booking(
     }
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
+
+    # Notify the provider about the new booking (non-blocking).
+    try:
+        await send_push(
+            recipients=[body.provider_id],
+            data={
+                "title": "New booking request",
+                "message": f"{client_name} requested: {body.task_description[:80]}",
+                "action_url": "/(provider)/bookings",
+            },
+            idempotency_key=f"booking-new:{booking_id}",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+
     return doc
 
 
@@ -152,6 +169,38 @@ async def update_booking_status(
     updates["status"] = new_status
     await db.bookings.update_one({"id": booking_id}, {"$set": updates})
     booking.update(updates)
+
+    # Notify the counterpart about the status change (non-blocking).
+    try:
+        _messages = {
+            BookingStatus.confirmed.value: ("Booking confirmed", "Your provider confirmed the booking."),
+            BookingStatus.awaiting_confirmation.value: ("Work marked done", "Please confirm the work is complete."),
+            BookingStatus.completed.value: ("Booking completed", "The booking has been marked completed."),
+            BookingStatus.cancelled.value: ("Booking cancelled", "The booking was cancelled."),
+        }
+        title_msg = _messages.get(new_status)
+        if title_msg:
+            # Recipient is the OTHER party.
+            recipient_id = (
+                booking["client_id"]
+                if user["role"] == Role.service_provider.value
+                else booking["provider_id"]
+            )
+            await send_push(
+                recipients=[recipient_id],
+                data={
+                    "title": title_msg[0],
+                    "message": title_msg[1],
+                    "action_url": (
+                        "/(client)/bookings" if user["role"] == Role.service_provider.value
+                        else "/(provider)/bookings"
+                    ),
+                },
+                idempotency_key=f"booking-status:{booking_id}:{new_status}",
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
 
     # If terminal state, recompute completion metrics + auto-flag if needed.
     if new_status in (BookingStatus.completed.value, BookingStatus.cancelled.value):
