@@ -1,24 +1,26 @@
 """One-off ad-photo generator for khedmaPro.
 
-Generates 5-8 marketing/social-media ad images using Gemini Nano Banana
+Generates 8 marketing/social-media ad images using Gemini Nano Banana
 (via EMERGENT_LLM_KEY) in the aspect ratios needed for Facebook, Instagram
-and TikTok. Images are saved into `/app/generated_ads/`.
+and TikTok. All taglines are in **French or Arabic only** (per Algeria target).
+The brand wordmark "khedmaPro" always stays in Latin letters.
 
 Run: `python /app/scripts/gen_ads.py`
+Output: `/app/generated_ads/*.png` → also mirrored to `/app/backend/static/ads/`.
 """
 import asyncio
 import base64
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-sys.path.insert(0, "/app/backend")  # picks up backend/.env location
+sys.path.insert(0, "/app/backend")
 load_dotenv("/app/backend/.env")
 
-# We import lazily so a missing dep doesn't crash the script before we log.
 try:
     from emergentintegrations.llm.chat import LlmChat, UserMessage  # type: ignore
 except Exception as e:
@@ -26,88 +28,97 @@ except Exception as e:
     raise
 
 OUT_DIR = Path("/app/generated_ads")
+MIRROR_DIR = Path("/app/backend/static/ads")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+MIRROR_DIR.mkdir(parents=True, exist_ok=True)
 
 API_KEY = os.getenv("EMERGENT_LLM_KEY")
 MODEL = "gemini-3.1-flash-image-preview"
 
 BRAND = "khedmaPro"
-TAGLINE_EN = "Trusted pros, one tap away"
-TAGLINE_FR = "Des pros de confiance, en un tap"
-TAGLINE_AR = "محترفون موثوقون بضغطة واحدة"
 
-# Base creative direction shared across all prompts. We ALWAYS ask the model
-# to render the brand name and a short tagline overlayed on the image, and to
-# include a 3D-rendered smartphone showing the app UI.
+# Taglines: French + Arabic ONLY. English is intentionally excluded.
+TAGLINE_FR_MAIN = "Des pros de confiance, en un tap"
+TAGLINE_AR_MAIN = "محترفون موثوقون بضغطة واحدة"
+TAGLINE_FR_PLUMB = "Des plombiers de confiance — réservez en quelques secondes"
+TAGLINE_FR_ELEC = "Des électriciens certifiés — même jour"
+TAGLINE_AR_CLEAN = "منظّفون بضغطة — نظافة فورية"
+TAGLINE_FR_CLEAN = "Un ménage impeccable, à la demande"
+TAGLINE_AR_HERO = "احجز محترفاً موثوقاً في ثوانٍ"
+
 BASE_STYLE = (
     "Ultra-high-quality photorealistic marketing / advertising still, cinematic "
     "lighting, warm sunset accents, deep navy/amber brand palette. The composition "
     "MUST include: (a) a modern smartphone floating in mid-air, rendered in a stylish "
     "3D isometric view with a soft drop-shadow, showing the khedmaPro app's home "
     "screen with a list of service categories (plumbing, electrical, cleaning, "
-    "painting, carpentry) and a bright amber CTA button; (b) subtle iconography "
-    "hinting at those trades (wrench, wire, spray bottle, brush) tastefully arranged "
-    "around the phone; (c) a bold BRAND TEXT OVERLAY that reads 'khedmaPro' in a "
-    "clean sans-serif type, plus a short tagline underneath in white — spelled EXACTLY "
-    "as provided, no misspellings. No fake logos, no watermarks, no lorem-ipsum. "
-    "Text must be crisp and legible."
+    "painting, carpentry) and a bright amber CTA button labelled in the ad's language; "
+    "(b) subtle iconography hinting at those trades (wrench, wire, spray bottle, brush) "
+    "tastefully arranged around the phone; (c) a bold BRAND TEXT OVERLAY that reads "
+    "'khedmaPro' in a clean sans-serif type — spelled EXACTLY as provided, no "
+    "misspellings, brand ALWAYS in Latin letters even when the tagline is in Arabic. "
+    "No English text anywhere in the image (except the brand wordmark). "
+    "No fake logos, no watermarks, no lorem-ipsum. Text must be crisp and legible."
 )
 
 # Each entry: (filename, aspect_ratio_hint, extra_direction)
 ADS = [
     (
-        "hero_portrait_4x5.png",
+        "hero_portrait_4x5_fr.png",
         "portrait 4:5 (1080x1350), Facebook & Instagram feed hero",
-        "Wide vista of an Algerian city (Algiers/Oran cityscape at golden hour), "
-        f"BRAND TEXT: '{BRAND}' large centered top, TAGLINE: '{TAGLINE_EN}' below.",
+        "Wide vista of an Algerian city (Algiers/Oran cityscape at golden hour). "
+        f"BRAND TEXT: '{BRAND}' large centered top. FRENCH TAGLINE below: '{TAGLINE_FR_MAIN}'. "
+        "Absolutely no other language on the image.",
     ),
     (
-        "square_1x1_ig_feed.png",
+        "hero_portrait_4x5_ar.png",
+        "portrait 4:5 (1080x1350), Facebook & Instagram feed hero, Arabic-first",
+        "Same Algerian city vista at golden hour. "
+        f"BRAND TEXT: '{BRAND}' large top (Latin letters). ARABIC TAGLINE below (right-to-left): "
+        f"'{TAGLINE_AR_HERO}'. Absolutely no French or English text — only Arabic.",
+    ),
+    (
+        "square_1x1_fr.png",
         "square 1:1 (1080x1080), Instagram feed",
-        "Tighter composition, three service pros (a plumber with wrench, a cleaner "
-        "with spray bottle, an electrician with screwdriver) smiling in the "
-        f"background, phone in foreground. BRAND: '{BRAND}', TAGLINE: '{TAGLINE_EN}'.",
+        "Tighter composition, three service pros (a plumber, a cleaner, an electrician) smiling "
+        "in the background, phone in foreground showing the app UI. "
+        f"BRAND: '{BRAND}'. FRENCH TAGLINE: '{TAGLINE_FR_MAIN}'. No English.",
     ),
     (
-        "vertical_9x16_tiktok.png",
-        "vertical 9:16 (1080x1920), TikTok / Reels story",
-        "Vertical stack layout: BRAND '{BRAND}' huge at top, phone in middle "
-        f"showing app, three tiny 3D icons at bottom (wrench/spray/paint), tagline: '{TAGLINE_EN}'. "
-        "Leave clear top and bottom safe zones for TikTok UI overlays.",
-    ),
-    (
-        "cat_plumbing_1x1.png",
-        "square 1:1, Instagram category showcase — plumbing",
-        f"Focus category: PLUMBING. A clean, well-lit shot of a friendly Algerian "
-        "plumber (30s) fixing a modern kitchen faucet, phone with khedmaPro app "
-        f"pinned in the corner. BRAND '{BRAND}' small top-left. TAGLINE: 'Plumbers you can trust — book in seconds'.",
-    ),
-    (
-        "cat_electrical_4x5.png",
-        "portrait 4:5, Facebook — electrical",
-        f"Focus category: ELECTRICAL. A young Algerian electrician in a modern living "
-        "room installing a smart light, sparks of positive energy motif, phone floating "
-        f"with app UI showing 5-star reviews. BRAND '{BRAND}'. TAGLINE: 'Certified electricians, same-day'.",
-    ),
-    (
-        "cat_cleaning_9x16.png",
-        "vertical 9:16, TikTok — cleaning",
-        f"Focus category: CLEANING. A cheerful Algerian cleaner (woman with headscarf) "
-        "in a spotless modern home, natural light, phone floating with app UI showing a "
-        f"booking-confirmed screen. BRAND '{BRAND}' top-center. TAGLINE: 'Sparkling clean, on demand'.",
-    ),
-    (
-        "tagline_ar_1x1.png",
+        "square_1x1_ar.png",
         "square 1:1, Instagram, Arabic-first",
-        f"Same style but the tagline text overlaid is in ARABIC (right-to-left): "
-        f"'{TAGLINE_AR}'. The BRAND '{BRAND}' stays in Latin letters. Include a "
-        "small Algerian flag icon in one corner.",
+        "Same 3-pros composition but Arabic tagline. "
+        f"BRAND '{BRAND}' stays in Latin. ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_MAIN}'. "
+        "Include a small Algerian flag icon in one corner.",
     ),
     (
-        "tagline_fr_4x5.png",
-        "portrait 4:5, Facebook, French-first",
-        f"French tagline: '{TAGLINE_FR}'. BRAND '{BRAND}'. Include a small Algerian "
-        "flag icon in one corner.",
+        "vertical_9x16_tiktok_fr.png",
+        "vertical 9:16 (1080x1920), TikTok / Reels story",
+        f"Vertical stack layout: BRAND '{BRAND}' huge at top, phone in middle showing app, "
+        "three tiny 3D icons at bottom (wrench/spray/paint). "
+        f"FRENCH TAGLINE at bottom: '{TAGLINE_FR_MAIN}'. "
+        "Leave clear top and bottom safe zones for TikTok UI overlays. No English.",
+    ),
+    (
+        "vertical_9x16_tiktok_ar.png",
+        "vertical 9:16, TikTok / Reels story, Arabic-first",
+        f"Same vertical stack but ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_MAIN}'. "
+        f"BRAND '{BRAND}' in Latin. Absolutely no French or English.",
+    ),
+    (
+        "cat_plumbing_fr.png",
+        "square 1:1, Instagram category — plumbing",
+        f"Focus category: PLUMBING. A clean shot of a friendly Algerian plumber (30s) fixing "
+        "a modern kitchen faucet, phone with khedmaPro app pinned in the corner. "
+        f"BRAND '{BRAND}' small top-left. FRENCH TAGLINE: '{TAGLINE_FR_PLUMB}'. No English.",
+    ),
+    (
+        "cat_cleaning_ar.png",
+        "vertical 9:16, TikTok — cleaning, Arabic-first",
+        "Focus category: CLEANING. A cheerful Algerian cleaner (woman with headscarf) in a "
+        "spotless modern home, natural light, phone floating with app UI showing a "
+        f"booking-confirmed screen. BRAND '{BRAND}' top-center. "
+        f"ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_CLEAN}'. Only Arabic, no English or French.",
     ),
 ]
 
@@ -132,6 +143,11 @@ async def _generate(idx: int, filename: str, ratio: str, extra: str) -> None:
     out_path = OUT_DIR / filename
     with open(out_path, "wb") as f:
         f.write(data)
+    # Mirror to the static-served directory so admins can consume the URL.
+    try:
+        shutil.copy2(out_path, MIRROR_DIR / filename)
+    except Exception as e:
+        print(f"  ! mirror copy failed: {e}", file=sys.stderr)
     kb = len(data) // 1024
     print(f"  ✓ saved {out_path} ({kb} KB)")
 
@@ -141,6 +157,12 @@ async def main() -> None:
         print("EMERGENT_LLM_KEY missing from env", file=sys.stderr)
         sys.exit(1)
     print(f"Model: {MODEL}. Output dir: {OUT_DIR}. Ads: {len(ADS)}")
+    # Clear old English ads so nothing stale lingers.
+    for stale in list(OUT_DIR.glob("*.png")) + list(MIRROR_DIR.glob("*.png")):
+        try:
+            stale.unlink()
+        except Exception:
+            pass
     for i, (fname, ratio, extra) in enumerate(ADS):
         await _generate(i, fname, ratio, extra)
     print("\nAll done.")

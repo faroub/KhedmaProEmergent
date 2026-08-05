@@ -122,6 +122,16 @@ export default function AdminSettings() {
   // Testimonials — structured list editor
   type Testimonial = { name: string; role: string; quote_en: string; quote_fr: string; quote_ar: string; avatar_url?: string };
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  // Footer tagline + advertise CTA overrides (per language)
+  const [footerTaglineEn, setFooterTaglineEn] = useState("");
+  const [footerTaglineFr, setFooterTaglineFr] = useState("");
+  const [footerTaglineAr, setFooterTaglineAr] = useState("");
+  const [advertiseH2En, setAdvertiseH2En] = useState("");
+  const [advertiseH2Fr, setAdvertiseH2Fr] = useState("");
+  const [advertiseH2Ar, setAdvertiseH2Ar] = useState("");
+  const [advertiseBodyEn, setAdvertiseBodyEn] = useState("");
+  const [advertiseBodyFr, setAdvertiseBodyFr] = useState("");
+  const [advertiseBodyAr, setAdvertiseBodyAr] = useState("");
 
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -169,6 +179,15 @@ export default function AdminSettings() {
             : ""
         );
         setTestimonials(Array.isArray(s.site.testimonials) ? s.site.testimonials : []);
+        setFooterTaglineEn(s.site.footer_tagline_en || "");
+        setFooterTaglineFr(s.site.footer_tagline_fr || "");
+        setFooterTaglineAr(s.site.footer_tagline_ar || "");
+        setAdvertiseH2En(s.site.advertise_h2_en || "");
+        setAdvertiseH2Fr(s.site.advertise_h2_fr || "");
+        setAdvertiseH2Ar(s.site.advertise_h2_ar || "");
+        setAdvertiseBodyEn(s.site.advertise_body_en || "");
+        setAdvertiseBodyFr(s.site.advertise_body_fr || "");
+        setAdvertiseBodyAr(s.site.advertise_body_ar || "");
       }
     } catch {
       setSettings(null);
@@ -269,6 +288,15 @@ export default function AdminSettings() {
         show_final_cta: showFinalCta,
         features: featuresArr,
         testimonials: testimonials.filter((t) => (t.quote_en || t.quote_fr || t.quote_ar || "").trim().length > 0),
+        footer_tagline_en: footerTaglineEn.trim(),
+        footer_tagline_fr: footerTaglineFr.trim(),
+        footer_tagline_ar: footerTaglineAr.trim(),
+        advertise_h2_en: advertiseH2En.trim(),
+        advertise_h2_fr: advertiseH2Fr.trim(),
+        advertise_h2_ar: advertiseH2Ar.trim(),
+        advertise_body_en: advertiseBodyEn.trim(),
+        advertise_body_fr: advertiseBodyFr.trim(),
+        advertise_body_ar: advertiseBodyAr.trim(),
       };
 
       const updated: any = await api.adminUpdateSettings(patch);
@@ -1058,6 +1086,50 @@ export default function AdminSettings() {
               <Ionicons name="add" size={16} color={theme.colors.brand} />
               <Text style={styles.addTestimonialBtnText}>Add testimonial</Text>
             </Pressable>
+
+            {/* Footer tagline overrides */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Footer tagline (per language)</Text>
+            <Text style={styles.help}>Short line under the wordmark in every page footer. Leave blank to use the built-in default.</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>English</Text>
+              <TextInput testID="site-footer-en" value={footerTaglineEn} onChangeText={setFooterTaglineEn} placeholder="Trusted local service providers across Algeria — verified, rated, ready to help." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 70, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Français</Text>
+              <TextInput testID="site-footer-fr" value={footerTaglineFr} onChangeText={setFooterTaglineFr} placeholder="Des prestataires locaux de confiance à travers l'Algérie — vérifiés, notés, prêts à aider." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 70, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>العربية</Text>
+              <TextInput testID="site-footer-ar" value={footerTaglineAr} onChangeText={setFooterTaglineAr} placeholder="مزوّدو خدمات محليون موثوقون عبر الجزائر — موثقون، مقيّمون، جاهزون للمساعدة." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 70, textAlignVertical: "top" }]} />
+            </View>
+
+            {/* "Advertise with us" section overrides (contact.html) */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>{`"Advertise with us" section (contact page)`}</Text>
+            <Text style={styles.help}>Overrides the pitch shown to brands who want to buy ad slots inside the app. Leave blank to keep the default.</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — English</Text>
+              <TextInput testID="site-adv-h2-en" value={advertiseH2En} onChangeText={setAdvertiseH2En} placeholder="Promote your business inside khedmaPro" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — Français</Text>
+              <TextInput testID="site-adv-h2-fr" value={advertiseH2Fr} onChangeText={setAdvertiseH2Fr} placeholder="Faites la promotion de votre marque dans khedmaPro" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — العربية</Text>
+              <TextInput testID="site-adv-h2-ar" value={advertiseH2Ar} onChangeText={setAdvertiseH2Ar} placeholder="روّج لعلامتك التجارية داخل khedmaPro" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — English</Text>
+              <TextInput testID="site-adv-body-en" value={advertiseBodyEn} onChangeText={setAdvertiseBodyEn} placeholder="Reach thousands of Algerian home & business owners..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 90, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — Français</Text>
+              <TextInput testID="site-adv-body-fr" value={advertiseBodyFr} onChangeText={setAdvertiseBodyFr} placeholder="Touchez des milliers de propriétaires algériens..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 90, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — العربية</Text>
+              <TextInput testID="site-adv-body-ar" value={advertiseBodyAr} onChangeText={setAdvertiseBodyAr} placeholder="تواصل مع آلاف الأسر والشركات الجزائرية..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 90, textAlignVertical: "top" }]} />
+            </View>
           </View>
 
           {/* Payments master switch */}

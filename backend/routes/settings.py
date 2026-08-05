@@ -113,6 +113,17 @@ async def get_effective_settings() -> dict:
             # Overridable content
             "features": site_doc.get("features") or [],
             "testimonials": site_doc.get("testimonials") or [],
+            # Footer tagline overrides
+            "footer_tagline_en": site_doc.get("footer_tagline_en") or "",
+            "footer_tagline_fr": site_doc.get("footer_tagline_fr") or "",
+            "footer_tagline_ar": site_doc.get("footer_tagline_ar") or "",
+            # Advertise CTA overrides
+            "advertise_h2_en": site_doc.get("advertise_h2_en") or "",
+            "advertise_h2_fr": site_doc.get("advertise_h2_fr") or "",
+            "advertise_h2_ar": site_doc.get("advertise_h2_ar") or "",
+            "advertise_body_en": site_doc.get("advertise_body_en") or "",
+            "advertise_body_fr": site_doc.get("advertise_body_fr") or "",
+            "advertise_body_ar": site_doc.get("advertise_body_ar") or "",
         },
     }
 
@@ -165,6 +176,17 @@ class SiteConfigPatch(BaseModel):
     features: Optional[list] = None
     # Testimonials — array of { name, role, quote_en/fr/ar, avatar_url? }.
     testimonials: Optional[list] = None
+    # Footer tagline (per lang)
+    footer_tagline_en: Optional[str] = None
+    footer_tagline_fr: Optional[str] = None
+    footer_tagline_ar: Optional[str] = None
+    # "Advertise with us" CTA block on contact.html (per lang)
+    advertise_h2_en: Optional[str] = None
+    advertise_h2_fr: Optional[str] = None
+    advertise_h2_ar: Optional[str] = None
+    advertise_body_en: Optional[str] = None
+    advertise_body_fr: Optional[str] = None
+    advertise_body_ar: Optional[str] = None
 
 
 class SettingsPatch(BaseModel):

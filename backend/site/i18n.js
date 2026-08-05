@@ -724,6 +724,28 @@
       });
     }
 
+    // ---- Footer tagline override ----
+    var ft = site["footer_tagline_" + lang];
+    if (ft) {
+      document.querySelectorAll('[data-i18n="footer.tagline"]').forEach(function (el) {
+        el.textContent = ft;
+      });
+    }
+
+    // ---- Advertise CTA block (contact.html) ----
+    var ah = site["advertise_h2_" + lang];
+    if (ah) {
+      document.querySelectorAll('[data-i18n="contact.ads.h2"]').forEach(function (el) {
+        el.textContent = ah;
+      });
+    }
+    var ab = site["advertise_body_" + lang];
+    if (ab) {
+      document.querySelectorAll('[data-i18n="contact.ads.p"]').forEach(function (el) {
+        el.textContent = ab;
+      });
+    }
+
     // ---- Testimonials section (injected dynamically) ----
     var testimonials = Array.isArray(site.testimonials) ? site.testimonials : [];
     var testiSec = document.getElementById("sec-testimonials");
