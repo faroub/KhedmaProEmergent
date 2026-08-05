@@ -101,7 +101,11 @@ export default function Register() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.surface }}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Pressable onPress={() => router.back()} style={styles.back} testID="register-back-btn">
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+            style={styles.back}
+            testID="register-back-btn"
+          >
             <Ionicons name="chevron-back" size={24} color={theme.colors.onSurface} />
           </Pressable>
 

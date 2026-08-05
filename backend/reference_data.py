@@ -9,7 +9,7 @@ CATEGORIES = [
     {"id": "electrical", "name": "Electrical", "icon": "flash"},
     {"id": "cleaning", "name": "Cleaning", "icon": "sparkles"},
     {"id": "carpentry", "name": "Carpentry", "icon": "hammer"},
-    {"id": "painting", "name": "Painting", "icon": "color-palette"},
+    {"id": "painting", "name": "Painting", "icon": "brush"},
     {"id": "landscaping", "name": "Landscaping", "icon": "leaf"},
     {"id": "it_support", "name": "IT Support", "icon": "laptop"},
     {"id": "admin_consulting", "name": "Administrative Consultants", "icon": "briefcase"},

@@ -80,7 +80,17 @@ export default function OtpScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={() => (step === "code" ? setStep("phone") : router.back())} style={styles.back} testID="otp-back-btn">
+          <Pressable
+            onPress={() =>
+              step === "code"
+                ? setStep("phone")
+                : router.canGoBack()
+                ? router.back()
+                : router.replace("/")
+            }
+            style={styles.back}
+            testID="otp-back-btn"
+          >
             <Ionicons name="chevron-back" size={24} color={theme.colors.onSurface} />
           </Pressable>
 

@@ -122,13 +122,25 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.hello}>
-            {user ? `${t("home.hello")}, ${user.full_name?.split(" ")[0]}` : t("home.helloGuest")}
-          </Text>
-          <View style={styles.locRow}>
-            <Ionicons name="location" size={14} color={theme.colors.brand} />
-            <Text style={styles.locText}>{user?.city || "Algeria"}</Text>
+        <View style={styles.headerLeft}>
+          {!user && (
+            <Pressable
+              onPress={() => router.replace("/")}
+              style={styles.homeBackBtn}
+              testID="home-back-to-landing"
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={22} color={theme.colors.onSurface} />
+            </Pressable>
+          )}
+          <View>
+            <Text style={styles.hello}>
+              {user ? `${t("home.hello")}, ${user.full_name?.split(" ")[0]}` : t("home.helloGuest")}
+            </Text>
+            <View style={styles.locRow}>
+              <Ionicons name="location" size={14} color={theme.colors.brand} />
+              <Text style={styles.locText}>{user?.city || "Algeria"}</Text>
+            </View>
           </View>
         </View>
         {user ? (
@@ -365,6 +377,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md,
+  },
+  headerLeft: {
+    flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, flex: 1,
+  },
+  homeBackBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: theme.colors.surfaceSecondary,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: theme.colors.border,
   },
   hello: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "700" },
   locRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
