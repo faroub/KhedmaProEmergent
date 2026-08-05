@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-i18n-title="terms.title" data-i18n-desc="terms.desc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Terms of Service — khedmaPro</title>
-<meta name="description" content="Terms of service for khedmaPro users, clients and providers.">
+<title>Terms of service — khedmaPro</title>
+<meta name="description" content="The rules that keep khedmaPro fair for clients, providers, and the platform.">
 <link rel="stylesheet" href="/api/site/styles.css">
+<script defer src="/api/site/i18n.js"></script>
 </head>
 <body>
 
@@ -16,73 +17,52 @@
       <span>khedmaPro</span>
     </a>
     <nav class="nav">
-      <a class="link" href="/api/site/how-it-works.html">How it works</a>
-      <a class="link" href="/api/site/for-providers.html">For providers</a>
-      <a class="link" href="/api/site/contact.html">Contact</a>
-      <a class="cta" href="/">Open app</a>
+      <a class="link" href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+      <a class="link" href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+      <a class="link" href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+      <a class="cta" href="/" data-i18n="nav.open">Open app</a>
+      <label class="lang-switch" aria-label="Language">
+        <span aria-hidden="true">🌐</span>
+        <select id="site-lang-select">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+      </label>
     </nav>
   </div>
 </header>
 
 <main>
-  <section class="hero" style="padding:56px 0 24px;">
+  <section class="hero" style="padding:56px 0 32px;">
     <div class="wrap">
-      <span class="pilot-badge">Legal</span>
-      <h1>Terms of <span class="grad">Service.</span></h1>
-      <p class="updated">Last updated: 3 August 2026</p>
+      <span class="pilot-badge" data-i18n="terms.eyebrow">Terms of service</span>
+      <h1 data-i18n="terms.h1">Terms of service.</h1>
+      <p class="lede" data-i18n="terms.updated">Last updated: June 2026</p>
     </div>
   </section>
 
   <section class="tight">
-    <div class="wrap content" style="max-width: 780px;">
-      <p>Welcome to khedmaPro. These Terms govern your access to and use of the khedmaPro mobile application and related services (together, the "Service"). By using the Service you agree to these Terms.</p>
+    <div class="wrap">
+      <article class="legal">
+        <h3 data-i18n="terms.s1.h">1. Overview</h3>
+        <p data-i18n="terms.s1.p">khedmaPro is a marketplace connecting clients with independent service providers.</p>
 
-      <h2>1. Who we are</h2>
-      <p>khedmaPro is a marketplace that connects clients seeking home and personal services in Algeria ("Clients") with independent service providers ("Providers"). khedmaPro is not the employer of Providers, does not perform any services, and is not a party to the transactions between Clients and Providers.</p>
+        <h3 data-i18n="terms.s2.h">2. Accounts</h3>
+        <p data-i18n="terms.s2.p">You must be 18+ to use khedmaPro.</p>
 
-      <h2>2. Accounts</h2>
-      <ul>
-        <li>You must be at least 18 years old to create an account.</li>
-        <li>You are responsible for keeping your account credentials secure and for all activity that occurs under your account.</li>
-        <li>Providers must provide accurate identity information for verification.</li>
-      </ul>
+        <h3 data-i18n="terms.s3.h">3. Payment &amp; commission</h3>
+        <p data-i18n="terms.s3.p">Providers pay a flat 1000 DA monthly subscription.</p>
 
-      <h2>3. Bookings & payments</h2>
-      <ul>
-        <li>All bookings are agreements directly between Client and Provider.</li>
-        <li>Rates displayed in the app are set by Providers and may be per-hour or per-task.</li>
-        <li>khedmaPro may charge Providers a subscription fee (currently 1,000 DA / month after a free trial) for platform access.</li>
-        <li>khedmaPro is not responsible for the quality, safety, or legality of services performed by Providers.</li>
-      </ul>
+        <h3 data-i18n="terms.s4.h">4. Reviews &amp; flags</h3>
+        <p data-i18n="terms.s4.p">Reviews can only be left by clients whose booking has been completed.</p>
 
-      <h2>4. Two-step completion</h2>
-      <p>Every booking requires both parties to mark it complete. Clients confirm the work was delivered; Providers confirm the payment was received. Disputes should first be raised in-app.</p>
+        <h3 data-i18n="terms.s5.h">5. Cancellations &amp; refunds</h3>
+        <p data-i18n="terms.s5.p">Both parties can cancel a booking before it's confirmed.</p>
 
-      <h2>5. Prohibited conduct</h2>
-      <ul>
-        <li>No harassment, hate speech, or illegal activity.</li>
-        <li>No sharing of contact information to circumvent the platform.</li>
-        <li>No fake reviews, misleading profiles, or fraudulent bookings.</li>
-        <li>No scraping, reverse-engineering, or abuse of our APIs.</li>
-      </ul>
-
-      <h2>6. Auto-flagging & suspension</h2>
-      <p>Providers with persistently low completion rates or repeated complaints may be auto-flagged for review. khedmaPro may suspend or terminate accounts that violate these Terms.</p>
-
-      <h2>7. Content</h2>
-      <p>You retain ownership of the content you post (photos, reviews, messages) but grant khedmaPro a non-exclusive license to display it within the Service.</p>
-
-      <h2>8. Disclaimer of warranties</h2>
-      <p>The Service is provided "as is" without warranties of any kind, express or implied. To the fullest extent permitted by Algerian law, khedmaPro disclaims all warranties including merchantability, fitness for a particular purpose, and non-infringement.</p>
-
-      <h2>9. Limitation of liability</h2>
-      <p>khedmaPro is not liable for any indirect, incidental, or consequential damages arising from your use of the Service or from your interactions with other users.</p>
-
-      <h2>10. Changes</h2>
-      <p>We may update these Terms from time to time. Continued use of the Service after changes means you accept the updated Terms.</p>
-
-      <h2>11. Contact</h2>
-      <p>Questions about these Terms? Email <a href="mailto:legal@khedmapro.dz">legal@khedmapro.dz</a>.</p>
+        <h3 data-i18n="terms.s6.h">6. Contact</h3>
+        <p data-i18n="terms.s6.p">For any question about these terms, email us at support@khedmapro.dz.</p>
+      </article>
     </div>
   </section>
 </main>
@@ -96,24 +76,24 @@
       </div>
     </div>
     <div class="col">
-      <div class="col-title">Product</div>
+      <div class="col-title" data-i18n="footer.product">Product</div>
       <nav>
-        <a href="/api/site/how-it-works.html">How it works</a>
-        <a href="/api/site/for-providers.html">For providers</a>
-        <a href="/">Open app</a>
+        <a href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+        <a href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+        <a href="/" data-i18n="nav.open">Open app</a>
       </nav>
     </div>
     <div class="col">
-      <div class="col-title">Company</div>
+      <div class="col-title" data-i18n="footer.company">Company</div>
       <nav>
-        <a href="/api/site/contact.html">Contact</a>
-        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro">Advertise with us</a>
-        <a href="/api/site/terms.html">Terms of service</a>
-        <a href="/api/site/privacy.html">Privacy policy</a>
+        <a href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro" data-i18n="footer.advertise">Advertise with us</a>
+        <a href="/api/site/terms.html" data-i18n="footer.terms">Terms of service</a>
+        <a href="/api/site/privacy.html" data-i18n="footer.privacy">Privacy policy</a>
       </nav>
     </div>
   </div>
-  <p class="fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
+  <p class="fine" data-i18n="footer.fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
 </footer>
 
 </body>

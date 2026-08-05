@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-i18n-title="home.title" data-i18n-desc="home.desc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,7 @@
 <meta property="og:description" content="Verified service providers across all 58 wilayas. Book in seconds.">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="/api/site/styles.css">
+<script defer src="/api/site/i18n.js"></script>
 </head>
 <body>
 
@@ -19,10 +20,18 @@
       <span>khedmaPro</span>
     </a>
     <nav class="nav">
-      <a class="link" href="/api/site/how-it-works.html">How it works</a>
-      <a class="link" href="/api/site/for-providers.html">For providers</a>
-      <a class="link" href="/api/site/contact.html">Contact</a>
-      <a class="cta" href="/">Open app</a>
+      <a class="link" href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+      <a class="link" href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+      <a class="link" href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+      <a class="cta" href="/" data-i18n="nav.open">Open app</a>
+      <label class="lang-switch" aria-label="Language">
+        <span aria-hidden="true">🌐</span>
+        <select id="site-lang-select">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+      </label>
     </nav>
   </div>
 </header>
@@ -30,22 +39,22 @@
 <main>
   <section class="hero">
     <div class="wrap">
-      <span class="pilot-badge">🇩🇿 Made for Algeria</span>
-      <h1>Your city's <span class="grad">trusted pros,</span><br>one tap away.</h1>
-      <p class="lede">
+      <span class="pilot-badge" data-i18n="home.badge">🇩🇿 Made for Algeria</span>
+      <h1><span data-i18n="home.h1a">Your city's</span> <span class="grad" data-i18n="home.h1b">trusted pros,</span><br><span data-i18n="home.h1c">one tap away.</span></h1>
+      <p class="lede" data-i18n="home.lede">
         khedmaPro connects Algerian clients with vetted service providers across
         all 58 wilayas — plumbers, electricians, cleaners, tutors, and more.
         Book in seconds, chat before you commit, and pay only what's agreed.
       </p>
       <div class="actions">
-        <a class="btn primary" href="/">Browse services <span class="btn-arrow">→</span></a>
-        <a class="btn ghost" href="/api/site/for-providers.html">I'm a provider</a>
+        <a class="btn primary" href="/"><span data-i18n="home.cta.browse">Browse services</span> <span class="btn-arrow">→</span></a>
+        <a class="btn ghost" href="/api/site/for-providers.html" data-i18n="home.cta.provider">I'm a provider</a>
       </div>
 
       <div class="trust">
-        <div class="item"><div class="num">58</div><div class="lbl">Wilayas</div></div>
-        <div class="item"><div class="num">3</div><div class="lbl">Languages</div></div>
-        <div class="item"><div class="num">90</div><div class="lbl">Days free trial</div></div>
+        <div class="item"><div class="num">58</div><div class="lbl" data-i18n="home.trust.wilayas">Wilayas</div></div>
+        <div class="item"><div class="num">3</div><div class="lbl" data-i18n="home.trust.langs">Languages</div></div>
+        <div class="item"><div class="num">90</div><div class="lbl" data-i18n="home.trust.trial">Days free trial</div></div>
       </div>
     </div>
   </section>
@@ -53,40 +62,40 @@
   <section>
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Why khedmaPro</div>
-        <h2>A trust-first way to hire local pros.</h2>
-        <p>We built khedmaPro so Algerians can find real, verified service providers without the guesswork.</p>
+        <div class="eyebrow" data-i18n="home.why.eyebrow">Why khedmaPro</div>
+        <h2 data-i18n="home.why.h2">A trust-first way to hire local pros.</h2>
+        <p data-i18n="home.why.p">We built khedmaPro so Algerians can find real, verified service providers without the guesswork.</p>
       </div>
       <div class="grid">
         <div class="card">
           <div class="ico" style="background:rgba(59,130,246,0.15); color:#3B82F6;">🛡</div>
-          <h3>Verified providers</h3>
-          <p>Every provider goes through an ID check and admin review before their profile goes live.</p>
+          <h3 data-i18n="home.f1.t">Verified providers</h3>
+          <p data-i18n="home.f1.p">Every provider goes through an ID check and admin review before their profile goes live.</p>
         </div>
         <div class="card">
           <div class="ico" style="background:rgba(245,158,11,0.15); color:#F59E0B;">⚡</div>
-          <h3>Instant booking</h3>
-          <p>Book at the listed rate, or request a custom quote for bigger jobs. All in a few taps.</p>
+          <h3 data-i18n="home.f2.t">Instant booking</h3>
+          <p data-i18n="home.f2.p">Book at the listed rate, or request a custom quote for bigger jobs. All in a few taps.</p>
         </div>
         <div class="card">
           <div class="ico" style="background:rgba(16,185,129,0.15); color:#10B981;">💬</div>
-          <h3>In-app chat</h3>
-          <p>Message before you commit. Phone numbers stay private until a booking is confirmed.</p>
+          <h3 data-i18n="home.f3.t">In-app chat</h3>
+          <p data-i18n="home.f3.p">Message before you commit. Phone numbers stay private until a booking is confirmed.</p>
         </div>
         <div class="card">
           <div class="ico" style="background:rgba(234,179,8,0.15); color:#EAB308;">⭐</div>
-          <h3>Real ratings</h3>
-          <p>Reviews only from clients who actually completed a booking. No fake stars, ever.</p>
+          <h3 data-i18n="home.f4.t">Real ratings</h3>
+          <p data-i18n="home.f4.p">Reviews only from clients who actually completed a booking. No fake stars, ever.</p>
         </div>
         <div class="card">
           <div class="ico" style="background:rgba(139,92,246,0.15); color:#8B5CF6;">📍</div>
-          <h3>Wilaya + radius search</h3>
-          <p>Filter by wilaya, or use your location to find pros within 2, 5, 10 or 25 km.</p>
+          <h3 data-i18n="home.f5.t">Wilaya + radius search</h3>
+          <p data-i18n="home.f5.p">Filter by wilaya, or use your location to find pros within 2, 5, 10 or 25 km.</p>
         </div>
         <div class="card">
           <div class="ico" style="background:rgba(239,68,68,0.15); color:#EF4444;">🌐</div>
-          <h3>Multi-language</h3>
-          <p>Full experience in English, French and Arabic — with proper right-to-left support.</p>
+          <h3 data-i18n="home.f6.t">Multi-language</h3>
+          <p data-i18n="home.f6.p">Full experience in English, French and Arabic — with proper right-to-left support.</p>
         </div>
       </div>
     </div>
@@ -95,9 +104,9 @@
   <section class="tight">
     <div class="wrap">
       <div class="cta-band">
-        <h2>Ready to find your next pro?</h2>
-        <p>Browsing is free and doesn't require an account.</p>
-        <a class="btn primary" href="/">Open the app →</a>
+        <h2 data-i18n="home.finalCta.h2">Ready to find your next pro?</h2>
+        <p data-i18n="home.finalCta.p">Browsing is free and doesn't require an account.</p>
+        <a class="btn primary" href="/" data-i18n="home.finalCta.btn">Open the app →</a>
       </div>
     </div>
   </section>
@@ -110,29 +119,29 @@
         <span class="logo-mark" style="width:28px;height:28px;font-size:14px;">k</span>
         <span>khedmaPro</span>
       </div>
-      <p style="margin-top:12px; font-size:13px; max-width:280px;">
+      <p style="margin-top:12px; font-size:13px; max-width:280px;" data-i18n="footer.tagline">
         Trusted local service providers across Algeria — verified, rated, ready to help.
       </p>
     </div>
     <div class="col">
-      <div class="col-title">Product</div>
+      <div class="col-title" data-i18n="footer.product">Product</div>
       <nav>
-        <a href="/api/site/how-it-works.html">How it works</a>
-        <a href="/api/site/for-providers.html">For providers</a>
-        <a href="/">Open app</a>
+        <a href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+        <a href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+        <a href="/" data-i18n="nav.open">Open app</a>
       </nav>
     </div>
     <div class="col">
-      <div class="col-title">Company</div>
+      <div class="col-title" data-i18n="footer.company">Company</div>
       <nav>
-        <a href="/api/site/contact.html">Contact</a>
-        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro">Advertise with us</a>
-        <a href="/api/site/terms.html">Terms of service</a>
-        <a href="/api/site/privacy.html">Privacy policy</a>
+        <a href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro" data-i18n="footer.advertise">Advertise with us</a>
+        <a href="/api/site/terms.html" data-i18n="footer.terms">Terms of service</a>
+        <a href="/api/site/privacy.html" data-i18n="footer.privacy">Privacy policy</a>
       </nav>
     </div>
   </div>
-  <p class="fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
+  <p class="fine" data-i18n="footer.fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
 </footer>
 
 </body>

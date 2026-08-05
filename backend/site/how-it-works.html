@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-i18n-title="how.title" data-i18n-desc="how.desc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How it works — khedmaPro</title>
-<meta name="description" content="Book a trusted service pro in three steps. Free to browse, no account needed to search.">
+<meta name="description" content="Discover, chat, book, and rate — the flow that keeps everyone honest.">
 <link rel="stylesheet" href="/api/site/styles.css">
+<script defer src="/api/site/i18n.js"></script>
 </head>
 <body>
 
@@ -16,10 +17,18 @@
       <span>khedmaPro</span>
     </a>
     <nav class="nav">
-      <a class="link active" href="/api/site/how-it-works.html">How it works</a>
-      <a class="link" href="/api/site/for-providers.html">For providers</a>
-      <a class="link" href="/api/site/contact.html">Contact</a>
-      <a class="cta" href="/">Open app</a>
+      <a class="link active" href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+      <a class="link" href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+      <a class="link" href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+      <a class="cta" href="/" data-i18n="nav.open">Open app</a>
+      <label class="lang-switch" aria-label="Language">
+        <span aria-hidden="true">🌐</span>
+        <select id="site-lang-select">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+      </label>
     </nav>
   </div>
 </header>
@@ -27,9 +36,9 @@
 <main>
   <section class="hero" style="padding:56px 0 32px;">
     <div class="wrap">
-      <span class="pilot-badge">For clients</span>
-      <h1>Book in <span class="grad">three simple steps.</span></h1>
-      <p class="lede">Browsing is 100% free. You only create an account when you're ready to book.</p>
+      <span class="pilot-badge" data-i18n="how.eyebrow">How it works</span>
+      <h1><span data-i18n="how.h1a">Simple, safe,</span> <span class="grad" data-i18n="how.h1b">and Algerian.</span></h1>
+      <p class="lede" data-i18n="how.lede">Four steps to get the job done — with trust built into every one.</p>
     </div>
   </section>
 
@@ -38,18 +47,23 @@
       <div class="steps">
         <div class="step">
           <div class="num">1</div>
-          <h3>Search</h3>
-          <p>Pick a category (plumbing, cleaning, tutoring…) and filter by your wilaya or a radius from your location. No sign-in needed.</p>
+          <h3 data-i18n="how.s1.t">1. Search &amp; filter</h3>
+          <p data-i18n="how.s1.p">Pick a service category, choose a wilaya, or use your GPS to find pros within 2–25 km. Guest browsing is free — no account required.</p>
         </div>
         <div class="step">
           <div class="num">2</div>
-          <h3>Chat & agree</h3>
-          <p>Read reviews, check portfolios, then message the provider in the app to nail down the scope and price. Phone numbers stay hidden.</p>
+          <h3 data-i18n="how.s2.t">2. Chat privately</h3>
+          <p data-i18n="how.s2.p">Message any provider from the app. Phone numbers stay private until a booking is confirmed by both sides.</p>
         </div>
         <div class="step">
           <div class="num">3</div>
-          <h3>Book & rate</h3>
-          <p>Confirm the job with instant booking or a custom quote. Once the work is done, both sides confirm and you leave a review.</p>
+          <h3 data-i18n="how.s3.t">3. Book — instant or by quote</h3>
+          <p data-i18n="how.s3.p">Book at the listed hourly/task rate, or request a custom quote for complex jobs. Every price is transparent.</p>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <h3 data-i18n="how.s4.t">4. Confirm &amp; rate</h3>
+          <p data-i18n="how.s4.p">Both sides mark the job complete. Payment happens directly. You can then rate the provider — reviews only count when the job is done.</p>
         </div>
       </div>
     </div>
@@ -58,25 +72,29 @@
   <section class="tight">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">FAQ</div>
-        <h2>Quick answers</h2>
+        <div class="eyebrow" data-i18n="how.safe.eyebrow">Trust &amp; safety</div>
+        <h2 data-i18n="how.safe.h2">Built-in safety features.</h2>
       </div>
       <div class="grid">
         <div class="card">
-          <h3>Do I need an account to search?</h3>
-          <p>No — you can browse every provider without signing up. You'll only need an account when you're ready to book or chat.</p>
+          <div class="ico" style="background:rgba(59,130,246,0.15); color:#3B82F6;">🪪</div>
+          <h3 data-i18n="how.safe.g1.t">ID verified</h3>
+          <p data-i18n="how.safe.g1.p">Providers submit government ID + selfie. Reviewed by our team before going live.</p>
         </div>
         <div class="card">
-          <h3>How do I know a provider is legit?</h3>
-          <p>Each provider is ID-verified by our admin team. Look for the ✓ verified badge on their profile.</p>
+          <div class="ico" style="background:rgba(16,185,129,0.15); color:#10B981;">🔒</div>
+          <h3 data-i18n="how.safe.g2.t">Private phone</h3>
+          <p data-i18n="how.safe.g2.p">Client and provider phone numbers never appear in public listings.</p>
         </div>
         <div class="card">
-          <h3>How is my phone number protected?</h3>
-          <p>Phone numbers are hidden by default and only revealed to the other party once a booking has been confirmed.</p>
+          <div class="ico" style="background:rgba(239,68,68,0.15); color:#EF4444;">🚩</div>
+          <h3 data-i18n="how.safe.g3.t">Report &amp; flag</h3>
+          <p data-i18n="how.safe.g3.p">One tap to report a provider. Repeat issues auto-flag their profile for admin review.</p>
         </div>
         <div class="card">
-          <h3>What if a provider misbehaves?</h3>
-          <p>Report them in-app; our team reviews every flag. Repeat offenders are auto-flagged and de-ranked or removed.</p>
+          <div class="ico" style="background:rgba(139,92,246,0.15); color:#8B5CF6;">📶</div>
+          <h3 data-i18n="how.safe.g4.t">Offline schedule</h3>
+          <p data-i18n="how.safe.g4.p">Providers can view their booked schedule even without internet — great on job sites.</p>
         </div>
       </div>
     </div>
@@ -85,9 +103,9 @@
   <section class="tight">
     <div class="wrap">
       <div class="cta-band">
-        <h2>Try khedmaPro now</h2>
-        <p>Browse providers without an account — it's free.</p>
-        <a class="btn primary" href="/">Open the app →</a>
+        <h2 data-i18n="how.cta.h2">See it in action.</h2>
+        <p data-i18n="how.cta.p">Open the app and browse — no signup needed to look around.</p>
+        <a class="btn primary" href="/" data-i18n="how.cta.btn">Open the app →</a>
       </div>
     </div>
   </section>
@@ -102,24 +120,24 @@
       </div>
     </div>
     <div class="col">
-      <div class="col-title">Product</div>
+      <div class="col-title" data-i18n="footer.product">Product</div>
       <nav>
-        <a href="/api/site/how-it-works.html">How it works</a>
-        <a href="/api/site/for-providers.html">For providers</a>
-        <a href="/">Open app</a>
+        <a href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+        <a href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+        <a href="/" data-i18n="nav.open">Open app</a>
       </nav>
     </div>
     <div class="col">
-      <div class="col-title">Company</div>
+      <div class="col-title" data-i18n="footer.company">Company</div>
       <nav>
-        <a href="/api/site/contact.html">Contact</a>
-        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro">Advertise with us</a>
-        <a href="/api/site/terms.html">Terms of service</a>
-        <a href="/api/site/privacy.html">Privacy policy</a>
+        <a href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro" data-i18n="footer.advertise">Advertise with us</a>
+        <a href="/api/site/terms.html" data-i18n="footer.terms">Terms of service</a>
+        <a href="/api/site/privacy.html" data-i18n="footer.privacy">Privacy policy</a>
       </nav>
     </div>
   </div>
-  <p class="fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
+  <p class="fine" data-i18n="footer.fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
 </footer>
 
 </body>

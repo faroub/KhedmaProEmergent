@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-i18n-title="priv.title" data-i18n-desc="priv.desc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — khedmaPro</title>
-<meta name="description" content="How khedmaPro collects, uses, and protects your data.">
+<title>Privacy policy — khedmaPro</title>
+<meta name="description" content="How khedmaPro handles your personal data, phone numbers, and location.">
 <link rel="stylesheet" href="/api/site/styles.css">
+<script defer src="/api/site/i18n.js"></script>
 </head>
 <body>
 
@@ -16,78 +17,55 @@
       <span>khedmaPro</span>
     </a>
     <nav class="nav">
-      <a class="link" href="/api/site/how-it-works.html">How it works</a>
-      <a class="link" href="/api/site/for-providers.html">For providers</a>
-      <a class="link" href="/api/site/contact.html">Contact</a>
-      <a class="cta" href="/">Open app</a>
+      <a class="link" href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+      <a class="link" href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+      <a class="link" href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+      <a class="cta" href="/" data-i18n="nav.open">Open app</a>
+      <label class="lang-switch" aria-label="Language">
+        <span aria-hidden="true">🌐</span>
+        <select id="site-lang-select">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="ar">العربية</option>
+        </select>
+      </label>
     </nav>
   </div>
 </header>
 
 <main>
-  <section class="hero" style="padding:56px 0 24px;">
+  <section class="hero" style="padding:56px 0 32px;">
     <div class="wrap">
-      <span class="pilot-badge">Legal</span>
-      <h1>Privacy <span class="grad">Policy.</span></h1>
-      <p class="updated">Last updated: 3 August 2026</p>
+      <span class="pilot-badge" data-i18n="priv.eyebrow">Privacy policy</span>
+      <h1 data-i18n="priv.h1">Privacy policy.</h1>
+      <p class="lede" data-i18n="priv.updated">Last updated: June 2026</p>
     </div>
   </section>
 
   <section class="tight">
-    <div class="wrap content" style="max-width: 780px;">
-      <p>This Privacy Policy explains what personal data khedmaPro collects, how we use it, and the rights you have. It applies to the khedmaPro mobile app and website.</p>
+    <div class="wrap">
+      <article class="legal">
+        <h3 data-i18n="priv.s1.h">1. What we collect</h3>
+        <p data-i18n="priv.s1.p">We collect the info you provide when creating an account.</p>
 
-      <h2>1. Data we collect</h2>
-      <ul>
-        <li><b>Account data:</b> name, email, phone number, role (client / provider), wilaya, and password hash.</li>
-        <li><b>Profile data (providers):</b> service category, bio, hourly/task rate, portfolio images, ID documents for verification.</li>
-        <li><b>Booking data:</b> requested services, addresses (only what you provide), messages, and reviews.</li>
-        <li><b>Device data:</b> device model, OS, push token (when notifications are enabled), and (with permission) approximate location for radius search.</li>
-      </ul>
+        <h3 data-i18n="priv.s2.h">2. What we don't sell</h3>
+        <p data-i18n="priv.s2.p">We never sell your personal data to third parties.</p>
 
-      <h2>2. How we use your data</h2>
-      <ul>
-        <li>To operate the marketplace — matching clients with providers, sending messages, processing bookings.</li>
-        <li>To send transactional notifications (new booking, chat, review) via push and email.</li>
-        <li>To detect fraud, abuse, and auto-flag providers who repeatedly underperform.</li>
-        <li>To improve the Service through aggregate, non-identifying analytics.</li>
-      </ul>
+        <h3 data-i18n="priv.s3.h">3. Phone privacy</h3>
+        <p data-i18n="priv.s3.p">Client and provider phone numbers are hidden.</p>
 
-      <h2>3. Phone number privacy</h2>
-      <p>Phone numbers are never displayed on public profiles. They are only shared with the counterpart when a booking is confirmed, awaiting confirmation, or completed.</p>
+        <h3 data-i18n="priv.s4.h">4. Location data</h3>
+        <p data-i18n="priv.s4.p">GPS coordinates are used only to compute distance.</p>
 
-      <h2>4. Sharing</h2>
-      <p>We do not sell your data. We share the minimum necessary information with:</p>
-      <ul>
-        <li>The other party in your booking (name, profile info, and phone only when unlocked).</li>
-        <li>Service providers we rely on to run the Service (hosting, SMS relay, push notifications, payments). All are bound by confidentiality obligations.</li>
-        <li>Authorities, when compelled by valid Algerian legal process.</li>
-      </ul>
+        <h3 data-i18n="priv.s5.h">5. Verification documents</h3>
+        <p data-i18n="priv.s5.p">Providers upload ID for admin review.</p>
 
-      <h2>5. Location data</h2>
-      <p>The app requests your device location only to power the radius search. Location is used on-device to compute distances and is not stored on our servers unless you explicitly save a wilaya/coordinate to your profile.</p>
+        <h3 data-i18n="priv.s6.h">6. Data deletion</h3>
+        <p data-i18n="priv.s6.p">You can deactivate your account at any time.</p>
 
-      <h2>6. Your rights</h2>
-      <ul>
-        <li>Access, correct, or delete your personal data (Profile → Account).</li>
-        <li>Withdraw consent to marketing communications at any time.</li>
-        <li>Export your data by emailing <a href="mailto:privacy@khedmapro.dz">privacy@khedmapro.dz</a>.</li>
-      </ul>
-
-      <h2>7. Data retention</h2>
-      <p>We keep account data for as long as your account is active. If you delete your account we remove personal data within 30 days, except where retention is required by law (e.g., billing records).</p>
-
-      <h2>8. Security</h2>
-      <p>We use TLS in transit, bcrypt for password hashing, and access controls on our infrastructure. No system is 100% secure — if we ever detect a breach affecting your data, we'll notify you promptly.</p>
-
-      <h2>9. Children</h2>
-      <p>khedmaPro is not intended for anyone under 18.</p>
-
-      <h2>10. Changes to this policy</h2>
-      <p>We may update this Policy. If we make material changes we'll notify you in-app or by email.</p>
-
-      <h2>11. Contact</h2>
-      <p>Questions or requests: <a href="mailto:privacy@khedmapro.dz">privacy@khedmapro.dz</a>.</p>
+        <h3 data-i18n="priv.s7.h">7. Contact</h3>
+        <p data-i18n="priv.s7.p">For privacy questions, email support@khedmapro.dz.</p>
+      </article>
     </div>
   </section>
 </main>
@@ -101,24 +79,24 @@
       </div>
     </div>
     <div class="col">
-      <div class="col-title">Product</div>
+      <div class="col-title" data-i18n="footer.product">Product</div>
       <nav>
-        <a href="/api/site/how-it-works.html">How it works</a>
-        <a href="/api/site/for-providers.html">For providers</a>
-        <a href="/">Open app</a>
+        <a href="/api/site/how-it-works.html" data-i18n="nav.how">How it works</a>
+        <a href="/api/site/for-providers.html" data-i18n="nav.providers">For providers</a>
+        <a href="/" data-i18n="nav.open">Open app</a>
       </nav>
     </div>
     <div class="col">
-      <div class="col-title">Company</div>
+      <div class="col-title" data-i18n="footer.company">Company</div>
       <nav>
-        <a href="/api/site/contact.html">Contact</a>
-        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro">Advertise with us</a>
-        <a href="/api/site/terms.html">Terms of service</a>
-        <a href="/api/site/privacy.html">Privacy policy</a>
+        <a href="/api/site/contact.html" data-i18n="nav.contact">Contact</a>
+        <a href="mailto:ads@khedmapro.dz?subject=Advertising%20inquiry%20-%20khedmaPro" data-i18n="footer.advertise">Advertise with us</a>
+        <a href="/api/site/terms.html" data-i18n="footer.terms">Terms of service</a>
+        <a href="/api/site/privacy.html" data-i18n="footer.privacy">Privacy policy</a>
       </nav>
     </div>
   </div>
-  <p class="fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
+  <p class="fine" data-i18n="footer.fine">© 2026 khedmaPro. Made in Algeria 🇩🇿</p>
 </footer>
 
 </body>
