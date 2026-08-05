@@ -23,7 +23,7 @@ import { api, type PortfolioItem } from "./api";
 import { useAuth } from "./auth";
 import { theme } from "./theme";
 import { useT } from "./language";
-import { compressImage, formatBytes } from "./utils/imageCompress";
+import { compressImage } from "./utils/imageCompress";
 
 type Props = { onChange?: (imgs: PortfolioItem[]) => void };
 
@@ -88,39 +88,49 @@ export function PortfolioManager({ onChange }: Props) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (perm.status !== "granted") return;
+      const slotsLeft = MAX_IMAGES - items.length;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 1,
-        allowsMultipleSelection: false,
+        allowsMultipleSelection: true,
+        selectionLimit: slotsLeft,
       });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      setProgress(t("portfolio.compressing"));
-      const c = await compressImage(asset.uri, {
-        targetBytes: 220 * 1024,
-        initialWidth: 1440, // higher res allowed — still ends up small after compression
-        minWidth: 720,
-        initialQuality: 0.6,
-      });
-      setProgress(
-        t("portfolio.compressedInfo", {
-          before: formatBytes(c.originalBytes),
-          after: formatBytes(c.bytes),
-          passes: c.passes,
-        }),
-      );
-      const newItem: PortfolioItem = {
-        url: c.dataUri,
-        caption: null,
-        tags: [],
-        is_cover: items.length === 0,
-      };
-      await persist([...items, newItem]);
-    } catch {
-      // no-op
+      if (result.canceled || !result.assets?.length) return;
+      // Cap once more in case the picker returned more than we asked for.
+      const picked = result.assets.slice(0, slotsLeft);
+      const additions: PortfolioItem[] = [];
+      for (let i = 0; i < picked.length; i++) {
+        const asset = picked[i];
+        setProgress(
+          t("portfolio.uploadingProgress", { i: i + 1, n: picked.length }),
+        );
+        try {
+          const c = await compressImage(asset.uri, {
+            targetBytes: 220 * 1024,
+            initialWidth: 1440,
+            minWidth: 720,
+            initialQuality: 0.6,
+          });
+          additions.push({
+            url: c.dataUri,
+            // First-ever image becomes the cover.
+            is_cover: items.length === 0 && additions.length === 0,
+            caption: null,
+            tags: [],
+          });
+        } catch (err) {
+          console.warn("portfolio.compress failed", err);
+        }
+      }
+      if (additions.length > 0) {
+        setProgress(t("portfolio.savingBatch", { n: additions.length }));
+        await persist([...items, ...additions]);
+      }
+    } catch (err) {
+      console.warn("portfolio.pick failed", err);
     } finally {
       setBusy(false);
-      setTimeout(() => setProgress(null), 2500);
+      setTimeout(() => setProgress(null), 3000);
     }
   };
 

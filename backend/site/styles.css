@@ -275,3 +275,6 @@ html[dir="rtl"] .ad-cta { flex-direction: row-reverse; }
   justify-content: center;
 }
 .site-social a.social-icon:hover { color: var(--brand); }
+
+/* Wordmark: tint the trailing "Pro" in the brand amber so it matches the logo. */
+.brand-pro { color: var(--brand); }

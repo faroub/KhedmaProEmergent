@@ -1,15 +1,19 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { api } from "@/src/api";
 import { theme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { useT } from "@/src/language";
+import { compressImage } from "@/src/utils/imageCompress";
+
+const MAX_PHOTOS = 3;
 
 export default function ReviewScreen() {
   const params = useLocalSearchParams<{ bookingId?: string; providerId?: string }>();
@@ -20,6 +24,56 @@ export default function ReviewScreen() {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoBusy, setPhotoBusy] = useState<null | string>(null);
+
+  const pickPhotos = async () => {
+    if (photoBusy || photos.length >= MAX_PHOTOS) return;
+    setPhotoBusy(t("review.photoPicking"));
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== "granted") {
+        setPhotoBusy(null);
+        return;
+      }
+      const slotsLeft = MAX_PHOTOS - photos.length;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+        allowsMultipleSelection: true,
+        selectionLimit: slotsLeft,
+      });
+      if (result.canceled || !result.assets?.length) {
+        setPhotoBusy(null);
+        return;
+      }
+      const picked = result.assets.slice(0, slotsLeft);
+      const added: string[] = [];
+      for (let i = 0; i < picked.length; i++) {
+        setPhotoBusy(t("review.photoCompressing", { i: i + 1, n: picked.length }));
+        try {
+          const c = await compressImage(picked[i].uri, {
+            targetBytes: 200 * 1024,
+            initialWidth: 1200,
+            minWidth: 640,
+            initialQuality: 0.6,
+          });
+          added.push(c.dataUri);
+        } catch (err) {
+          console.warn("review.compress failed", err);
+        }
+      }
+      if (added.length > 0) {
+        setPhotos((prev) => [...prev, ...added].slice(0, MAX_PHOTOS));
+      }
+    } finally {
+      setTimeout(() => setPhotoBusy(null), 400);
+    }
+  };
+
+  const removePhoto = (idx: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const bookingId = params.bookingId && params.bookingId !== "new" ? params.bookingId : undefined;
   const providerId = params.providerId;
@@ -69,7 +123,7 @@ export default function ReviewScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      const payload: any = { rating, comment };
+      const payload: any = { rating, comment, photos };
       if (bookingId) payload.booking_id = bookingId;
       else if (providerId) payload.provider_id = providerId;
       await api.createReview(payload);
@@ -113,6 +167,54 @@ export default function ReviewScreen() {
             placeholderTextColor={theme.colors.muted}
           />
 
+          {/* Photo attachments (optional, up to 3) */}
+          <View style={styles.photosBlock}>
+            <View style={styles.photosHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.photosLabel}>{t("review.photosLabel")}</Text>
+                <Text style={styles.photosHint}>{t("review.photosHint")}</Text>
+              </View>
+              <Text style={styles.photosCount}>{photos.length} / {MAX_PHOTOS}</Text>
+            </View>
+            {!!photoBusy && (
+              <Text style={styles.photosBusy} testID="review-photo-progress">
+                {photoBusy}
+              </Text>
+            )}
+            <View style={styles.photosRow}>
+              {photos.map((uri, idx) => (
+                <View key={`${idx}-${uri.slice(-8)}`} style={styles.photoThumbWrap}>
+                  <Image source={{ uri }} style={styles.photoThumb} />
+                  <Pressable
+                    testID={`review-remove-photo-${idx}`}
+                    onPress={() => removePhoto(idx)}
+                    hitSlop={8}
+                    style={styles.photoRemoveBtn}
+                  >
+                    <Ionicons name="close" size={12} color="#fff" />
+                  </Pressable>
+                </View>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <Pressable
+                  testID="review-add-photo-btn"
+                  onPress={pickPhotos}
+                  disabled={!!photoBusy}
+                  style={[styles.photoAdd, !!photoBusy && { opacity: 0.6 }]}
+                >
+                  {photoBusy ? (
+                    <ActivityIndicator color={theme.colors.brand} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="camera" size={22} color={theme.colors.brand} />
+                      <Text style={styles.photoAddText}>{t("review.addPhoto")}</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          </View>
+
           {error && <Text style={styles.error}>{error}</Text>}
 
           <Pressable testID="submit-review-btn" onPress={submit} disabled={submitting} style={styles.submit}>
@@ -134,6 +236,48 @@ const styles = StyleSheet.create({
   error: { color: theme.colors.error, textAlign: "center" },
   submit: { backgroundColor: theme.colors.brand, paddingVertical: 16, borderRadius: theme.radius.pill, alignItems: "center" },
   submitText: { color: theme.colors.onBrandPrimary, fontWeight: "700", fontSize: 16 },
+
+  // Photo attachment block
+  photosBlock: {
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: theme.spacing.sm,
+  },
+  photosHeader: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  photosLabel: { color: theme.colors.onSurface, fontWeight: "700", fontSize: 14 },
+  photosHint: { color: theme.colors.muted, fontSize: 11, marginTop: 2 },
+  photosCount: { color: theme.colors.muted, fontSize: 12, fontWeight: "700" },
+  photosBusy: { color: theme.colors.brand, fontSize: 11, fontStyle: "italic" },
+  photosRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  photoThumbWrap: { width: 84, height: 84, borderRadius: theme.radius.md, overflow: "hidden", position: "relative" },
+  photoThumb: { width: "100%", height: "100%" },
+  photoRemoveBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoAdd: {
+    width: 84,
+    height: 84,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: theme.colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: theme.colors.surface,
+  },
+  photoAddText: { color: theme.colors.brand, fontSize: 10, fontWeight: "700" },
 
   gateRoot: { flex: 1, backgroundColor: theme.colors.surface },
   gateBody: { flex: 1, alignItems: "center", justifyContent: "center", padding: theme.spacing.xl, gap: theme.spacing.md },

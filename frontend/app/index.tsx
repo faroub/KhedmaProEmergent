@@ -18,6 +18,7 @@ import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
 import { SocialLinksRow } from "@/src/SocialLinksRow";
+import { BrandText } from "@/src/BrandText";
 
 type Feature = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -82,7 +83,7 @@ export default function Index() {
             >
               <Ionicons name="hammer" size={20} color="#0B1120" />
             </LinearGradient>
-            <Text style={styles.brandText}>{t("app.name")}</Text>
+            <BrandText style={styles.brandText} testID="brand-text" />
           </View>
           <LanguageSwitcher compact testID="onboarding-lang-switcher" />
         </View>
