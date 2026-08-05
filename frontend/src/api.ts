@@ -3,6 +3,11 @@ import { clearToken, readToken, saveToken } from "./authStorage";
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL || "";
 export const API_URL = `${BASE}/api`;
 
+// Read the current auth token (for callers that need to authenticate raw fetches, e.g. file downloads).
+export async function getAuthToken(): Promise<string | null> {
+  return readToken();
+}
+
 export type PortfolioItem = {
   url: string;
   caption?: string | null;

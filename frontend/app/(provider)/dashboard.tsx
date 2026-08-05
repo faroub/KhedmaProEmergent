@@ -10,6 +10,7 @@ import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { PortfolioManager } from "@/src/PortfolioManager";
 import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
+import { ProviderAnalyticsCard } from "@/src/ProviderAnalyticsCard";
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
@@ -131,6 +132,9 @@ export default function Dashboard() {
             <Text style={styles.statLabel}>{t("dash.pending")}</Text>
           </View>
         </View>
+
+        {/* Analytics chart (12-week performance) */}
+        <ProviderAnalyticsCard />
 
         {/* Rating card */}
         <View style={styles.ratingCard}>

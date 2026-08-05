@@ -12,11 +12,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Share,
 } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { api } from "@/src/api";
+import { api, getAuthToken } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
@@ -85,6 +88,82 @@ export default function AdminCategories() {
     setEditing({ id: "", icon: "grid", name_en: "", name_fr: "", name_ar: "", order: items.length, active: true });
     setEditorOpen(true);
   };
+
+  const exportCategories = async () => {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(api.adminExportCategoriesUrl(), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      // Use Share to let the admin save the JSON (email, files app, etc.).
+      await Share.share({
+        title: "khedmaPro categories export",
+        message: text,
+      });
+    } catch (e: any) {
+      Alert.alert("Export failed", e?.message || "Could not export");
+    }
+  };
+
+  const importCategories = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ["application/json", "text/*"],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      const content = await FileSystem.readAsStringAsync(asset.uri);
+      let parsed: any;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        Alert.alert("Invalid file", "Please pick a valid JSON file.");
+        return;
+      }
+      const list = Array.isArray(parsed) ? parsed : parsed.categories;
+      if (!Array.isArray(list) || list.length === 0) {
+        Alert.alert("Invalid file", "Expected an array of categories.");
+        return;
+      }
+      Alert.alert(
+        "Import categories",
+        `Found ${list.length} categories. How should we apply them?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Merge (safe)",
+            onPress: async () => {
+              try {
+                const r: any = await api.adminImportCategories({ categories: list, mode: "merge" });
+                Alert.alert("Imported", JSON.stringify(r.stats));
+                await load();
+              } catch (e: any) {
+                Alert.alert("Import failed", e?.message || "Failed");
+              }
+            },
+          },
+          {
+            text: "Replace (destructive)",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                const r: any = await api.adminImportCategories({ categories: list, mode: "replace" });
+                Alert.alert("Imported", JSON.stringify(r.stats));
+                await load();
+              } catch (e: any) {
+                Alert.alert("Import failed", e?.message || "Failed");
+              }
+            },
+          },
+        ],
+      );
+    } catch (e: any) {
+      Alert.alert("Import failed", e?.message || "Could not import");
+    }
+  };
   const openEdit = (c: Cat) => {
     setEditing({ ...c });
     setEditorOpen(true);
@@ -130,8 +209,14 @@ export default function AdminCategories() {
           <Ionicons name={isRTL ? "chevron-forward" : "chevron-back"} size={26} color={theme.colors.onSurface} />
         </Pressable>
         <Text style={styles.title}>{t("admin.cat.title")}</Text>
-        <Pressable onPress={openNew} hitSlop={12} testID="admin-cat-add">
-          <Ionicons name="add-circle" size={26} color={theme.colors.brand} />
+        <Pressable onPress={exportCategories} hitSlop={10} testID="admin-cat-export" style={styles.iconMini}>
+          <Ionicons name="download-outline" size={20} color={theme.colors.onSurface} />
+        </Pressable>
+        <Pressable onPress={importCategories} hitSlop={10} testID="admin-cat-import" style={styles.iconMini}>
+          <Ionicons name="cloud-upload-outline" size={20} color={theme.colors.onSurface} />
+        </Pressable>
+        <Pressable onPress={openNew} hitSlop={10} testID="admin-cat-add" style={styles.iconMini}>
+          <Ionicons name="add-circle" size={24} color={theme.colors.brand} />
         </Pressable>
       </View>
 
@@ -333,6 +418,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.surface },
   header: { flexDirection: "row", alignItems: "center", padding: theme.spacing.xl, gap: theme.spacing.md },
   title: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "800", flex: 1 },
+  iconMini: { padding: 6 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: theme.spacing.md, padding: theme.spacing.xl },
   emptyText: { color: theme.colors.muted, fontSize: 14, textAlign: "center" },
   addFirstBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.radius.pill, backgroundColor: theme.colors.brand },
