@@ -48,7 +48,8 @@ export default function Home() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  // Default: "Near me" 5 km. On first GPS attempt we fall back to wilaya/country if denied.
+  // Default: "Near me" 5 km + all categories. If GPS is denied, we fall back
+  // to the user's wilaya (if set) or "All Algeria" so results are still shown.
   const [scope, setScope] = useState<ScopeKey>("5");
   const [coords, setCoords] = useState<Coords | null>(peekLocationCache());
   const [locationDenied, setLocationDenied] = useState(false);

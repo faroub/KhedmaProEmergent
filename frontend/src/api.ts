@@ -108,6 +108,69 @@ export const api = {
   adminClearFlag: (providerId: string) =>
     request(`/admin/flags/${encodeURIComponent(providerId)}/clear`, { method: "POST" }),
 
+  // Admin dashboard
+  adminStats: () => request<any>("/admin/stats"),
+  adminSearchUsers: (params?: { q?: string; role?: string; wilaya?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.role) qs.set("role", params.role);
+    if (params?.wilaya) qs.set("wilaya", params.wilaya);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const s = qs.toString();
+    return request<any[]>(`/admin/users${s ? `?${s}` : ""}`);
+  },
+  adminDeactivateUser: (id: string) =>
+    request(`/admin/users/${encodeURIComponent(id)}/deactivate`, { method: "POST" }),
+  adminReactivateUser: (id: string) =>
+    request(`/admin/users/${encodeURIComponent(id)}/reactivate`, { method: "POST" }),
+  adminForceVerify: (id: string, verified = true) =>
+    request(`/admin/users/${encodeURIComponent(id)}/force-verify`, {
+      method: "POST",
+      body: JSON.stringify({ verified }),
+    }),
+  adminDeleteUser: (id: string) =>
+    request(`/admin/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  adminBookings: (status?: string, limit = 50) => {
+    const qs = new URLSearchParams();
+    if (status) qs.set("status", status);
+    qs.set("limit", String(limit));
+    return request<any[]>(`/admin/bookings?${qs.toString()}`);
+  },
+  adminRevenue: (months = 6) =>
+    request<any[]>(`/admin/revenue?months=${months}`),
+  adminBroadcast: (payload: { title: string; message: string; audience: string; wilaya_code?: string; action_url?: string }) =>
+    request("/admin/broadcast", { method: "POST", body: JSON.stringify(payload) }),
+  adminExportUrl: (kind: "users" | "providers" | "bookings") => `${API_URL}/admin/export/${kind}`,
+
+  // Admin categories
+  adminListCategories: () => request<any[]>("/admin/categories"),
+  adminCreateCategory: (payload: any) =>
+    request("/admin/categories", { method: "POST", body: JSON.stringify(payload) }),
+  adminUpdateCategory: (id: string, patch: any) =>
+    request(`/admin/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  adminDeleteCategory: (id: string) =>
+    request(`/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  adminReorderCategories: (order: string[]) =>
+    request<any[]>("/admin/categories/reorder", { method: "POST", body: JSON.stringify({ order }) }),
+
+  // Ads (public)
+  listAds: () => request<any[]>("/ads", { auth: false }),
+  adImpression: (id: string) =>
+    fetch(`${API_URL}/ads/${encodeURIComponent(id)}/impression`, { method: "POST" }).catch(() => {}),
+  adClick: (id: string) =>
+    fetch(`${API_URL}/ads/${encodeURIComponent(id)}/click`, { method: "POST" }).catch(() => {}),
+  // Ads (admin)
+  adminListAds: () => request<any[]>("/admin/ads"),
+  adminCreateAd: (payload: any) =>
+    request("/admin/ads", { method: "POST", body: JSON.stringify(payload) }),
+  adminUpdateAd: (id: string, patch: any) =>
+    request(`/admin/ads/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  adminDeleteAd: (id: string) =>
+    request(`/admin/ads/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  adminReorderAds: (order: string[]) =>
+    request<any[]>("/admin/ads/reorder", { method: "POST", body: JSON.stringify({ order }) }),
+
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),

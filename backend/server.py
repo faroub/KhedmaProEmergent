@@ -80,6 +80,49 @@ async def on_startup():
     await db.reports.create_index("provider_id")
     await db.users.create_index("verification_status")
     await db.users.create_index([("location_lat", 1), ("location_lng", 1)])
+    await db.categories.create_index("id", unique=True)
+    await db.categories.create_index("order")
+    await db.ads.create_index("order")
+    await db.ads.create_index("active")
+
+    # Seed the categories collection from the static list on first boot.
+    # Idempotent: only inserts categories whose id isn't already in the DB.
+    try:
+        from reference_data import CATEGORIES
+
+        # Tri-language names sourced from language.tsx keys ("cat.<id>").
+        _NAMES = {
+            "plumbing":      {"en": "Plumbing",                    "fr": "Plomberie",        "ar": "سباكة"},
+            "electrical":    {"en": "Electrical",                  "fr": "Électricité",       "ar": "كهرباء"},
+            "cleaning":      {"en": "Cleaning",                    "fr": "Nettoyage",        "ar": "تنظيف"},
+            "carpentry":     {"en": "Carpentry",                   "fr": "Menuiserie",       "ar": "نجارة"},
+            "painting":      {"en": "Painting",                    "fr": "Peinture",         "ar": "دهان"},
+            "landscaping":   {"en": "Landscaping",                 "fr": "Jardinage",        "ar": "بستنة"},
+            "it_support":    {"en": "IT Support",                  "fr": "Support IT",       "ar": "دعم تقني"},
+            "admin_consulting": {"en": "Administrative Consultants","fr": "Aide administrative","ar": "استشارات إدارية"},
+            "education":     {"en": "Education (Private Tutoring)","fr": "Éducation (tutorat)","ar": "تعليم (دروس خصوصية)"},
+            "photography":   {"en": "Photography",                 "fr": "Photographie",     "ar": "تصوير"},
+            "moving":        {"en": "Moving",                      "fr": "Déménagement",     "ar": "نقل الأثاث"},
+        }
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for idx, c in enumerate(CATEGORIES):
+            existing = await db.categories.find_one({"id": c["id"]}, {"_id": 0, "id": 1})
+            if existing:
+                continue
+            names = _NAMES.get(c["id"], {})
+            await db.categories.insert_one({
+                "id": c["id"],
+                "icon": c["icon"],
+                "name_en": names.get("en", c["name"]),
+                "name_fr": names.get("fr", c["name"]),
+                "name_ar": names.get("ar", c["name"]),
+                "order": idx,
+                "active": True,
+                "created_at": now_iso,
+                "updated_at": now_iso,
+            })
+    except Exception as e:
+        logger.warning("Category seed skipped: %s", e)
 
     # One-shot: backfill approximate location coordinates for existing providers
     # from their wilaya's centroid (nudged with a tiny per-provider offset so

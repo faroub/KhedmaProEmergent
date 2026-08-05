@@ -219,3 +219,17 @@ section.tight { padding: 48px 0; }
 .site-footer .col { display: flex; flex-direction: column; }
 .site-footer .col-title { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 800; }
 .site-footer .fine { font-size: 12px; margin-top: 24px; text-align: center; }
+
+/* -------- Ad CTA card -------- */
+.ad-cta {
+  display: flex; flex-wrap: wrap; gap: 20px;
+  padding: 24px;
+  margin-top: 20px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(212,175,55,0.10), rgba(212,175,55,0.02));
+  border: 1px solid rgba(212,175,55,0.35);
+  align-items: center; justify-content: space-between;
+}
+.ad-cta-body { flex: 1 1 300px; }
+.ad-cta-title { color: var(--text); font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+.ad-cta-sub { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
