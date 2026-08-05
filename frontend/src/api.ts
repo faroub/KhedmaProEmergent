@@ -179,6 +179,21 @@ export const api = {
   // Provider self-analytics
   providerAnalytics: (weeks = 12) => request<any>(`/providers/me/analytics?weeks=${weeks}`),
 
+  // Admin subscriptions
+  adminSubscriptions: (statusFilter?: string, limit = 100) => {
+    const qs = new URLSearchParams();
+    if (statusFilter) qs.set("status", statusFilter);
+    qs.set("limit", String(limit));
+    return request<any[]>(`/admin/subscriptions?${qs.toString()}`);
+  },
+  adminProviderPayments: (providerId: string) =>
+    request<any[]>(`/admin/subscriptions/${encodeURIComponent(providerId)}/payments`),
+  adminMarkPaid: (providerId: string, payload: { amount_dzd?: number; note?: string }) =>
+    request(`/admin/subscriptions/${encodeURIComponent(providerId)}/mark-paid`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),

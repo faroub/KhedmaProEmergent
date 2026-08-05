@@ -34,6 +34,7 @@ type ManageTile = {
 
 const TILES: ManageTile[] = [
   { key: "users", labelKey: "admin.hub.users", subKey: "admin.hub.usersSub", icon: "people", route: "/admin/users", color: "#3B82F6" },
+  { key: "subscriptions", labelKey: "admin.hub.subscriptions", subKey: "admin.hub.subscriptionsSub", icon: "card", route: "/admin/subscriptions", color: "#22C55E" },
   { key: "bookings", labelKey: "admin.hub.bookings", subKey: "admin.hub.bookingsSub", icon: "calendar", route: "/admin/bookings", color: "#10B981" },
   { key: "categories", labelKey: "admin.hub.categories", subKey: "admin.hub.categoriesSub", icon: "grid", route: "/admin/categories", color: "#F59E0B" },
   { key: "ads", labelKey: "admin.ads.title", subKey: "admin.ads.hubSub", icon: "megaphone", route: "/admin/ads", color: "#EC4899" },

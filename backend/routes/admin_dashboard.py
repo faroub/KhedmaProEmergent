@@ -14,7 +14,7 @@ from database import db
 from deps import current_user, require_admin
 from routes.push import send_push
 from schemas import Role
-from subscription import serialize_user
+from subscription import compute_subscription, serialize_user
 
 router = APIRouter(tags=["admin-dashboard"])
 
@@ -421,3 +421,116 @@ async def admin_export(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+# =========================================================================
+# SUBSCRIPTION TRACKING (provider 1000 DA/mo — Chargily-powered)
+# =========================================================================
+@router.get("/admin/subscriptions")
+async def admin_subscriptions(
+    user: Annotated[dict, Depends(current_user)],
+    status: Optional[str] = Query(default=None, description="active | trial | due | deactivated"),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """List all providers with their current subscription state (computed
+    on-the-fly from `last_paid_at` + `created_at`). Payment history is
+    aggregated from `subscription_payments` for a quick lifetime total."""
+    require_admin(user)
+    docs = await db.users.find(
+        {"role": Role.service_provider.value, "is_deleted": {"$ne": True}},
+        {"_id": 0, "password_hash": 0},
+    ).sort("created_at", -1).to_list(500)
+
+    out = []
+    for d in docs:
+        sub = compute_subscription(d)
+        # Lifetime payment stats.
+        agg = await db.subscription_payments.aggregate([
+            {"$match": {"provider_id": d["id"], "status": "paid"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount_dzd"}, "count": {"$sum": 1}}},
+        ]).to_list(1)
+        lifetime = agg[0] if agg else {"total": 0, "count": 0}
+
+        row = {
+            "id": d["id"],
+            "full_name": d.get("full_name"),
+            "email": d.get("email"),
+            "category": d.get("category"),
+            "wilaya_code": d.get("wilaya_code"),
+            "subscription_status": sub["subscription_status"],
+            "active": sub["active"],
+            "days_until_due": sub["days_until_due"],
+            "trial_ends_at": sub["trial_ends_at"],
+            "last_paid_at": d.get("last_paid_at"),
+            "created_at": d.get("created_at"),
+            "lifetime_paid_dzd": int(lifetime["total"]) if lifetime else 0,
+            "payments_count": int(lifetime["count"]) if lifetime else 0,
+            "is_manually_deactivated": bool(d.get("is_manually_deactivated")),
+        }
+
+        if status:
+            if status == "active" and row["subscription_status"] != "active":
+                continue
+            if status == "trial" and row["subscription_status"] != "trial":
+                continue
+            if status == "due" and row["subscription_status"] not in {"due", "expired"}:
+                continue
+            if status == "deactivated" and not row["is_manually_deactivated"]:
+                continue
+        out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+@router.get("/admin/subscriptions/{provider_id}/payments")
+async def admin_provider_payments(
+    provider_id: str,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Full payment history for a single provider."""
+    require_admin(user)
+    rows = await db.subscription_payments.find(
+        {"provider_id": provider_id},
+        {"_id": 0},
+    ).sort("paid_at", -1).to_list(200)
+    return rows
+
+
+class MarkPaidIn(BaseModel):
+    amount_dzd: int = Field(default=1000, ge=1)
+    note: Optional[str] = None
+
+
+@router.post("/admin/subscriptions/{provider_id}/mark-paid")
+async def admin_mark_paid(
+    provider_id: str,
+    body: MarkPaidIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Manually mark a provider as paid (e.g. paid via bank transfer / cash).
+    Inserts a payment row + refreshes `last_paid_at` and reactivates the profile."""
+    import uuid
+    require_admin(user)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.users.update_one(
+        {"id": provider_id, "role": Role.service_provider.value},
+        {"$set": {
+            "last_paid_at": now_iso,
+            "is_manually_deactivated": False,
+            "manually_deactivated_at": None,
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    await db.subscription_payments.insert_one({
+        "id": str(uuid.uuid4()),
+        "provider_id": provider_id,
+        "amount_dzd": body.amount_dzd,
+        "paid_at": now_iso,
+        "method": "manual_admin",
+        "status": "paid",
+        "recorded_by": user["id"],
+        "note": body.note,
+    })
+    return {"success": True, "amount_dzd": body.amount_dzd}
