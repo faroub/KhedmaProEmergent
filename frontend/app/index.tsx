@@ -17,6 +17,7 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
+import { SocialLinksRow } from "@/src/SocialLinksRow";
 
 type Feature = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -227,6 +228,8 @@ export default function Index() {
               <Text style={{ color: theme.colors.brand, fontWeight: "700" }}>{t("onboarding.signIn")}</Text>
             </Text>
           </Pressable>
+
+          <SocialLinksRow compact color="rgba(255,255,255,0.7)" testID="landing-social-row" />
         </View>
       </SafeAreaView>
     </View>

@@ -140,6 +140,7 @@
       "contact.h1b": "the team.",
       "contact.lede": "Questions, partnerships, feedback, or just saying hi — we'd love to hear from you.",
       "contact.tile.support": "Support",
+      "contact.tile.phone": "Phone",
       "contact.tile.partners": "Partnerships",
       "contact.tile.ads": "Advertising",
       "contact.tile.press": "Press",
@@ -328,6 +329,7 @@
       "contact.h1b": "l'équipe.",
       "contact.lede": "Questions, partenariats, retours, ou juste dire bonjour — écrivez-nous.",
       "contact.tile.support": "Support",
+      "contact.tile.phone": "Téléphone",
       "contact.tile.partners": "Partenariats",
       "contact.tile.ads": "Publicité",
       "contact.tile.press": "Presse",
@@ -514,6 +516,7 @@
       "contact.h1b": "الفريق.",
       "contact.lede": "أسئلة، شراكات، ملاحظات، أو فقط لتقول مرحبًا — يسعدنا سماعك.",
       "contact.tile.support": "الدعم",
+      "contact.tile.phone": "الهاتف",
       "contact.tile.partners": "الشراكات",
       "contact.tile.ads": "الإعلانات",
       "contact.tile.press": "الصحافة",
@@ -615,6 +618,114 @@
     // Update selector display value
     var sel = document.getElementById("site-lang-select");
     if (sel && sel.value !== lang) sel.value = lang;
+
+    // Overlay admin-configured hero/contact if we've already fetched it.
+    applyAdminOverrides(lang);
+  }
+
+  // ----- Admin overrides (hero text, contact info) + social icons -----
+  var _remoteCfg = null;   // { social:{...}, site:{...} }
+
+  function applyAdminOverrides(lang) {
+    if (!_remoteCfg) return;
+    var site = _remoteCfg.site || {};
+    // Hero title: overlay onto the composed h1 (data-i18n=home.h1a/h1b/h1c) —
+    // when the admin sets a title, we blow the three spans away and inject one
+    // clean line so operators can freely rewrite the copy per language.
+    var titleKey = "hero_title_" + lang;
+    var subKey = "hero_sub_" + lang;
+    var newTitle = site[titleKey];
+    var newSub = site[subKey];
+    if (newTitle) {
+      var h1a = document.querySelector('[data-i18n="home.h1a"]');
+      var h1b = document.querySelector('[data-i18n="home.h1b"]');
+      var h1c = document.querySelector('[data-i18n="home.h1c"]');
+      if (h1a && h1b && h1c) {
+        var h1 = h1a.closest("h1");
+        if (h1) {
+          h1.innerHTML = '';
+          var span = document.createElement("span");
+          span.className = "grad";
+          span.textContent = newTitle;
+          h1.appendChild(span);
+        }
+      }
+    }
+    if (newSub) {
+      var lede = document.querySelector('[data-i18n="home.lede"]');
+      if (lede) lede.textContent = newSub;
+    }
+
+    // Contact section (only on contact.html) — replace hard-coded emails/phones.
+    // Any element with class `js-contact-email`, `js-contact-phone`, `js-contact-whatsapp`
+    // gets populated with the admin's values (if set).
+    if (site.contact_email) {
+      document.querySelectorAll(".js-contact-email").forEach(function (el) {
+        el.textContent = site.contact_email;
+        if (el.tagName === "A") el.setAttribute("href", "mailto:" + site.contact_email);
+      });
+    }
+    // Phone tile: hide the parent .info-tile if no phone configured.
+    document.querySelectorAll(".js-contact-phone").forEach(function (el) {
+      var tile = el.closest(".info-tile");
+      if (!site.contact_phone) {
+        if (tile) tile.style.display = "none";
+        return;
+      }
+      el.textContent = site.contact_phone;
+      if (el.tagName === "A") el.setAttribute("href", "tel:" + site.contact_phone.replace(/\s+/g, ""));
+      if (tile) tile.style.display = "";
+    });
+    // WhatsApp tile: same treatment.
+    document.querySelectorAll(".js-contact-whatsapp").forEach(function (el) {
+      var tile = el.closest(".info-tile");
+      if (!site.contact_whatsapp) {
+        if (tile) tile.style.display = "none";
+        return;
+      }
+      el.textContent = site.contact_whatsapp;
+      if (el.tagName === "A") el.setAttribute("href", site.contact_whatsapp);
+      if (tile) tile.style.display = "";
+    });
+
+    // Social icons — inject into any element with id="site-social".
+    var social = _remoteCfg.social || {};
+    var container = document.getElementById("site-social");
+    if (container) {
+      // Clear so re-applying doesn't stack icons.
+      container.innerHTML = "";
+      [
+        { url: social.facebook_url, label: "Facebook", svg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.563V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.99 22 12z"/></svg>' },
+        { url: social.instagram_url, label: "Instagram", svg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.9 4.9 0 0 1 1.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 0 1-1.153 1.772 4.915 4.915 0 0 1-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 0 1-1.772-1.153 4.904 4.904 0 0 1-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 0 1 1.153-1.772A4.897 4.897 0 0 1 5.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6.5-.25a1.25 1.25 0 0 0-2.5 0 1.25 1.25 0 0 0 2.5 0zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>' },
+        { url: social.tiktok_url, label: "TikTok", svg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.35a8.16 8.16 0 0 0 4.77 1.52V6.42a4.85 4.85 0 0 1-1.84-.27z"/></svg>' },
+      ].forEach(function (item) {
+        if (!item.url) return;
+        var a = document.createElement("a");
+        a.href = item.url;
+        a.setAttribute("aria-label", item.label);
+        a.className = "social-icon";
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.innerHTML = item.svg;
+        container.appendChild(a);
+      });
+    }
+  }
+
+  function fetchRemoteConfig() {
+    // Same-origin fetch. `/api/public/settings` is unauthenticated.
+    try {
+      fetch("/api/public/settings", { credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          _remoteCfg = data;
+          // Re-apply with current lang so overrides land immediately.
+          var current = document.documentElement.lang || "en";
+          applyAdminOverrides(current);
+        })
+        .catch(function () {});
+    } catch (_) {}
   }
 
   function init() {
@@ -637,9 +748,10 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", function () { init(); fetchRemoteConfig(); });
   } else {
     init();
+    fetchRemoteConfig();
   }
 
   // Expose for debugging

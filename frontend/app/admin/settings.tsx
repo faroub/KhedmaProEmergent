@@ -42,6 +42,22 @@ type Settings = {
   chargily_webhook_secret_source: "env" | "db" | "none";
   chargily_secret_key_masked: string;
   sms?: SmsSection;
+  social?: {
+    facebook_url: string;
+    instagram_url: string;
+    tiktok_url: string;
+  };
+  site?: {
+    hero_title_en: string;
+    hero_title_fr: string;
+    hero_title_ar: string;
+    hero_sub_en: string;
+    hero_sub_fr: string;
+    hero_sub_ar: string;
+    contact_email: string;
+    contact_phone: string;
+    contact_whatsapp: string;
+  };
 };
 
 type Health = Settings & { healthy: boolean; detail: string; http_status?: number };
@@ -79,6 +95,22 @@ export default function AdminSettings() {
   const [smsTestPhone, setSmsTestPhone] = useState("");
   const [smsTestBusy, setSmsTestBusy] = useState(false);
 
+  // Social media local state
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+
+  // Marketing site content
+  const [heroTitleEn, setHeroTitleEn] = useState("");
+  const [heroTitleFr, setHeroTitleFr] = useState("");
+  const [heroTitleAr, setHeroTitleAr] = useState("");
+  const [heroSubEn, setHeroSubEn] = useState("");
+  const [heroSubFr, setHeroSubFr] = useState("");
+  const [heroSubAr, setHeroSubAr] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactWhatsapp, setContactWhatsapp] = useState("");
+
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
     setLoading(true);
@@ -99,6 +131,22 @@ export default function AdminSettings() {
         setHttpContentType(s.sms.http_content_type || "application/json");
         setHttpBodyTpl(s.sms.http_body_template || "");
         setMsgTemplate(s.sms.message_template || "");
+      }
+      if (s.social) {
+        setFacebookUrl(s.social.facebook_url || "");
+        setInstagramUrl(s.social.instagram_url || "");
+        setTiktokUrl(s.social.tiktok_url || "");
+      }
+      if (s.site) {
+        setHeroTitleEn(s.site.hero_title_en || "");
+        setHeroTitleFr(s.site.hero_title_fr || "");
+        setHeroTitleAr(s.site.hero_title_ar || "");
+        setHeroSubEn(s.site.hero_sub_en || "");
+        setHeroSubFr(s.site.hero_sub_fr || "");
+        setHeroSubAr(s.site.hero_sub_ar || "");
+        setContactEmail(s.site.contact_email || "");
+        setContactPhone(s.site.contact_phone || "");
+        setContactWhatsapp(s.site.contact_whatsapp || "");
       }
     } catch {
       setSettings(null);
@@ -154,6 +202,26 @@ export default function AdminSettings() {
         smsPatch.http_headers = obj;
       }
       patch.sms = smsPatch;
+
+      // Social media links block
+      patch.social = {
+        facebook_url: facebookUrl.trim(),
+        instagram_url: instagramUrl.trim(),
+        tiktok_url: tiktokUrl.trim(),
+      };
+
+      // Marketing site content block
+      patch.site = {
+        hero_title_en: heroTitleEn.trim(),
+        hero_title_fr: heroTitleFr.trim(),
+        hero_title_ar: heroTitleAr.trim(),
+        hero_sub_en: heroSubEn.trim(),
+        hero_sub_fr: heroSubFr.trim(),
+        hero_sub_ar: heroSubAr.trim(),
+        contact_email: contactEmail.trim(),
+        contact_phone: contactPhone.trim(),
+        contact_whatsapp: contactWhatsapp.trim(),
+      };
 
       const updated: any = await api.adminUpdateSettings(patch);
       setSettings(updated);
@@ -627,6 +695,179 @@ export default function AdminSettings() {
               <Text style={styles.help}>
                 Sends the fixed test code `000000` via the CURRENTLY saved settings.
               </Text>
+            </View>
+          </View>
+
+          {/* Social media links section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Social media links</Text>
+            <Text style={styles.help}>
+              Empty fields hide the icon everywhere (landing page, client profile, marketing site).
+              These are also served from `/api/public/settings` for third-party embeds.
+            </Text>
+            <View style={styles.field}>
+              <Text style={styles.label}>Facebook URL</Text>
+              <TextInput
+                testID="social-facebook"
+                value={facebookUrl}
+                onChangeText={setFacebookUrl}
+                placeholder="https://facebook.com/khedmapro"
+                placeholderTextColor={theme.colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Instagram URL</Text>
+              <TextInput
+                testID="social-instagram"
+                value={instagramUrl}
+                onChangeText={setInstagramUrl}
+                placeholder="https://instagram.com/khedmapro"
+                placeholderTextColor={theme.colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>TikTok URL</Text>
+              <TextInput
+                testID="social-tiktok"
+                value={tiktokUrl}
+                onChangeText={setTiktokUrl}
+                placeholder="https://tiktok.com/@khedmapro"
+                placeholderTextColor={theme.colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                style={styles.input}
+              />
+            </View>
+          </View>
+
+          {/* Marketing website content section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Marketing website content</Text>
+            <Text style={styles.help}>
+              Overrides the hero copy on the public marketing site (khedmapro.dz/api/site).
+              Leave blank to use the built-in default translation. Changes go live immediately.
+            </Text>
+
+            <Text style={[styles.label, { marginTop: theme.spacing.sm }]}>Hero title</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>English</Text>
+              <TextInput
+                testID="site-hero-title-en"
+                value={heroTitleEn}
+                onChangeText={setHeroTitleEn}
+                placeholder="Your city's trusted pros, one tap away."
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Français</Text>
+              <TextInput
+                testID="site-hero-title-fr"
+                value={heroTitleFr}
+                onChangeText={setHeroTitleFr}
+                placeholder="Les pros de confiance de votre ville, à portée de tap."
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>العربية</Text>
+              <TextInput
+                testID="site-hero-title-ar"
+                value={heroTitleAr}
+                onChangeText={setHeroTitleAr}
+                placeholder="محترفو مدينتك الموثوقون، بضغطة واحدة."
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+              />
+            </View>
+
+            <Text style={[styles.label, { marginTop: theme.spacing.sm }]}>Hero subtitle</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>English</Text>
+              <TextInput
+                testID="site-hero-sub-en"
+                value={heroSubEn}
+                onChangeText={setHeroSubEn}
+                placeholder="One-line description used under the hero title..."
+                placeholderTextColor={theme.colors.muted}
+                multiline
+                style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Français</Text>
+              <TextInput
+                testID="site-hero-sub-fr"
+                value={heroSubFr}
+                onChangeText={setHeroSubFr}
+                placeholder="Description en une ligne..."
+                placeholderTextColor={theme.colors.muted}
+                multiline
+                style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>العربية</Text>
+              <TextInput
+                testID="site-hero-sub-ar"
+                value={heroSubAr}
+                onChangeText={setHeroSubAr}
+                placeholder="وصف من سطر واحد..."
+                placeholderTextColor={theme.colors.muted}
+                multiline
+                style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+              />
+            </View>
+
+            <Text style={[styles.label, { marginTop: theme.spacing.sm }]}>Contact info (shown on /contact page)</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>Support email</Text>
+              <TextInput
+                testID="site-contact-email"
+                value={contactEmail}
+                onChangeText={setContactEmail}
+                placeholder="support@khedmapro.dz"
+                placeholderTextColor={theme.colors.muted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Phone (optional — hides the tile if empty)</Text>
+              <TextInput
+                testID="site-contact-phone"
+                value={contactPhone}
+                onChangeText={setContactPhone}
+                placeholder="+213 555 12 34 56"
+                placeholderTextColor={theme.colors.muted}
+                keyboardType="phone-pad"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>WhatsApp link (optional)</Text>
+              <TextInput
+                testID="site-contact-whatsapp"
+                value={contactWhatsapp}
+                onChangeText={setContactWhatsapp}
+                placeholder="https://wa.me/213555123456"
+                placeholderTextColor={theme.colors.muted}
+                autoCapitalize="none"
+                keyboardType="url"
+                style={styles.input}
+              />
             </View>
           </View>
 

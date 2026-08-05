@@ -17,6 +17,7 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { LanguageSwitcher } from "@/src/LanguageSwitcher";
+import { SocialLinksRow } from "@/src/SocialLinksRow";
 import { api } from "@/src/api";
 import { VerificationCard } from "@/src/VerificationCard";
 import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
@@ -348,6 +349,8 @@ export default function Profile() {
           <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
           <Text style={styles.logoutText}>{t("profile.signOut")}</Text>
         </Pressable>
+
+        <SocialLinksRow color={theme.colors.onSurfaceSecondary} testID="profile-social-row" />
       </ScrollView>
 
       {/* Toast */}

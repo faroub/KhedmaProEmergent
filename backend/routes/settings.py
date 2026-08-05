@@ -55,6 +55,12 @@ async def get_effective_settings() -> dict:
     sms_status = await get_provider_status()
     sms_doc = doc.get("sms") or {}
 
+    # Social media handles (all optional). Empty strings mean "hide".
+    social_doc = doc.get("social") or {}
+
+    # Marketing website content (editable from admin — hero + contact for now).
+    site_doc = doc.get("site") or {}
+
     return {
         "subscription_price_dzd": int(doc.get("subscription_price_dzd") or ENV_SUBSCRIPTION_FEE_DZD),
         "trial_days": int(doc.get("trial_days") or (ENV_TRIAL_MONTHS * 30)),
@@ -82,6 +88,24 @@ async def get_effective_settings() -> dict:
             # Header keys only (values redacted so we don't leak API keys).
             "http_header_keys": list((sms_doc.get("http_headers") or {}).keys()),
         },
+        "social": {
+            "facebook_url": social_doc.get("facebook_url") or "",
+            "instagram_url": social_doc.get("instagram_url") or "",
+            "tiktok_url": social_doc.get("tiktok_url") or "",
+        },
+        "site": {
+            # Hero block per language
+            "hero_title_en": site_doc.get("hero_title_en") or "",
+            "hero_title_fr": site_doc.get("hero_title_fr") or "",
+            "hero_title_ar": site_doc.get("hero_title_ar") or "",
+            "hero_sub_en": site_doc.get("hero_sub_en") or "",
+            "hero_sub_fr": site_doc.get("hero_sub_fr") or "",
+            "hero_sub_ar": site_doc.get("hero_sub_ar") or "",
+            # Contact info
+            "contact_email": site_doc.get("contact_email") or "",
+            "contact_phone": site_doc.get("contact_phone") or "",
+            "contact_whatsapp": site_doc.get("contact_whatsapp") or "",
+        },
     }
 
 
@@ -107,6 +131,24 @@ class SmsConfigPatch(BaseModel):
     message_template: Optional[str] = None
 
 
+class SocialConfigPatch(BaseModel):
+    facebook_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
+
+
+class SiteConfigPatch(BaseModel):
+    hero_title_en: Optional[str] = None
+    hero_title_fr: Optional[str] = None
+    hero_title_ar: Optional[str] = None
+    hero_sub_en: Optional[str] = None
+    hero_sub_fr: Optional[str] = None
+    hero_sub_ar: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_whatsapp: Optional[str] = None
+
+
 class SettingsPatch(BaseModel):
     subscription_price_dzd: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     trial_days: Optional[int] = Field(default=None, ge=0, le=365)
@@ -115,6 +157,20 @@ class SettingsPatch(BaseModel):
     chargily_secret_key_override: Optional[str] = None      # empty string clears
     chargily_webhook_secret_override: Optional[str] = None  # empty string clears
     sms: Optional[SmsConfigPatch] = None
+    social: Optional[SocialConfigPatch] = None
+    site: Optional[SiteConfigPatch] = None
+
+
+# --------- Public (unauthenticated) settings endpoint ---------
+@router.get("/public/settings")
+async def public_settings():
+    """Returns only the client-safe subset — social handles + site content.
+    Consumed by the mobile app footer + the marketing site HTML."""
+    eff = await get_effective_settings()
+    return {
+        "social": eff.get("social") or {},
+        "site": eff.get("site") or {},
+    }
 
 
 @router.get("/admin/settings")
@@ -173,6 +229,28 @@ async def admin_update_settings(
                 merged[k] = v
         updates["sms"] = merged
         audit_changes.append(f"sms_provider={merged.get('provider') or 'mock'}")
+
+    if body.social is not None:
+        existing = (await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}).get("social") or {}
+        merged_social = dict(existing)
+        for k, v in body.social.model_dump(exclude_none=True).items():
+            if isinstance(v, str) and v.strip() == "":
+                merged_social.pop(k, None)
+            else:
+                merged_social[k] = v.strip() if isinstance(v, str) else v
+        updates["social"] = merged_social
+        audit_changes.append("social_links_updated")
+
+    if body.site is not None:
+        existing = (await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}).get("site") or {}
+        merged_site = dict(existing)
+        for k, v in body.site.model_dump(exclude_none=True).items():
+            if isinstance(v, str) and v == "":
+                merged_site.pop(k, None)
+            else:
+                merged_site[k] = v
+        updates["site"] = merged_site
+        audit_changes.append("site_content_updated")
 
     if not audit_changes:
         raise HTTPException(status_code=400, detail="No fields to update")

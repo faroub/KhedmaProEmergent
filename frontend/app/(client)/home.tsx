@@ -306,6 +306,11 @@ export default function Home() {
                         <Ionicons name="checkmark-circle" size={14} color={theme.colors.brand} />
                       </View>
                     )}
+                    {(p as any).is_new && (
+                      <View style={styles.newPill} testID={`provider-new-${p.id}`}>
+                        <Text style={styles.newPillText}>{t("home.newTag")}</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.providerCat} numberOfLines={1}>
                     {p.category ? t(`cat.${p.category}`) : ""} • {p.city || ""}
@@ -489,6 +494,18 @@ const styles = StyleSheet.create({
   providerAvatar: { width: 56, height: 56, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceTertiary },
   providerNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   verifiedBadge: { alignItems: "center", justifyContent: "center" },
+  newPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.brand,
+  },
+  newPillText: {
+    color: theme.colors.onBrandPrimary,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
   providerName: { color: theme.colors.onSurface, fontSize: 15, fontWeight: "700" },
   providerCat: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   providerMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },

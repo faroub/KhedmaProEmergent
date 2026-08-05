@@ -263,3 +263,15 @@ html[dir="rtl"] .site-footer .row { flex-direction: row-reverse; }
 html[dir="rtl"] .actions { flex-direction: row-reverse; }
 html[dir="rtl"] .btn-arrow { display: inline-block; transform: scaleX(-1); }
 html[dir="rtl"] .ad-cta { flex-direction: row-reverse; }
+
+/* Social icons row (footer) — populated dynamically by i18n.js from admin
+   settings. Renders nothing if no URLs configured. */
+.site-social { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 20px; }
+.site-social a.social-icon {
+  color: var(--muted);
+  transition: color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.site-social a.social-icon:hover { color: var(--brand); }
