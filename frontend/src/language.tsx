@@ -22,6 +22,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "onboarding.subtitle": "Browse vetted service providers instantly — no account needed to search or book.",
     "onboarding.browse": "Browse services",
     "onboarding.iamProvider": "I'm a service provider",
+    "onboarding.phoneLogin": "Continue with phone",
     // Landing
     "landing.pilotBadge": "MADE FOR ALGERIA",
     "landing.heroTitle": "Your city's trusted pros,\none tap away.",
@@ -429,6 +430,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "onboarding.subtitle": "Parcourez des prestataires vérifiés instantanément — pas besoin de compte pour chercher ou réserver.",
     "onboarding.browse": "Parcourir les services",
     "onboarding.iamProvider": "Je suis un prestataire",
+    "onboarding.phoneLogin": "Se connecter par téléphone",
     // Landing
     "landing.pilotBadge": "CONÇU POUR L'ALGÉRIE",
     "landing.heroTitle": "Les pros de confiance\nde votre ville, en un clic.",
@@ -831,6 +833,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "landing.trustTrial": "يوم تجربة",
     "onboarding.browse": "تصفح الخدمات",
     "onboarding.iamProvider": "أنا مقدم خدمة",
+    "onboarding.phoneLogin": "المتابعة برقم الهاتف",
     "onboarding.haveAccount": "لديك حساب مقدم خدمة؟",
     "onboarding.signIn": "تسجيل الدخول",
     "home.helloGuest": "ابحث عن محترف",
