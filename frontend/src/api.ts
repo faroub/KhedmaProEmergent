@@ -204,6 +204,8 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   adminSubscriptionRevenueUrl: () => `${API_URL}/admin/export/subscription_revenue`,
+  adminSubscriptionsRevenueChart: (months = 12) =>
+    request<{ month: string; revenue_dzd: number; payments: number }[]>(`/admin/subscriptions/revenue?months=${months}`),
 
   // OTP auth
   otpRequest: (phone: string) =>

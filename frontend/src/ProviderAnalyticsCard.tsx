@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "./api";
 import { theme } from "./theme";
+import { AnimatedBarChart, BarPoint } from "./AnimatedBarChart";
 
 type Week = { week_start: string; bookings: number; completed: number; earned_dzd: number };
 type Analytics = {
@@ -49,8 +50,6 @@ export function ProviderAnalyticsCard({ testID = "provider-analytics" }: { testI
   }
   if (!data) return null;
 
-  const series = data.weeks.map((w) => metric === "bookings" ? w.bookings : w.earned_dzd);
-  const max = Math.max(1, ...series);
   const total = metric === "bookings" ? data.totals.bookings : data.totals.earned_dzd;
 
   return (
@@ -93,32 +92,19 @@ export function ProviderAnalyticsCard({ testID = "provider-analytics" }: { testI
         </Pressable>
       </View>
 
-      {/* Bar chart */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chartRow}
-      >
-        {data.weeks.map((w, i) => {
-          const val = metric === "bookings" ? w.bookings : w.earned_dzd;
-          const heightPct = Math.max(2, (val / max) * 100);
-          const label = w.week_start.slice(5);
-          return (
-            <View key={w.week_start} style={styles.barCol}>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: `${heightPct}%` }]} />
-                {val > 0 && (
-                  <Text style={styles.barVal}>
-                    {metric === "earned" && val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
-                  </Text>
-                )}
-              </View>
-              {i % 2 === 0 && <Text style={styles.barLabel}>{label}</Text>}
-              {i % 2 !== 0 && <Text style={styles.barLabel}> </Text>}
-            </View>
-          );
-        })}
-      </ScrollView>
+      {/* Bar chart (animated + tap to see tooltip) */}
+      <AnimatedBarChart
+        data={data.weeks.map<BarPoint>((w) => ({
+          label: w.week_start.slice(5),
+          value: metric === "bookings" ? w.bookings : w.earned_dzd,
+          tooltip: `Week of ${w.week_start}`,
+        }))}
+        height={130}
+        barWidth={12}
+        formatValue={(v) =>
+          metric === "earned" && v >= 1000 ? `${(v / 1000).toFixed(1)}k DA` : metric === "earned" ? `${v} DA` : String(v)
+        }
+      />
 
       {/* Bottom stats */}
       <View style={styles.statsRow}>
@@ -179,21 +165,6 @@ const styles = StyleSheet.create({
   metricBtnActive: { borderColor: theme.colors.brand, backgroundColor: theme.colors.brandTertiary },
   metricText: { color: theme.colors.onSurfaceSecondary, fontSize: 11, fontWeight: "700" },
   metricTextActive: { color: theme.colors.onSurface },
-
-  chartRow: { alignItems: "flex-end", gap: 4, paddingVertical: 8, height: 130 },
-  barCol: { alignItems: "center", width: 22 },
-  barTrack: {
-    width: 16, height: 90, borderRadius: 3,
-    backgroundColor: theme.colors.surface,
-    justifyContent: "flex-end",
-    overflow: "visible",
-  },
-  barFill: {
-    width: "100%", borderRadius: 3,
-    backgroundColor: theme.colors.brand,
-  },
-  barVal: { position: "absolute", top: -14, color: theme.colors.onSurface, fontSize: 9, fontWeight: "700", width: 30, textAlign: "center", left: -7 },
-  barLabel: { color: theme.colors.muted, fontSize: 9, marginTop: 4, minHeight: 12 },
 
   statsRow: { flexDirection: "row", gap: theme.spacing.sm, marginTop: 4 },
   stat: {

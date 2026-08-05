@@ -609,3 +609,45 @@ async def admin_remind_due(
         import logging
         logging.getLogger(__name__).warning("Reminder push error (non-fatal): %s", e)
     return {"sent": len(due_ids), "recipients": len(due_ids)}
+
+
+@router.get("/admin/subscriptions/revenue")
+async def admin_subscriptions_revenue(
+    user: Annotated[dict, Depends(current_user)],
+    months: int = Query(default=12, ge=1, le=24),
+):
+    """Monthly aggregation of subscription revenue (for chart display).
+    Returns exactly `months` entries — filling in zeros for months with no payments."""
+    require_admin(user)
+    now = datetime.now(timezone.utc)
+    # Build the list of the last N YYYY-MM keys.
+    keys: list[str] = []
+    year, month = now.year, now.month
+    for _ in range(months):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    keys.reverse()
+
+    pipeline = [
+        {"$match": {"status": "paid", "paid_at": {"$gte": keys[0]}}},
+        {
+            "$group": {
+                "_id": {"$substr": ["$paid_at", 0, 7]},
+                "revenue_dzd": {"$sum": {"$ifNull": ["$amount_dzd", 0]}},
+                "payments": {"$sum": 1},
+            }
+        },
+    ]
+    rows = await db.subscription_payments.aggregate(pipeline).to_list(months + 12)
+    by_month: dict[str, dict] = {r["_id"]: r for r in rows}
+    return [
+        {
+            "month": k,
+            "revenue_dzd": int(by_month.get(k, {}).get("revenue_dzd", 0)),
+            "payments": int(by_month.get(k, {}).get("payments", 0)),
+        }
+        for k in keys
+    ]

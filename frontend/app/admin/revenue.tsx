@@ -14,6 +14,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { AnimatedBarChart, BarPoint } from "@/src/AnimatedBarChart";
 
 type Row = { month: string; commission_dzd: number; gmv_dzd: number; completed_bookings: number };
 
@@ -51,7 +52,6 @@ export default function AdminRevenue() {
 
   const totalCommission = rows.reduce((s, r) => s + r.commission_dzd, 0);
   const totalGmv = rows.reduce((s, r) => s + r.gmv_dzd, 0);
-  const maxCommission = Math.max(1, ...rows.map((r) => r.commission_dzd));
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -86,24 +86,40 @@ export default function AdminRevenue() {
           </View>
 
           <Text style={styles.sectionLabel}>{t("admin.revenue.month")}</Text>
-          {rows.map((r) => {
-            const pct = Math.min(100, Math.round((r.commission_dzd / maxCommission) * 100));
-            return (
-              <View key={r.month} style={styles.barRow}>
-                <View style={styles.barHead}>
-                  <Text style={styles.barMonth}>{r.month}</Text>
-                  <Text style={styles.barValue}>{r.commission_dzd.toLocaleString()} DA</Text>
+          <View style={styles.chartCard}>
+            <AnimatedBarChart
+              data={rows.map<BarPoint>((r) => ({
+                label: r.month.slice(5), // MM
+                value: r.commission_dzd,
+                tooltip: `${r.completed_bookings} bookings · ${r.gmv_dzd.toLocaleString()} DA GMV`,
+              }))}
+              height={180}
+              formatValue={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k DA` : `${v} DA`)}
+              barWidth={16}
+              showTopLabel
+            />
+          </View>
+
+          {/* Detailed breakdown per month */}
+          {rows.map((r) => (
+            <View key={r.month} style={styles.monthRow}>
+              <Text style={styles.monthLabel}>{r.month}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={styles.metricLine}>
+                  <Text style={styles.metricKey}>{t("admin.revenue.commission")}</Text>
+                  <Text style={styles.metricVal}>{r.commission_dzd.toLocaleString()} DA</Text>
                 </View>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${pct}%` }]} />
+                <View style={styles.metricLine}>
+                  <Text style={styles.metricKey}>{t("admin.revenue.gmv")}</Text>
+                  <Text style={[styles.metricVal, { color: theme.colors.brand }]}>{r.gmv_dzd.toLocaleString()} DA</Text>
                 </View>
-                <View style={styles.barMeta}>
-                  <Text style={styles.barMetaText}>{t("admin.revenue.bookings")}: {r.completed_bookings}</Text>
-                  <Text style={styles.barMetaText}>{t("admin.revenue.gmv")}: {r.gmv_dzd.toLocaleString()} DA</Text>
+                <View style={styles.metricLine}>
+                  <Text style={styles.metricKey}>{t("admin.revenue.bookings")}</Text>
+                  <Text style={styles.metricVal}>{r.completed_bookings}</Text>
                 </View>
               </View>
-            );
-          })}
+            </View>
+          ))}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -130,6 +146,27 @@ const styles = StyleSheet.create({
   summaryValue: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "800", marginTop: 4, letterSpacing: -0.3 },
 
   sectionLabel: { color: theme.colors.onSurfaceTertiary, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 8 },
+
+  chartCard: {
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  monthRow: {
+    flexDirection: "row",
+    gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  monthLabel: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "800", width: 68 },
+  metricLine: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
+  metricKey: { color: theme.colors.onSurfaceSecondary, fontSize: 12 },
+  metricVal: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "700" },
 
   barRow: {
     padding: theme.spacing.md,

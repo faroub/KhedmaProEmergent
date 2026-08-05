@@ -17,6 +17,7 @@ import { api, getAuthToken } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { AnimatedBarChart, BarPoint } from "@/src/AnimatedBarChart";
 
 type Sub = {
   id: string;
@@ -63,6 +64,7 @@ export default function AdminSubscriptions() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [busy, setBusy] = useState(false);
   const [remindBusy, setRemindBusy] = useState(false);
+  const [revenueSeries, setRevenueSeries] = useState<{ month: string; revenue_dzd: number; payments: number }[]>([]);
 
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -72,6 +74,13 @@ export default function AdminSubscriptions() {
       setRows(data || []);
     } catch {
       setRows([]);
+    }
+    // Chart data is filter-independent — refresh in parallel.
+    try {
+      const rev: any = await api.adminSubscriptionsRevenueChart(12);
+      setRevenueSeries(rev || []);
+    } catch {
+      setRevenueSeries([]);
     }
     setLoading(false);
   }, [user?.is_admin, filterKey]);
@@ -193,6 +202,23 @@ export default function AdminSubscriptions() {
         <SummaryBox label={t("subs.summary.due")} value={totalDue} color="#F59E0B" />
         <SummaryBox label={t("subs.summary.lifetime")} value={`${totalLifetime.toLocaleString()} DA`} color={theme.colors.brand} />
       </View>
+
+      {/* Monthly revenue chart */}
+      {revenueSeries.some((r) => r.revenue_dzd > 0) && (
+        <View style={styles.chartCard}>
+          <Text style={styles.chartTitle}>{t("subs.revenueTitle")}</Text>
+          <AnimatedBarChart
+            data={revenueSeries.map<BarPoint>((r) => ({
+              label: r.month.slice(5),  // MM
+              value: r.revenue_dzd,
+              tooltip: `${r.payments} payment(s)`,
+            }))}
+            height={130}
+            barWidth={14}
+            formatValue={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k DA` : `${v} DA`)}
+          />
+        </View>
+      )}
 
       {/* Actions row */}
       <View style={styles.actionsRow}>
@@ -383,6 +409,17 @@ const styles = StyleSheet.create({
   },
   summaryVal: { fontSize: 15, fontWeight: "800", letterSpacing: -0.3 },
   summaryLbl: { color: theme.colors.onSurfaceSecondary, fontSize: 10, fontWeight: "700", marginTop: 2 },
+
+  chartCard: {
+    marginHorizontal: theme.spacing.xl,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  chartTitle: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "800", marginBottom: theme.spacing.sm },
 
   filterRow: { paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md, gap: 6 },
   chip: {
