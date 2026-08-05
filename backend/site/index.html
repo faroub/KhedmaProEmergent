@@ -51,7 +51,7 @@
         <a class="btn ghost" href="/api/site/for-providers.html" data-i18n="home.cta.provider">I'm a provider</a>
       </div>
 
-      <div class="trust">
+      <div class="trust" id="sec-stats">
         <div class="item"><div class="num">58</div><div class="lbl" data-i18n="home.trust.wilayas">Wilayas</div></div>
         <div class="item"><div class="num">3</div><div class="lbl" data-i18n="home.trust.langs">Languages</div></div>
         <div class="item"><div class="num">90</div><div class="lbl" data-i18n="home.trust.trial">Days free trial</div></div>
@@ -59,7 +59,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="sec-features">
     <div class="wrap">
       <div class="section-head">
         <div class="eyebrow" data-i18n="home.why.eyebrow">Why khedmaPro</div>
@@ -101,7 +101,18 @@
     </div>
   </section>
 
-  <section class="tight">
+  <!-- Testimonials — hidden by default; JS injects cards from admin settings. -->
+  <section id="sec-testimonials" style="display:none">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow" data-i18n="home.testi.eyebrow">Community</div>
+        <h2 data-i18n="home.testi.h2">Real people, real feedback</h2>
+      </div>
+      <div class="grid testimonials-grid"></div>
+    </div>
+  </section>
+
+  <section class="tight" id="sec-final-cta">
     <div class="wrap">
       <div class="cta-band">
         <h2 data-i18n="home.finalCta.h2">Ready to find your next pro?</h2>

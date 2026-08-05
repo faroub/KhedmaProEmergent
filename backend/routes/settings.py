@@ -105,6 +105,14 @@ async def get_effective_settings() -> dict:
             "contact_email": site_doc.get("contact_email") or "",
             "contact_phone": site_doc.get("contact_phone") or "",
             "contact_whatsapp": site_doc.get("contact_whatsapp") or "",
+            # Section-visibility toggles (default: everything visible).
+            "show_features": bool(site_doc.get("show_features", True)),
+            "show_stats": bool(site_doc.get("show_stats", True)),
+            "show_testimonials": bool(site_doc.get("show_testimonials", True)),
+            "show_final_cta": bool(site_doc.get("show_final_cta", True)),
+            # Overridable content
+            "features": site_doc.get("features") or [],
+            "testimonials": site_doc.get("testimonials") or [],
         },
     }
 
@@ -147,6 +155,16 @@ class SiteConfigPatch(BaseModel):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_whatsapp: Optional[str] = None
+    # Section-visibility toggles (default True everywhere).
+    show_features: Optional[bool] = None
+    show_stats: Optional[bool] = None
+    show_testimonials: Optional[bool] = None
+    show_final_cta: Optional[bool] = None
+    # Feature blurbs — array of up to 6 { title_en/fr/ar, desc_en/fr/ar }.
+    # Overrides the built-in 6 feature cards in `home.f1..f6` translations.
+    features: Optional[list] = None
+    # Testimonials — array of { name, role, quote_en/fr/ar, avatar_url? }.
+    testimonials: Optional[list] = None
 
 
 class SettingsPatch(BaseModel):
@@ -245,6 +263,7 @@ async def admin_update_settings(
         existing = (await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}).get("site") or {}
         merged_site = dict(existing)
         for k, v in body.site.model_dump(exclude_none=True).items():
+            # Empty string clears; empty list keeps as empty list (means "no items").
             if isinstance(v, str) and v == "":
                 merged_site.pop(k, None)
             else:

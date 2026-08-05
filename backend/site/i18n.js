@@ -40,6 +40,8 @@
       "home.trust.langs": "Languages",
       "home.trust.trial": "Days free trial",
       "home.why.eyebrow": "Why khedmaPro",
+      "home.testi.eyebrow": "Community",
+      "home.testi.h2": "Real people, real feedback",
       "home.why.h2": "A trust-first way to hire local pros.",
       "home.why.p": "We built khedmaPro so Algerians can find real, verified service providers without the guesswork.",
       "home.f1.t": "Verified providers",
@@ -232,6 +234,8 @@
       "home.trust.langs": "Langues",
       "home.trust.trial": "Jours d'essai gratuit",
       "home.why.eyebrow": "Pourquoi khedmaPro",
+      "home.testi.eyebrow": "Communauté",
+      "home.testi.h2": "De vraies personnes, de vrais retours",
       "home.why.h2": "Une manière de recruter fondée sur la confiance.",
       "home.why.p": "Nous avons conçu khedmaPro pour que les Algériens trouvent des prestataires réels et vérifiés, sans deviner.",
       "home.f1.t": "Prestataires vérifiés",
@@ -419,6 +423,8 @@
       "home.trust.langs": "لغات",
       "home.trust.trial": "يوم تجربة مجانية",
       "home.why.eyebrow": "لماذا khedmaPro",
+      "home.testi.eyebrow": "المجتمع",
+      "home.testi.h2": "أشخاص حقيقيون، آراء حقيقية",
       "home.why.h2": "طريقة قائمة على الثقة لتوظيف المحترفين المحليين.",
       "home.why.p": "بنينا khedmaPro ليتمكّن الجزائريون من إيجاد مزوّدي خدمات حقيقيين وموثّقين بدون تخمين.",
       "home.f1.t": "مزوّدون موثّقون",
@@ -687,6 +693,89 @@
       if (el.tagName === "A") el.setAttribute("href", site.contact_whatsapp);
       if (tile) tile.style.display = "";
     });
+
+    // ---- Section visibility toggles ----
+    // Each toggle defaults to true if not explicitly false.
+    var toggle = function (id, show) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = show === false ? "none" : "";
+    };
+    toggle("sec-features", site.show_features);
+    toggle("sec-stats", site.show_stats);
+    toggle("sec-final-cta", site.show_final_cta);
+    toggle("sec-testimonials", site.show_testimonials);
+
+    // ---- Feature blurbs override ----
+    // Admin passes an array of up to 6 {title_XX, desc_XX} objects. We map them
+    // 1:1 onto the six `data-i18n="home.fN.t"` / `home.fN.p` cards.
+    if (Array.isArray(site.features) && site.features.length > 0) {
+      site.features.slice(0, 6).forEach(function (feat, idx) {
+        var i = idx + 1;
+        var t = feat["title_" + lang] || feat.title_en || "";
+        var d = feat["desc_" + lang] || feat.desc_en || "";
+        if (t) {
+          var tEl = document.querySelector('[data-i18n="home.f' + i + '.t"]');
+          if (tEl) tEl.textContent = t;
+        }
+        if (d) {
+          var dEl = document.querySelector('[data-i18n="home.f' + i + '.p"]');
+          if (dEl) dEl.textContent = d;
+        }
+      });
+    }
+
+    // ---- Testimonials section (injected dynamically) ----
+    var testimonials = Array.isArray(site.testimonials) ? site.testimonials : [];
+    var testiSec = document.getElementById("sec-testimonials");
+    if (testiSec) {
+      // If the admin turned it off explicitly, our earlier toggle already hid it.
+      // Only populate if we have items AND the toggle is not false.
+      var host = testiSec.querySelector(".testimonials-grid");
+      if (host) {
+        host.innerHTML = "";
+        if (testimonials.length === 0) {
+          testiSec.style.display = "none";
+        } else if (site.show_testimonials !== false) {
+          testiSec.style.display = "";
+          testimonials.forEach(function (t) {
+            var quote = t["quote_" + lang] || t.quote_en || "";
+            if (!quote) return;
+            var card = document.createElement("div");
+            card.className = "card testimonial-card";
+            var q = document.createElement("p");
+            q.className = "testimonial-quote";
+            q.textContent = "\u201C" + quote + "\u201D";
+            card.appendChild(q);
+            var footer = document.createElement("div");
+            footer.className = "testimonial-footer";
+            if (t.avatar_url) {
+              var img = document.createElement("img");
+              img.src = t.avatar_url;
+              img.alt = t.name || "";
+              img.className = "testimonial-avatar";
+              footer.appendChild(img);
+            }
+            var meta = document.createElement("div");
+            meta.className = "testimonial-meta";
+            if (t.name) {
+              var n = document.createElement("div");
+              n.className = "testimonial-name";
+              n.textContent = t.name;
+              meta.appendChild(n);
+            }
+            if (t.role) {
+              var r = document.createElement("div");
+              r.className = "testimonial-role";
+              r.textContent = t.role;
+              meta.appendChild(r);
+            }
+            footer.appendChild(meta);
+            card.appendChild(footer);
+            host.appendChild(card);
+          });
+        }
+      }
+    }
 
     // Social icons — inject into any element with id="site-social".
     var social = _remoteCfg.social || {};

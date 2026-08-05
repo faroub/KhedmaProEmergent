@@ -27,6 +27,8 @@ export default function ProviderDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  // Full-screen viewer for review-attached photos. Null when closed.
+  const [reviewPhoto, setReviewPhoto] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [viewerIdx, setViewerIdx] = useState<number | null>(null);
 
@@ -226,6 +228,21 @@ export default function ProviderDetail() {
                   </View>
                 </View>
                 <Text style={styles.reviewComment}>{r.comment}</Text>
+                {/* Attached photos (if any). Tap any thumb to open a lightweight viewer. */}
+                {Array.isArray(r.photos) && r.photos.length > 0 && (
+                  <View style={styles.reviewPhotosRow} testID={`review-photos-${r.id}`}>
+                    {r.photos.map((uri: string, i: number) => (
+                      <Pressable
+                        key={`${r.id}-p-${i}`}
+                        onPress={() => setReviewPhoto(uri)}
+                        style={styles.reviewPhotoThumbWrap}
+                        testID={`review-photo-${r.id}-${i}`}
+                      >
+                        <Image source={{ uri }} style={styles.reviewPhotoThumb} contentFit="cover" />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
             ))
           )}
@@ -384,6 +401,28 @@ export default function ProviderDetail() {
           </View>
         </View>
       </Modal>
+
+      {/* Lightweight viewer for a single review-attached photo. */}
+      <Modal
+        visible={reviewPhoto !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReviewPhoto(null)}
+      >
+        <Pressable style={styles.reviewViewerRoot} onPress={() => setReviewPhoto(null)}>
+          {reviewPhoto && (
+            <Image source={{ uri: reviewPhoto }} style={styles.reviewViewerImage} contentFit="contain" />
+          )}
+          <Pressable
+            style={styles.reviewViewerClose}
+            onPress={() => setReviewPhoto(null)}
+            hitSlop={12}
+            testID="review-photo-viewer-close"
+          >
+            <Ionicons name="close" size={26} color="#fff" />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -475,6 +514,33 @@ const styles = StyleSheet.create({
   reviewHeader: { flexDirection: "row", justifyContent: "space-between" },
   reviewer: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "700" },
   reviewComment: { color: theme.colors.onSurfaceSecondary, fontSize: 13, lineHeight: 18 },
+  reviewPhotosRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: theme.spacing.sm,
+    flexWrap: "wrap",
+  },
+  reviewPhotoThumbWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radius.md,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceTertiary,
+  },
+  reviewPhotoThumb: { width: "100%", height: "100%" },
+  reviewViewerRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", alignItems: "center", justifyContent: "center" },
+  reviewViewerImage: { width: "100%", height: "100%" },
+  reviewViewerClose: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   ctaBar: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     padding: theme.spacing.md, paddingHorizontal: theme.spacing.xl,

@@ -278,3 +278,13 @@ html[dir="rtl"] .ad-cta { flex-direction: row-reverse; }
 
 /* Wordmark: tint the trailing "Pro" in the brand amber so it matches the logo. */
 .brand-pro { color: var(--brand); }
+
+/* Testimonials (admin-managed). Populated by i18n.js overlay. */
+.testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.testimonial-card { padding: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+.testimonial-quote { color: var(--fg); font-size: 15px; line-height: 1.6; margin: 0 0 16px 0; font-style: italic; }
+.testimonial-footer { display: flex; align-items: center; gap: 12px; }
+.testimonial-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--muted); }
+.testimonial-meta { display: flex; flex-direction: column; }
+.testimonial-name { color: var(--fg); font-weight: 700; font-size: 13px; }
+.testimonial-role { color: var(--muted); font-size: 12px; }

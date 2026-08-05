@@ -9,6 +9,7 @@ import {
   TextInput,
   Switch,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -110,6 +111,17 @@ export default function AdminSettings() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactWhatsapp, setContactWhatsapp] = useState("");
+  // Section-visibility toggles (default: everything visible)
+  const [showFeatures, setShowFeatures] = useState(true);
+  const [showStats, setShowStats] = useState(true);
+  const [showTestimonials, setShowTestimonials] = useState(true);
+  const [showFinalCta, setShowFinalCta] = useState(true);
+  // Feature blurbs — JSON textarea for flexibility (up to 6 items).
+  const [featuresJson, setFeaturesJson] = useState("");
+  const [featuresJsonError, setFeaturesJsonError] = useState<string | null>(null);
+  // Testimonials — structured list editor
+  type Testimonial = { name: string; role: string; quote_en: string; quote_fr: string; quote_ar: string; avatar_url?: string };
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -147,6 +159,16 @@ export default function AdminSettings() {
         setContactEmail(s.site.contact_email || "");
         setContactPhone(s.site.contact_phone || "");
         setContactWhatsapp(s.site.contact_whatsapp || "");
+        setShowFeatures(s.site.show_features !== false);
+        setShowStats(s.site.show_stats !== false);
+        setShowTestimonials(s.site.show_testimonials !== false);
+        setShowFinalCta(s.site.show_final_cta !== false);
+        setFeaturesJson(
+          Array.isArray(s.site.features) && s.site.features.length > 0
+            ? JSON.stringify(s.site.features, null, 2)
+            : ""
+        );
+        setTestimonials(Array.isArray(s.site.testimonials) ? s.site.testimonials : []);
       }
     } catch {
       setSettings(null);
@@ -210,6 +232,26 @@ export default function AdminSettings() {
         tiktok_url: tiktokUrl.trim(),
       };
 
+      // Parse features JSON if provided. Silent-fail keeps the save flow safe;
+      // we surface the error in the UI separately.
+      let featuresArr: any[] = [];
+      setFeaturesJsonError(null);
+      if (featuresJson.trim()) {
+        try {
+          const parsed = JSON.parse(featuresJson);
+          if (Array.isArray(parsed)) {
+            featuresArr = parsed.slice(0, 6);
+          } else {
+            setFeaturesJsonError("Features must be a JSON array — see the placeholder for the shape.");
+          }
+        } catch (e: any) {
+          setFeaturesJsonError("Invalid JSON: " + (e?.message || "parse failed"));
+          Alert.alert("Features JSON invalid", "Please fix the JSON before saving.");
+          setBusy(false);
+          return;
+        }
+      }
+
       // Marketing site content block
       patch.site = {
         hero_title_en: heroTitleEn.trim(),
@@ -221,6 +263,12 @@ export default function AdminSettings() {
         contact_email: contactEmail.trim(),
         contact_phone: contactPhone.trim(),
         contact_whatsapp: contactWhatsapp.trim(),
+        show_features: showFeatures,
+        show_stats: showStats,
+        show_testimonials: showTestimonials,
+        show_final_cta: showFinalCta,
+        features: featuresArr,
+        testimonials: testimonials.filter((t) => (t.quote_en || t.quote_fr || t.quote_ar || "").trim().length > 0),
       };
 
       const updated: any = await api.adminUpdateSettings(patch);
@@ -869,6 +917,147 @@ export default function AdminSettings() {
                 style={styles.input}
               />
             </View>
+
+            {/* --- Section-visibility toggles --- */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Section visibility</Text>
+            <Text style={styles.help}>
+              Hide or show entire sections of the marketing site. Effective immediately after save.
+            </Text>
+            {[
+              { key: "features", label: "Features grid", value: showFeatures, set: setShowFeatures },
+              { key: "stats", label: "Stats bar (58 wilayas / 3 languages / 90 days)", value: showStats, set: setShowStats },
+              { key: "testimonials", label: "Testimonials section", value: showTestimonials, set: setShowTestimonials },
+              { key: "final_cta", label: "Final call-to-action band", value: showFinalCta, set: setShowFinalCta },
+            ].map((row) => (
+              <View key={row.key} style={styles.sectionToggleRow}>
+                <Text style={styles.sectionToggleLabel}>{row.label}</Text>
+                <Switch
+                  testID={`site-show-${row.key}`}
+                  value={row.value}
+                  onValueChange={row.set}
+                  trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
+                  thumbColor="#fff"
+                />
+              </View>
+            ))}
+
+            {/* --- Feature blurbs (JSON) --- */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Feature blurbs (advanced, JSON)</Text>
+            <Text style={styles.help}>
+              Overrides the 6 default feature cards. Provide up to 6 items. Empty ⇒ built-in translations.
+              Each item shape: {"{ title_en, title_fr, title_ar, desc_en, desc_fr, desc_ar }"}.
+            </Text>
+            <TextInput
+              testID="site-features-json"
+              value={featuresJson}
+              onChangeText={setFeaturesJson}
+              placeholder='[\n  {\n    "title_en": "Verified pros",\n    "title_fr": "Pros vérifiés",\n    "title_ar": "محترفون موثّقون",\n    "desc_en": "Every provider passes ID and admin review.",\n    "desc_fr": "…",\n    "desc_ar": "…"\n  }\n]'
+              placeholderTextColor={theme.colors.muted}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[styles.input, { height: 140, textAlignVertical: "top", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", fontSize: 12 }]}
+            />
+            {featuresJsonError && (
+              <Text style={[styles.help, { color: theme.colors.error }]}>{featuresJsonError}</Text>
+            )}
+
+            {/* --- Testimonials editor --- */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Testimonials</Text>
+            <Text style={styles.help}>
+              Add short quotes from happy clients or providers. Empty quotes are skipped. Section stays hidden until you add at least one.
+            </Text>
+            {testimonials.map((tst, idx) => (
+              <View key={`testi-${idx}`} style={styles.testimonialCard}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.testimonialCardTitle}>#{idx + 1}</Text>
+                  <Pressable
+                    testID={`site-testimonial-remove-${idx}`}
+                    onPress={() =>
+                      setTestimonials((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    hitSlop={8}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                  </Pressable>
+                </View>
+                <TextInput
+                  testID={`site-testimonial-name-${idx}`}
+                  value={tst.name}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, name: v } : t)))
+                  }
+                  placeholder="Name (e.g. Amina B.)"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.input}
+                />
+                <TextInput
+                  testID={`site-testimonial-role-${idx}`}
+                  value={tst.role}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, role: v } : t)))
+                  }
+                  placeholder="Role (e.g. Cleaning client, Algiers)"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.input}
+                />
+                <TextInput
+                  testID={`site-testimonial-avatar-${idx}`}
+                  value={tst.avatar_url || ""}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, avatar_url: v } : t)))
+                  }
+                  placeholder="Avatar URL (optional)"
+                  placeholderTextColor={theme.colors.muted}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                  style={styles.input}
+                />
+                <TextInput
+                  testID={`site-testimonial-qen-${idx}`}
+                  value={tst.quote_en}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, quote_en: v } : t)))
+                  }
+                  placeholder="Quote — English"
+                  placeholderTextColor={theme.colors.muted}
+                  multiline
+                  style={[styles.input, { height: 60, textAlignVertical: "top" }]}
+                />
+                <TextInput
+                  testID={`site-testimonial-qfr-${idx}`}
+                  value={tst.quote_fr}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, quote_fr: v } : t)))
+                  }
+                  placeholder="Quote — Français"
+                  placeholderTextColor={theme.colors.muted}
+                  multiline
+                  style={[styles.input, { height: 60, textAlignVertical: "top" }]}
+                />
+                <TextInput
+                  testID={`site-testimonial-qar-${idx}`}
+                  value={tst.quote_ar}
+                  onChangeText={(v) =>
+                    setTestimonials((prev) => prev.map((t, i) => (i === idx ? { ...t, quote_ar: v } : t)))
+                  }
+                  placeholder="Quote — العربية"
+                  placeholderTextColor={theme.colors.muted}
+                  multiline
+                  style={[styles.input, { height: 60, textAlignVertical: "top" }]}
+                />
+              </View>
+            ))}
+            <Pressable
+              testID="site-testimonial-add"
+              onPress={() =>
+                setTestimonials((prev) => [...prev, { name: "", role: "", quote_en: "", quote_fr: "", quote_ar: "", avatar_url: "" }])
+              }
+              style={styles.addTestimonialBtn}
+            >
+              <Ionicons name="add" size={16} color={theme.colors.brand} />
+              <Text style={styles.addTestimonialBtnText}>Add testimonial</Text>
+            </Pressable>
           </View>
 
           {/* Payments master switch */}
@@ -924,6 +1113,39 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "700" },
   help: { color: theme.colors.muted, fontSize: 11, lineHeight: 15 },
+  sectionToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  sectionToggleLabel: { color: theme.colors.onSurface, fontSize: 13, fontWeight: "600", flex: 1 },
+  testimonialCard: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: theme.spacing.sm,
+  },
+  testimonialCardTitle: { color: theme.colors.brand, fontWeight: "800", fontSize: 12, letterSpacing: 0.5 },
+  addTestimonialBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.brand,
+    marginTop: theme.spacing.md,
+  },
+  addTestimonialBtnText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13 },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.border,
