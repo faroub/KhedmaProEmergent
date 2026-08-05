@@ -7,11 +7,12 @@ import {
   ImageBackground,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, Redirect } from "expo-router";
+import { useRouter, Redirect, useFocusEffect } from "expo-router";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
@@ -35,6 +36,16 @@ export default function Index() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { t, isRTL } = useT();
+
+  // Ensure any lingering keyboard from a previous screen is dismissed
+  // as soon as the landing screen becomes focused. This prevents a leftover
+  // empty "gap" at the bottom on Android when navigating back with the
+  // soft keyboard still visible.
+  useFocusEffect(
+    React.useCallback(() => {
+      Keyboard.dismiss();
+    }, [])
+  );
 
   if (loading) {
     return (
