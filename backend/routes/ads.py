@@ -45,6 +45,7 @@ class AdIn(BaseModel):
     active: bool = True
     start_at: Optional[str] = None  # iso timestamp
     end_at: Optional[str] = None    # iso timestamp
+    impression_cap: Optional[int] = Field(default=None, ge=1)  # auto-pause once reached
 
 
 class AdPatch(BaseModel):
@@ -56,6 +57,7 @@ class AdPatch(BaseModel):
     active: Optional[bool] = None
     start_at: Optional[str] = None
     end_at: Optional[str] = None
+    impression_cap: Optional[int] = Field(default=None, ge=0)  # 0 or None = uncapped
 
 
 class ReorderIn(BaseModel):
@@ -74,7 +76,14 @@ async def public_list_ads():
         ],
     }
     docs = await db.ads.find(filt, {"_id": 0}).sort("order", 1).to_list(50)
-    return docs
+    # Auto-pause ads that reached their impression cap.
+    out: list[dict] = []
+    for d in docs:
+        cap = d.get("impression_cap")
+        if cap and int(d.get("impressions", 0)) >= int(cap):
+            continue
+        out.append(d)
+    return out
 
 
 @router.post("/ads/{ad_id}/impression", status_code=204)

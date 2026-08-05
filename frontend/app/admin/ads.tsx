@@ -34,6 +34,9 @@ type Ad = {
   order: number;
   impressions: number;
   clicks: number;
+  start_at?: string | null;
+  end_at?: string | null;
+  impression_cap?: number | null;
 };
 
 export default function AdminAds() {
@@ -72,7 +75,7 @@ export default function AdminAds() {
   }
 
   const openNew = () => {
-    setEditing({ title: "", subtitle: "", image_url: "", link_url: "", active: true });
+    setEditing({ title: "", subtitle: "", image_url: "", link_url: "", active: true, start_at: null, end_at: null, impression_cap: null });
     setEditorOpen(true);
   };
   const openEdit = (a: Ad) => {
@@ -140,23 +143,23 @@ export default function AdminAds() {
       Alert.alert("Error", "Title and image are required");
       return;
     }
+    // Validate optional dates
+    const norm = (v?: string | null) => (v && v.trim() ? v.trim() : null);
+    const payload = {
+      title: editing.title,
+      subtitle: editing.subtitle || null,
+      image_url: editing.image_url,
+      link_url: editing.link_url || null,
+      active: !!editing.active,
+      start_at: norm(editing.start_at as any),
+      end_at: norm(editing.end_at as any),
+      impression_cap: editing.impression_cap && Number(editing.impression_cap) > 0 ? Number(editing.impression_cap) : null,
+    };
     try {
       if (editing.id) {
-        await api.adminUpdateAd(editing.id, {
-          title: editing.title,
-          subtitle: editing.subtitle || null,
-          image_url: editing.image_url,
-          link_url: editing.link_url || null,
-          active: !!editing.active,
-        });
+        await api.adminUpdateAd(editing.id, payload);
       } else {
-        await api.adminCreateAd({
-          title: editing.title,
-          subtitle: editing.subtitle || null,
-          image_url: editing.image_url,
-          link_url: editing.link_url || null,
-          active: !!editing.active,
-        });
+        await api.adminCreateAd(payload);
       }
       setEditorOpen(false);
       await load();
@@ -299,6 +302,44 @@ export default function AdminAds() {
                   autoCapitalize="none"
                   style={styles.input}
                 />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Start date (optional)</Text>
+                  <TextInput
+                    value={(editing?.start_at as any) || ""}
+                    onChangeText={(v) => setEditing((e) => e ? { ...e, start_at: v } : e)}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>End date (optional)</Text>
+                  <TextInput
+                    value={(editing?.end_at as any) || ""}
+                    onChangeText={(v) => setEditing((e) => e ? { ...e, end_at: v } : e)}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Impression cap (optional)</Text>
+                <TextInput
+                  value={editing?.impression_cap ? String(editing.impression_cap) : ""}
+                  onChangeText={(v) => setEditing((e) => e ? { ...e, impression_cap: v.replace(/[^0-9]/g, "") as any } : e)}
+                  placeholder="e.g. 10000 (auto-pauses ad)"
+                  placeholderTextColor={theme.colors.muted}
+                  keyboardType="number-pad"
+                  style={styles.input}
+                />
+                <Text style={styles.help}>Ad auto-pauses once this many views are reached. Leave empty for no cap.</Text>
               </View>
 
               <View style={styles.toggleRow}>

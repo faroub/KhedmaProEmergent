@@ -171,6 +171,14 @@ export const api = {
   adminReorderAds: (order: string[]) =>
     request<any[]>("/admin/ads/reorder", { method: "POST", body: JSON.stringify({ order }) }),
 
+  // Admin categories import/export
+  adminExportCategoriesUrl: () => `${API_URL}/admin/categories/export`,
+  adminImportCategories: (payload: { categories: any[]; mode?: "merge" | "replace" }) =>
+    request("/admin/categories/import", { method: "POST", body: JSON.stringify(payload) }),
+
+  // Provider self-analytics
+  providerAnalytics: (weeks = 12) => request<any>(`/providers/me/analytics?weeks=${weeks}`),
+
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),

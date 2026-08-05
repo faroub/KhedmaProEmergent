@@ -15,11 +15,14 @@ Each stored doc:
   active: bool,
 }
 """
+import io
+import json
 import re
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from database import db
@@ -153,3 +156,74 @@ async def admin_reorder_categories(
         )
     docs = await db.categories.find({}, {"_id": 0}).sort("order", 1).to_list(200)
     return docs
+
+
+# ---------- Import / Export ----------
+@router.get("/admin/categories/export")
+async def admin_export_categories(user: Annotated[dict, Depends(current_user)]):
+    """Download all categories as a JSON file (for backup / bulk edit)."""
+    require_admin(user)
+    docs = await db.categories.find({}, {"_id": 0}).sort("order", 1).to_list(500)
+    # Strip audit fields so the file is easy to hand-edit.
+    clean = [
+        {k: v for k, v in d.items() if k not in {"created_at", "updated_at"}}
+        for d in docs
+    ]
+    payload = json.dumps(clean, ensure_ascii=False, indent=2)
+    fname = f"khedmapro_categories_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    return StreamingResponse(
+        iter([payload]),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+class ImportIn(BaseModel):
+    """Bulk import categories. `mode`:
+    - `merge` (default): upsert by id, do not delete existing ones missing from the payload
+    - `replace`: delete every existing category not in the payload, then upsert all
+    """
+    categories: list[CategoryIn]
+    mode: str = Field(default="merge", pattern="^(merge|replace)$")
+
+
+@router.post("/admin/categories/import")
+async def admin_import_categories(
+    body: ImportIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    require_admin(user)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    incoming_ids = {c.id for c in body.categories}
+    stats = {"created": 0, "updated": 0, "removed": 0, "skipped_in_use": 0}
+
+    if body.mode == "replace":
+        # Only remove existing categories that are (a) not in the incoming payload
+        # AND (b) not currently in use by any provider.
+        existing = await db.categories.find({}, {"_id": 0, "id": 1}).to_list(500)
+        for e in existing:
+            if e["id"] in incoming_ids:
+                continue
+            in_use = await db.users.count_documents({"category": e["id"]})
+            if in_use > 0:
+                stats["skipped_in_use"] += 1
+                continue
+            await db.categories.delete_one({"id": e["id"]})
+            stats["removed"] += 1
+
+    for cat in body.categories:
+        existing = await db.categories.find_one({"id": cat.id}, {"_id": 0, "id": 1})
+        doc = {**cat.model_dump(), "updated_at": now_iso}
+        if cat.order is None:
+            doc.pop("order", None)
+        if existing:
+            await db.categories.update_one({"id": cat.id}, {"$set": doc})
+            stats["updated"] += 1
+        else:
+            doc.setdefault("order", len(await db.categories.find({}, {"_id": 0, "order": 1}).to_list(500)))
+            doc["created_at"] = now_iso
+            await db.categories.insert_one(dict(doc))
+            stats["created"] += 1
+
+    return {"success": True, "stats": stats}

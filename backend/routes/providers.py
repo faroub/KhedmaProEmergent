@@ -96,6 +96,11 @@ async def get_provider(provider_id: str):
     doc = await enforce_lifecycle(doc)
     if doc.get("is_deleted"):
         raise HTTPException(status_code=404, detail="Provider not found")
+    # Fire-and-forget profile view counter (never blocks response).
+    try:
+        await db.users.update_one({"id": provider_id}, {"$inc": {"profile_views": 1}})
+    except Exception:
+        pass
     return serialize_user(doc, public=True)
 
 
