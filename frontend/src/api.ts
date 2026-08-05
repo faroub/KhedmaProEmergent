@@ -65,7 +65,8 @@ export const api = {
     min_price?: number;
     max_price?: number;
     verified_only?: boolean;
-    sort?: "auto" | "rating" | "distance" | "price_asc" | "price_desc";
+    new_only?: boolean;
+    sort?: "auto" | "rating" | "distance" | "price_asc" | "price_desc" | "newest";
   }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
@@ -79,6 +80,7 @@ export const api = {
     if (params?.min_price != null) q.set("min_price", String(params.min_price));
     if (params?.max_price != null) q.set("max_price", String(params.max_price));
     if (params?.verified_only) q.set("verified_only", "true");
+    if (params?.new_only) q.set("new_only", "true");
     if (params?.sort && params.sort !== "auto") q.set("sort", params.sort);
     const qs = q.toString();
     return request(`/providers${qs ? `?${qs}` : ""}`, { auth: false });

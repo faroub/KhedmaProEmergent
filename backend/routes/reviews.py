@@ -49,6 +49,20 @@ async def create_review(
         raise HTTPException(status_code=400, detail="booking_id or provider_id required")
 
     review_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Sanitize photos: strict data-URI cap so a malicious client can't push
+    # a 20 MB blob per photo. ~350 KB per photo is well above what our client
+    # compressor produces (~200 KB target).
+    raw_photos = (body.photos or [])[:3]
+    photos: list[str] = []
+    for p in raw_photos:
+        if not isinstance(p, str) or not p.startswith("data:image/"):
+            continue
+        if len(p) > 500_000:  # ~350 KB base64 payload cap
+            raise HTTPException(status_code=413, detail="Photo too large — compress before upload")
+        photos.append(p)
+
     doc = {
         "id": review_id,
         "booking_id": body.booking_id,
@@ -57,7 +71,8 @@ async def create_review(
         "client_name": user["full_name"],
         "rating": body.rating,
         "comment": body.comment,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "photos": photos,
+        "created_at": now_iso,
     }
     await db.reviews.insert_one(doc)
     if booking:
@@ -70,7 +85,12 @@ async def create_review(
     avg = total / count if count else 0
     await db.users.update_one(
         {"id": provider_id},
-        {"$set": {"rating": round(avg, 2), "reviews_count": count}},
+        {"$set": {
+            "rating": round(avg, 2),
+            "reviews_count": count,
+            # A fresh review counts as provider activity → bump for ranking recency.
+            "last_activity_at": now_iso,
+        }},
     )
     doc.pop("_id", None)
 

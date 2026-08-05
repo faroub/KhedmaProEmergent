@@ -55,9 +55,10 @@ export default function Home() {
   const [coords, setCoords] = useState<Coords | null>(peekLocationCache());
   const [locationDenied, setLocationDenied] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [newOnly, setNewOnly] = useState(false);
   const [minPrice, setMinPrice] = useState<number | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
-  const [sort, setSort] = useState<"auto" | "rating" | "distance" | "price_asc" | "price_desc">("auto");
+  const [sort, setSort] = useState<"auto" | "rating" | "distance" | "price_asc" | "price_desc" | "newest">("auto");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Resolve GPS lazily the first time a radius scope is active. If permission
@@ -100,6 +101,7 @@ export default function Home() {
           min_price: minPrice ?? undefined,
           max_price: maxPrice ?? undefined,
           verified_only: verifiedOnly || undefined,
+          new_only: newOnly || undefined,
           sort,
         }),
       ]);
@@ -111,7 +113,7 @@ export default function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCat, search, wilayaCode, scope, coords, minPrice, maxPrice, verifiedOnly, sort]);
+  }, [selectedCat, search, wilayaCode, scope, coords, minPrice, maxPrice, verifiedOnly, newOnly, sort]);
 
   useEffect(() => {
     load();
@@ -186,6 +188,7 @@ export default function Home() {
               (scope !== "5" ? 1 : 0)
               + (selectedCat ? 1 : 0)
               + (verifiedOnly ? 1 : 0)
+              + (newOnly ? 1 : 0)
               + (minPrice != null || maxPrice != null ? 1 : 0)
               + (sort !== "auto" ? 1 : 0)
             }
@@ -336,7 +339,7 @@ export default function Home() {
       <FiltersSheet
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        state={{ scope, category: selectedCat, verifiedOnly, minPrice, maxPrice, sort }}
+        state={{ scope, category: selectedCat, verifiedOnly, newOnly, minPrice, maxPrice, sort }}
         scopeOptions={SCOPE_PRESETS.map<DropdownOption>((p) => ({
           value: p.key,
           label:
@@ -363,6 +366,7 @@ export default function Home() {
           if (key !== "wilaya") setWilayaCode(null);
           setSelectedCat(next.category);
           setVerifiedOnly(!!next.verifiedOnly);
+          setNewOnly(!!next.newOnly);
           setMinPrice(next.minPrice ?? null);
           setMaxPrice(next.maxPrice ?? null);
           setSort(next.sort ?? "auto");
@@ -371,6 +375,7 @@ export default function Home() {
           setScope("5");
           setSelectedCat(null);
           setVerifiedOnly(false);
+          setNewOnly(false);
           setWilayaCode(null);
           setMinPrice(null);
           setMaxPrice(null);

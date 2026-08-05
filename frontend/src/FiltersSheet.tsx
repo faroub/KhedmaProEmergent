@@ -17,12 +17,13 @@ import { theme } from "./theme";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { useT } from "./language";
 
-export type SortKey = "auto" | "rating" | "distance" | "price_asc" | "price_desc";
+export type SortKey = "auto" | "rating" | "distance" | "price_asc" | "price_desc" | "newest";
 
 export type FiltersState = {
   scope: string;      // one of "2","5","10","25","50","wilaya","country"
   category: string | null;
   verifiedOnly?: boolean;
+  newOnly?: boolean;
   minPrice?: number | null;
   maxPrice?: number | null;
   sort?: SortKey;
@@ -75,6 +76,7 @@ export function FiltersSheet({
     () => [
       { key: "rating", label: t("filters.sortRating"), icon: "star" },
       { key: "distance", label: t("filters.sortDistance"), icon: "navigate" },
+      { key: "newest", label: t("filters.sortNewest"), icon: "sparkles" },
       { key: "price_asc", label: t("filters.sortPriceAsc"), icon: "trending-down" },
       { key: "price_desc", label: t("filters.sortPriceDesc"), icon: "trending-up" },
     ],
@@ -222,6 +224,20 @@ export function FiltersSheet({
                 testID="filter-verified-toggle"
                 value={!!local.verifiedOnly}
                 onValueChange={(v) => setLocal((s) => ({ ...s, verifiedOnly: v }))}
+                trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>{t("filters.newOnly")}</Text>
+                <Text style={styles.fieldHint}>{t("filters.newOnlySub")}</Text>
+              </View>
+              <Switch
+                testID="filter-new-toggle"
+                value={!!local.newOnly}
+                onValueChange={(v) => setLocal((s) => ({ ...s, newOnly: v }))}
                 trackColor={{ true: theme.colors.brand, false: theme.colors.border }}
                 thumbColor="#fff"
               />

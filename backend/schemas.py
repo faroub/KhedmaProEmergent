@@ -161,6 +161,9 @@ class ReviewCreate(BaseModel):
     provider_id: Optional[str] = None
     rating: int = Field(ge=1, le=5)
     comment: str
+    # Optional attached photos as data URIs (base64). Cap at 3 client-side; the
+    # server also validates and rejects the payload if it exceeds `max_len` chars.
+    photos: List[str] = Field(default_factory=list, max_length=3)
 
 
 # ---------- Schedule / chat ----------

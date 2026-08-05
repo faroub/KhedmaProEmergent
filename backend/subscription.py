@@ -123,10 +123,40 @@ async def enforce_lifecycle(user: dict) -> dict:
     return user
 
 
+def _is_new_provider(doc: dict, days: int = 7) -> bool:
+    """A provider counts as `new` for `days` days after their created_at."""
+    if doc.get("role") != "service_provider":
+        return False
+    created = doc.get("created_at")
+    if not created:
+        return False
+    if isinstance(created, str):
+        try:
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - created).days < days
+
+
+def _weighted_rating(rating: float, reviews_count: int, prior_weight: float = 5.0, global_mean: float = 4.0) -> float:
+    """Bayesian-weighted rating so a lone 5.0★ from 1 review doesn't outrank a
+    4.8★ from 100 reviews. Falls back to `global_mean` when `reviews_count == 0`.
+    """
+    v = float(reviews_count or 0)
+    m = float(prior_weight)
+    C = float(global_mean)
+    R = float(rating or 0.0)
+    return (v / (v + m)) * R + (m / (v + m)) * C
+
+
 def serialize_user(doc: dict, public: bool = False) -> dict:
     """Serialize a user document. When `public=True` sensitive fields
     (email, phone, verification documents, admin flag) are omitted."""
     sub = compute_subscription(doc)
+    rating = doc.get("rating", 0.0) or 0.0
+    reviews_count = doc.get("reviews_count", 0) or 0
     out = {
         "id": doc["id"],
         "full_name": doc["full_name"],
@@ -137,8 +167,13 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "task_rate": doc.get("task_rate"),
         "city": doc.get("city"),
         "avatar_url": doc.get("avatar_url"),
-        "rating": doc.get("rating", 0.0),
-        "reviews_count": doc.get("reviews_count", 0),
+        "rating": rating,
+        "reviews_count": reviews_count,
+        # Ranking helpers exposed for the client so it can render badges without
+        # a second round-trip. Sort logic in routes/providers.py uses these too.
+        "weighted_rating": round(_weighted_rating(rating, reviews_count), 4),
+        "is_new": _is_new_provider(doc),
+        "last_activity_at": doc.get("last_activity_at"),
         "active": sub["active"],
         "created_at": doc["created_at"],
         "trial_ends_at": sub["trial_ends_at"],

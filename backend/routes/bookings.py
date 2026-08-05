@@ -186,6 +186,23 @@ async def update_booking_status(
     await db.bookings.update_one({"id": booking_id}, {"$set": updates})
     booking.update(updates)
 
+    # Bump provider `last_activity_at` for the ranking recency bonus whenever
+    # they confirm / complete / cancel a booking.
+    if user["role"] == Role.service_provider.value and new_status in (
+        BookingStatus.confirmed.value,
+        BookingStatus.awaiting_confirmation.value,
+        BookingStatus.completed.value,
+        BookingStatus.cancelled.value,
+    ):
+        try:
+            from datetime import datetime, timezone  # local import — avoid module top-level clutter
+            await db.users.update_one(
+                {"id": booking["provider_id"]},
+                {"$set": {"last_activity_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception:
+            pass
+
     # Notify the counterpart about the status change (non-blocking).
     try:
         _messages = {
