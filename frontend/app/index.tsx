@@ -315,10 +315,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: "center",
   },
-  dualBtnRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
   stackedBtnCol: {
     gap: theme.spacing.sm,
   },
