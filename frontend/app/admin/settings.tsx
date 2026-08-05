@@ -132,6 +132,29 @@ export default function AdminSettings() {
   const [advertiseBodyEn, setAdvertiseBodyEn] = useState("");
   const [advertiseBodyFr, setAdvertiseBodyFr] = useState("");
   const [advertiseBodyAr, setAdvertiseBodyAr] = useState("");
+  // Nav labels (all pages) + pricing block (for-providers.html)
+  const [navHowEn, setNavHowEn] = useState("");
+  const [navHowFr, setNavHowFr] = useState("");
+  const [navHowAr, setNavHowAr] = useState("");
+  const [navProvidersEn, setNavProvidersEn] = useState("");
+  const [navProvidersFr, setNavProvidersFr] = useState("");
+  const [navProvidersAr, setNavProvidersAr] = useState("");
+  const [navContactEn, setNavContactEn] = useState("");
+  const [navContactFr, setNavContactFr] = useState("");
+  const [navContactAr, setNavContactAr] = useState("");
+  const [navOpenEn, setNavOpenEn] = useState("");
+  const [navOpenFr, setNavOpenFr] = useState("");
+  const [navOpenAr, setNavOpenAr] = useState("");
+  const [pricingH2En, setPricingH2En] = useState("");
+  const [pricingH2Fr, setPricingH2Fr] = useState("");
+  const [pricingH2Ar, setPricingH2Ar] = useState("");
+  const [pricingBodyEn, setPricingBodyEn] = useState("");
+  const [pricingBodyFr, setPricingBodyFr] = useState("");
+  const [pricingBodyAr, setPricingBodyAr] = useState("");
+  const [pricingAmount, setPricingAmount] = useState("");
+  const [pricingPeriodEn, setPricingPeriodEn] = useState("");
+  const [pricingPeriodFr, setPricingPeriodFr] = useState("");
+  const [pricingPeriodAr, setPricingPeriodAr] = useState("");
 
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -188,6 +211,28 @@ export default function AdminSettings() {
         setAdvertiseBodyEn(s.site.advertise_body_en || "");
         setAdvertiseBodyFr(s.site.advertise_body_fr || "");
         setAdvertiseBodyAr(s.site.advertise_body_ar || "");
+        setNavHowEn(s.site.nav_how_en || "");
+        setNavHowFr(s.site.nav_how_fr || "");
+        setNavHowAr(s.site.nav_how_ar || "");
+        setNavProvidersEn(s.site.nav_providers_en || "");
+        setNavProvidersFr(s.site.nav_providers_fr || "");
+        setNavProvidersAr(s.site.nav_providers_ar || "");
+        setNavContactEn(s.site.nav_contact_en || "");
+        setNavContactFr(s.site.nav_contact_fr || "");
+        setNavContactAr(s.site.nav_contact_ar || "");
+        setNavOpenEn(s.site.nav_open_en || "");
+        setNavOpenFr(s.site.nav_open_fr || "");
+        setNavOpenAr(s.site.nav_open_ar || "");
+        setPricingH2En(s.site.pricing_h2_en || "");
+        setPricingH2Fr(s.site.pricing_h2_fr || "");
+        setPricingH2Ar(s.site.pricing_h2_ar || "");
+        setPricingBodyEn(s.site.pricing_body_en || "");
+        setPricingBodyFr(s.site.pricing_body_fr || "");
+        setPricingBodyAr(s.site.pricing_body_ar || "");
+        setPricingAmount(s.site.pricing_amount || "");
+        setPricingPeriodEn(s.site.pricing_period_en || "");
+        setPricingPeriodFr(s.site.pricing_period_fr || "");
+        setPricingPeriodAr(s.site.pricing_period_ar || "");
       }
     } catch {
       setSettings(null);
@@ -297,6 +342,28 @@ export default function AdminSettings() {
         advertise_body_en: advertiseBodyEn.trim(),
         advertise_body_fr: advertiseBodyFr.trim(),
         advertise_body_ar: advertiseBodyAr.trim(),
+        nav_how_en: navHowEn.trim(),
+        nav_how_fr: navHowFr.trim(),
+        nav_how_ar: navHowAr.trim(),
+        nav_providers_en: navProvidersEn.trim(),
+        nav_providers_fr: navProvidersFr.trim(),
+        nav_providers_ar: navProvidersAr.trim(),
+        nav_contact_en: navContactEn.trim(),
+        nav_contact_fr: navContactFr.trim(),
+        nav_contact_ar: navContactAr.trim(),
+        nav_open_en: navOpenEn.trim(),
+        nav_open_fr: navOpenFr.trim(),
+        nav_open_ar: navOpenAr.trim(),
+        pricing_h2_en: pricingH2En.trim(),
+        pricing_h2_fr: pricingH2Fr.trim(),
+        pricing_h2_ar: pricingH2Ar.trim(),
+        pricing_body_en: pricingBodyEn.trim(),
+        pricing_body_fr: pricingBodyFr.trim(),
+        pricing_body_ar: pricingBodyAr.trim(),
+        pricing_amount: pricingAmount.trim(),
+        pricing_period_en: pricingPeriodEn.trim(),
+        pricing_period_fr: pricingPeriodFr.trim(),
+        pricing_period_ar: pricingPeriodAr.trim(),
       };
 
       const updated: any = await api.adminUpdateSettings(patch);
@@ -1129,6 +1196,67 @@ export default function AdminSettings() {
             <View style={styles.field}>
               <Text style={styles.help}>Body — العربية</Text>
               <TextInput testID="site-adv-body-ar" value={advertiseBodyAr} onChangeText={setAdvertiseBodyAr} placeholder="تواصل مع آلاف الأسر والشركات الجزائرية..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 90, textAlignVertical: "top" }]} />
+            </View>
+
+            {/* --- Header/footer navigation labels --- */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Navigation labels (all site pages)</Text>
+            <Text style={styles.help}>Override the four header/footer links: How it works · For providers · Contact · Open app.</Text>
+            {[
+              { key: "how", label: "How it works", en: navHowEn, fr: navHowFr, ar: navHowAr, setEn: setNavHowEn, setFr: setNavHowFr, setAr: setNavHowAr },
+              { key: "providers", label: "For providers", en: navProvidersEn, fr: navProvidersFr, ar: navProvidersAr, setEn: setNavProvidersEn, setFr: setNavProvidersFr, setAr: setNavProvidersAr },
+              { key: "contact", label: "Contact", en: navContactEn, fr: navContactFr, ar: navContactAr, setEn: setNavContactEn, setFr: setNavContactFr, setAr: setNavContactAr },
+              { key: "open", label: "Open app (CTA)", en: navOpenEn, fr: navOpenFr, ar: navOpenAr, setEn: setNavOpenEn, setFr: setNavOpenFr, setAr: setNavOpenAr },
+            ].map((row) => (
+              <View key={`nav-${row.key}`} style={styles.testimonialCard}>
+                <Text style={styles.testimonialCardTitle}>{row.label}</Text>
+                <TextInput testID={`site-nav-${row.key}-en`} value={row.en} onChangeText={row.setEn} placeholder={`English (default: ${row.label})`} placeholderTextColor={theme.colors.muted} style={styles.input} />
+                <TextInput testID={`site-nav-${row.key}-fr`} value={row.fr} onChangeText={row.setFr} placeholder="Français" placeholderTextColor={theme.colors.muted} style={styles.input} />
+                <TextInput testID={`site-nav-${row.key}-ar`} value={row.ar} onChangeText={row.setAr} placeholder="العربية" placeholderTextColor={theme.colors.muted} style={styles.input} />
+              </View>
+            ))}
+
+            {/* --- Pricing block on for-providers.html --- */}
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Pricing block (for-providers page)</Text>
+            <Text style={styles.help}>Override the headline, body, monthly amount and period-suffix. Amount is language-neutral (e.g. `1000 DA`).</Text>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — English</Text>
+              <TextInput testID="site-pricing-h2-en" value={pricingH2En} onChangeText={setPricingH2En} placeholder="Straightforward pricing." placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — Français</Text>
+              <TextInput testID="site-pricing-h2-fr" value={pricingH2Fr} onChangeText={setPricingH2Fr} placeholder="Tarification simple." placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Headline — العربية</Text>
+              <TextInput testID="site-pricing-h2-ar" value={pricingH2Ar} onChangeText={setPricingH2Ar} placeholder="تسعير بسيط." placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — English</Text>
+              <TextInput testID="site-pricing-body-en" value={pricingBodyEn} onChangeText={setPricingBodyEn} placeholder="Start free. Pay a flat monthly fee..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 80, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — Français</Text>
+              <TextInput testID="site-pricing-body-fr" value={pricingBodyFr} onChangeText={setPricingBodyFr} placeholder="Commencez gratuitement..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 80, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Body — العربية</Text>
+              <TextInput testID="site-pricing-body-ar" value={pricingBodyAr} onChangeText={setPricingBodyAr} placeholder="ابدأ مجاناً..." placeholderTextColor={theme.colors.muted} multiline style={[styles.input, { height: 80, textAlignVertical: "top" }]} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Price amount (language-neutral)</Text>
+              <TextInput testID="site-pricing-amount" value={pricingAmount} onChangeText={setPricingAmount} placeholder="1000 DA" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Period suffix — English</Text>
+              <TextInput testID="site-pricing-period-en" value={pricingPeriodEn} onChangeText={setPricingPeriodEn} placeholder=" / month" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Period suffix — Français</Text>
+              <TextInput testID="site-pricing-period-fr" value={pricingPeriodFr} onChangeText={setPricingPeriodFr} placeholder=" / mois" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.help}>Period suffix — العربية</Text>
+              <TextInput testID="site-pricing-period-ar" value={pricingPeriodAr} onChangeText={setPricingPeriodAr} placeholder=" / شهر" placeholderTextColor={theme.colors.muted} style={styles.input} />
             </View>
           </View>
 

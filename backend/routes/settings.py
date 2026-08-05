@@ -124,6 +124,30 @@ async def get_effective_settings() -> dict:
             "advertise_body_en": site_doc.get("advertise_body_en") or "",
             "advertise_body_fr": site_doc.get("advertise_body_fr") or "",
             "advertise_body_ar": site_doc.get("advertise_body_ar") or "",
+            # Header/footer nav labels
+            "nav_how_en": site_doc.get("nav_how_en") or "",
+            "nav_how_fr": site_doc.get("nav_how_fr") or "",
+            "nav_how_ar": site_doc.get("nav_how_ar") or "",
+            "nav_providers_en": site_doc.get("nav_providers_en") or "",
+            "nav_providers_fr": site_doc.get("nav_providers_fr") or "",
+            "nav_providers_ar": site_doc.get("nav_providers_ar") or "",
+            "nav_contact_en": site_doc.get("nav_contact_en") or "",
+            "nav_contact_fr": site_doc.get("nav_contact_fr") or "",
+            "nav_contact_ar": site_doc.get("nav_contact_ar") or "",
+            "nav_open_en": site_doc.get("nav_open_en") or "",
+            "nav_open_fr": site_doc.get("nav_open_fr") or "",
+            "nav_open_ar": site_doc.get("nav_open_ar") or "",
+            # Pricing block (for-providers.html)
+            "pricing_h2_en": site_doc.get("pricing_h2_en") or "",
+            "pricing_h2_fr": site_doc.get("pricing_h2_fr") or "",
+            "pricing_h2_ar": site_doc.get("pricing_h2_ar") or "",
+            "pricing_body_en": site_doc.get("pricing_body_en") or "",
+            "pricing_body_fr": site_doc.get("pricing_body_fr") or "",
+            "pricing_body_ar": site_doc.get("pricing_body_ar") or "",
+            "pricing_amount": site_doc.get("pricing_amount") or "",
+            "pricing_period_en": site_doc.get("pricing_period_en") or "",
+            "pricing_period_fr": site_doc.get("pricing_period_fr") or "",
+            "pricing_period_ar": site_doc.get("pricing_period_ar") or "",
         },
     }
 
@@ -187,6 +211,30 @@ class SiteConfigPatch(BaseModel):
     advertise_body_en: Optional[str] = None
     advertise_body_fr: Optional[str] = None
     advertise_body_ar: Optional[str] = None
+    # Header/footer navigation labels — override per language.
+    nav_how_en: Optional[str] = None
+    nav_how_fr: Optional[str] = None
+    nav_how_ar: Optional[str] = None
+    nav_providers_en: Optional[str] = None
+    nav_providers_fr: Optional[str] = None
+    nav_providers_ar: Optional[str] = None
+    nav_contact_en: Optional[str] = None
+    nav_contact_fr: Optional[str] = None
+    nav_contact_ar: Optional[str] = None
+    nav_open_en: Optional[str] = None
+    nav_open_fr: Optional[str] = None
+    nav_open_ar: Optional[str] = None
+    # for-providers.html pricing block — headline, body, amount, period.
+    pricing_h2_en: Optional[str] = None
+    pricing_h2_fr: Optional[str] = None
+    pricing_h2_ar: Optional[str] = None
+    pricing_body_en: Optional[str] = None
+    pricing_body_fr: Optional[str] = None
+    pricing_body_ar: Optional[str] = None
+    pricing_amount: Optional[str] = None      # language-neutral, e.g. "1000 DA"
+    pricing_period_en: Optional[str] = None
+    pricing_period_fr: Optional[str] = None
+    pricing_period_ar: Optional[str] = None
 
 
 class SettingsPatch(BaseModel):

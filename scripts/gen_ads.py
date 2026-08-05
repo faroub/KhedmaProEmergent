@@ -38,7 +38,7 @@ MODEL = "gemini-3.1-flash-image-preview"
 BRAND = "khedmaPro"
 
 # Taglines: French + Arabic ONLY. English is intentionally excluded.
-TAGLINE_FR_MAIN = "Des pros de confiance, en un tap"
+TAGLINE_FR_MAIN = "Des pros de confiance, en un click"
 TAGLINE_AR_MAIN = "محترفون موثوقون بضغطة واحدة"
 TAGLINE_FR_PLUMB = "Des plombiers de confiance — réservez en quelques secondes"
 TAGLINE_FR_ELEC = "Des électriciens certifiés — même jour"
@@ -54,9 +54,12 @@ BASE_STYLE = (
     "screen with a list of service categories (plumbing, electrical, cleaning, "
     "painting, carpentry) and a bright amber CTA button labelled in the ad's language; "
     "(b) subtle iconography hinting at those trades (wrench, wire, spray bottle, brush) "
-    "tastefully arranged around the phone; (c) a bold BRAND TEXT OVERLAY that reads "
+    "tastefully arranged around the phone; (c) large brand wordmark text that reads "
     "'khedmaPro' in a clean sans-serif type — spelled EXACTLY as provided, no "
     "misspellings, brand ALWAYS in Latin letters even when the tagline is in Arabic. "
+    "IMPORTANT: NEVER render meta phrases like 'Brand name TEXT OVERLAY', 'TAGLINE', "
+    "'CTA', 'ASPECT', 'CONTEXT' or any other prompt-instruction words as visible text "
+    "on the image. Only render the exact brand name and the exact tagline provided below. "
     "No English text anywhere in the image (except the brand wordmark). "
     "No fake logos, no watermarks, no lorem-ipsum. Text must be crisp and legible."
 )
@@ -67,14 +70,14 @@ ADS = [
         "hero_portrait_4x5_fr.png",
         "portrait 4:5 (1080x1350), Facebook & Instagram feed hero",
         "Wide vista of an Algerian city (Algiers/Oran cityscape at golden hour). "
-        f"BRAND TEXT: '{BRAND}' large centered top. FRENCH TAGLINE below: '{TAGLINE_FR_MAIN}'. "
+        f"Brand text (render as-is): '{BRAND}' large centered top. French tagline below (render as-is): '{TAGLINE_FR_MAIN}'. "
         "Absolutely no other language on the image.",
     ),
     (
         "hero_portrait_4x5_ar.png",
         "portrait 4:5 (1080x1350), Facebook & Instagram feed hero, Arabic-first",
         "Same Algerian city vista at golden hour. "
-        f"BRAND TEXT: '{BRAND}' large top (Latin letters). ARABIC TAGLINE below (right-to-left): "
+        f"Brand text (render as-is): '{BRAND}' large top (Latin letters). Arabic tagline below right-to-left (render as-is): "
         f"'{TAGLINE_AR_HERO}'. Absolutely no French or English text — only Arabic.",
     ),
     (
@@ -82,43 +85,43 @@ ADS = [
         "square 1:1 (1080x1080), Instagram feed",
         "Tighter composition, three service pros (a plumber, a cleaner, an electrician) smiling "
         "in the background, phone in foreground showing the app UI. "
-        f"BRAND: '{BRAND}'. FRENCH TAGLINE: '{TAGLINE_FR_MAIN}'. No English.",
+        f"Brand name (render as-is): '{BRAND}'. French tagline (render as-is): '{TAGLINE_FR_MAIN}'. No English.",
     ),
     (
         "square_1x1_ar.png",
         "square 1:1, Instagram, Arabic-first",
         "Same 3-pros composition but Arabic tagline. "
-        f"BRAND '{BRAND}' stays in Latin. ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_MAIN}'. "
+        f"Brand name '{BRAND}' stays in Latin. Arabic tagline right-to-left (render as-is): '{TAGLINE_AR_MAIN}'. "
         "Include a small Algerian flag icon in one corner.",
     ),
     (
         "vertical_9x16_tiktok_fr.png",
         "vertical 9:16 (1080x1920), TikTok / Reels story",
-        f"Vertical stack layout: BRAND '{BRAND}' huge at top, phone in middle showing app, "
+        f"Vertical stack layout: Brand name '{BRAND}' huge at top, phone in middle showing app, "
         "three tiny 3D icons at bottom (wrench/spray/paint). "
-        f"FRENCH TAGLINE at bottom: '{TAGLINE_FR_MAIN}'. "
+        f"French tagline at bottom (render as-is): '{TAGLINE_FR_MAIN}'. "
         "Leave clear top and bottom safe zones for TikTok UI overlays. No English.",
     ),
     (
         "vertical_9x16_tiktok_ar.png",
         "vertical 9:16, TikTok / Reels story, Arabic-first",
-        f"Same vertical stack but ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_MAIN}'. "
-        f"BRAND '{BRAND}' in Latin. Absolutely no French or English.",
+        f"Same vertical stack but Arabic tagline right-to-left (render as-is): '{TAGLINE_AR_MAIN}'. "
+        f"Brand name '{BRAND}' in Latin. Absolutely no French or English.",
     ),
     (
         "cat_plumbing_fr.png",
         "square 1:1, Instagram category — plumbing",
         f"Focus category: PLUMBING. A clean shot of a friendly Algerian plumber (30s) fixing "
         "a modern kitchen faucet, phone with khedmaPro app pinned in the corner. "
-        f"BRAND '{BRAND}' small top-left. FRENCH TAGLINE: '{TAGLINE_FR_PLUMB}'. No English.",
+        f"Brand name '{BRAND}' small top-left. French tagline (render as-is): '{TAGLINE_FR_PLUMB}'. No English.",
     ),
     (
         "cat_cleaning_ar.png",
         "vertical 9:16, TikTok — cleaning, Arabic-first",
         "Focus category: CLEANING. A cheerful Algerian cleaner (woman with headscarf) in a "
         "spotless modern home, natural light, phone floating with app UI showing a "
-        f"booking-confirmed screen. BRAND '{BRAND}' top-center. "
-        f"ARABIC TAGLINE (right-to-left): '{TAGLINE_AR_CLEAN}'. Only Arabic, no English or French.",
+        f"booking-confirmed screen. Brand name '{BRAND}' top-center. "
+        f"Arabic tagline right-to-left (render as-is): '{TAGLINE_AR_CLEAN}'. Only Arabic, no English or French.",
     ),
 ]
 

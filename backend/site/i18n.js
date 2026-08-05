@@ -746,6 +746,31 @@
       });
     }
 
+    // ---- Nav labels + pricing block overrides ----
+    // Map admin keys to i18n keys used across the site.
+    var overrides = [
+      { site: "nav_how_" + lang, i18n: "nav.how" },
+      { site: "nav_providers_" + lang, i18n: "nav.providers" },
+      { site: "nav_contact_" + lang, i18n: "nav.contact" },
+      { site: "nav_open_" + lang, i18n: "nav.open" },
+      { site: "pricing_h2_" + lang, i18n: "prov.pricing.h2" },
+      { site: "pricing_body_" + lang, i18n: "prov.pricing.p" },
+      { site: "pricing_period_" + lang, i18n: "prov.plan.active.priceSub" },
+    ];
+    overrides.forEach(function (o) {
+      var v = site[o.site];
+      if (!v) return;
+      document.querySelectorAll('[data-i18n="' + o.i18n + '"]').forEach(function (el) {
+        el.textContent = v;
+      });
+    });
+    // Language-neutral amount ("1000 DA", "1500 DA", "20 EUR" — whatever the admin sets).
+    if (site.pricing_amount) {
+      document.querySelectorAll('[data-i18n="prov.plan.active.price"]').forEach(function (el) {
+        el.textContent = site.pricing_amount;
+      });
+    }
+
     // ---- Testimonials section (injected dynamically) ----
     var testimonials = Array.isArray(site.testimonials) ? site.testimonials : [];
     var testiSec = document.getElementById("sec-testimonials");
