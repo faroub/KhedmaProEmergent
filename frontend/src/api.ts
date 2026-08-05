@@ -227,10 +227,20 @@ export const api = {
   adminUpdateSettings: (patch: any) =>
     request<any>("/admin/settings", { method: "PATCH", body: JSON.stringify(patch) }),
   adminChargilyHealth: () => request<any>("/admin/settings/chargily-health"),
+  adminTestSms: (phone: string) =>
+    request<any>("/admin/settings/sms/test", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    }),
 
   // OTP auth
   otpRequest: (phone: string) =>
     request("/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), auth: false }),
+  otpVerifyForRegistration: (phone: string, code: string) =>
+    request<{ phone_verified: boolean; phone_e164: string; phone_verification_token: string; expires_in: number }>(
+      "/auth/otp/verify-for-registration",
+      { method: "POST", body: JSON.stringify({ phone, code }), auth: false },
+    ),
   otpVerify: async (phone: string, code: string, role: "client" | "service_provider") => {
     const data: any = await request("/auth/otp/verify", {
       method: "POST",

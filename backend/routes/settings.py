@@ -50,6 +50,11 @@ async def get_effective_settings() -> dict:
     effective_secret = secret_override or ENV_CHARGILY_SECRET_KEY
     effective_webhook = webhook_override or ENV_CHARGILY_WEBHOOK_SECRET or effective_secret
 
+    # SMS subsystem status (imported lazily to avoid a circular import).
+    from sms import get_provider_status  # noqa: WPS433
+    sms_status = await get_provider_status()
+    sms_doc = doc.get("sms") or {}
+
     return {
         "subscription_price_dzd": int(doc.get("subscription_price_dzd") or ENV_SUBSCRIPTION_FEE_DZD),
         "trial_days": int(doc.get("trial_days") or (ENV_TRIAL_MONTHS * 30)),
@@ -62,6 +67,21 @@ async def get_effective_settings() -> dict:
         "chargily_secret_key_masked": _mask(effective_secret),
         "_secret_key": effective_secret,          # used internally by webhooks / checkout
         "_webhook_secret": effective_webhook,     # ditto
+        # SMS block — safe subset only; auth tokens are NEVER returned.
+        "sms": {
+            **sms_status,
+            "message_template": sms_doc.get("message_template") or "",
+            # Twilio public fields
+            "twilio_from": sms_doc.get("twilio_from") or "",
+            "twilio_account_sid_masked": _mask(sms_doc.get("twilio_account_sid") or ""),
+            # HTTP public fields
+            "http_url": sms_doc.get("http_url") or "",
+            "http_method": sms_doc.get("http_method") or "POST",
+            "http_body_template": sms_doc.get("http_body_template") or "",
+            "http_content_type": sms_doc.get("http_content_type") or "application/json",
+            # Header keys only (values redacted so we don't leak API keys).
+            "http_header_keys": list((sms_doc.get("http_headers") or {}).keys()),
+        },
     }
 
 
@@ -74,6 +94,19 @@ def _mask(v: str) -> str:
 
 
 # ---------- Public admin surface ----------
+class SmsConfigPatch(BaseModel):
+    provider: Optional[str] = Field(default=None, pattern="^(mock|twilio|http)$")
+    twilio_account_sid: Optional[str] = None
+    twilio_auth_token: Optional[str] = None
+    twilio_from: Optional[str] = None
+    http_url: Optional[str] = None
+    http_method: Optional[str] = Field(default=None, pattern="^(GET|POST|PUT)$")
+    http_headers: Optional[dict] = None
+    http_body_template: Optional[str] = None
+    http_content_type: Optional[str] = None
+    message_template: Optional[str] = None
+
+
 class SettingsPatch(BaseModel):
     subscription_price_dzd: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     trial_days: Optional[int] = Field(default=None, ge=0, le=365)
@@ -81,6 +114,7 @@ class SettingsPatch(BaseModel):
     chargily_mode: Optional[str] = Field(default=None, pattern="^(test|live)$")
     chargily_secret_key_override: Optional[str] = None      # empty string clears
     chargily_webhook_secret_override: Optional[str] = None  # empty string clears
+    sms: Optional[SmsConfigPatch] = None
 
 
 @router.get("/admin/settings")
@@ -125,6 +159,20 @@ async def admin_update_settings(
     if body.chargily_webhook_secret_override is not None:
         updates["chargily_webhook_secret_override"] = body.chargily_webhook_secret_override.strip()
         audit_changes.append("webhook_secret_override_changed")
+
+    if body.sms is not None:
+        # Merge SMS block over the existing one so callers can PATCH one key.
+        existing = (await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}).get("sms") or {}
+        merged = dict(existing)
+        patch_data = body.sms.model_dump(exclude_none=True)
+        for k, v in patch_data.items():
+            # Empty string ⇒ clear the key. `None` was already excluded above.
+            if isinstance(v, str) and v == "":
+                merged.pop(k, None)
+            else:
+                merged[k] = v
+        updates["sms"] = merged
+        audit_changes.append(f"sms_provider={merged.get('provider') or 'mock'}")
 
     if not audit_changes:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -176,3 +224,28 @@ async def admin_chargily_health(user: Annotated[dict, Depends(current_user)]):
         }
     except httpx.HTTPError as e:
         return {**eff, "healthy": False, "detail": f"Network error: {e.__class__.__name__}"}
+
+
+
+class SmsTestIn(BaseModel):
+    phone: str
+
+
+@router.post("/admin/settings/sms/test")
+async def admin_test_sms(
+    body: SmsTestIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Fire a real test SMS via the CURRENTLY effective SMS provider.
+    Payload: `{ phone: "+2135XXXXXXXX" }`."""
+    require_admin(user)
+    # Lazy import to avoid a circular reference with `phone.py` / `sms.py`.
+    from phone import normalize_dz_phone  # noqa: WPS433
+    from sms import send_test_sms  # noqa: WPS433
+
+    try:
+        phone = normalize_dz_phone(body.phone)
+    except HTTPException:
+        return {"ok": False, "error": "Invalid Algerian phone number"}
+    result = await send_test_sms(phone)
+    return result

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  ScrollView,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -16,6 +15,10 @@ import {
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from "react-native-draggable-flatlist";
 import { api, type PortfolioItem } from "./api";
 import { useAuth } from "./auth";
 import { theme } from "./theme";
@@ -130,6 +133,7 @@ export function PortfolioManager({ onChange }: Props) {
     await persist(next);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const move = async (idx: number, dir: -1 | 1) => {
     const target = idx + dir;
     if (target < 0 || target >= items.length) return;
@@ -137,6 +141,64 @@ export function PortfolioManager({ onChange }: Props) {
     const [item] = next.splice(idx, 1);
     next.splice(target, 0, item);
     await persist(next);
+  };
+
+  /** Renderer for a single draggable thumbnail. Used inside `DraggableFlatList`. */
+  const renderThumb = ({ item: it, drag, isActive, getIndex }: RenderItemParams<PortfolioItem>) => {
+    const idx = getIndex() ?? 0;
+    return (
+      <ScaleDecorator>
+        <Pressable
+          style={[
+            styles.thumbWrap,
+            isActive && styles.thumbWrapActive,
+            { marginRight: 8 },
+          ]}
+          onPress={() => setViewerIdx(idx)}
+          onLongPress={drag}
+          delayLongPress={180}
+          disabled={busy}
+        >
+          <Image
+            source={{ uri: it.url }}
+            style={styles.thumb}
+            contentFit="cover"
+            testID={`portfolio-thumb-${idx}`}
+          />
+          {it.is_cover && (
+            <View style={styles.thumbCoverBadge}>
+              <Ionicons name="star" size={10} color="#fff" />
+            </View>
+          )}
+          <View style={styles.dragHandleBadge} pointerEvents="none">
+            <Ionicons name="reorder-two" size={14} color="#fff" />
+          </View>
+          {(it.caption || (it.tags && it.tags.length)) && (
+            <View style={styles.thumbCaptionRow}>
+              <Text style={styles.thumbCaption} numberOfLines={1}>
+                {it.caption || it.tags?.[0]}
+              </Text>
+            </View>
+          )}
+          <Pressable
+            testID={`portfolio-remove-${idx}`}
+            hitSlop={8}
+            style={styles.removeBtn}
+            onPress={() => remove(idx)}
+          >
+            <Ionicons name="close" size={14} color="#fff" />
+          </Pressable>
+          <Pressable
+            testID={`portfolio-edit-${idx}`}
+            hitSlop={8}
+            style={styles.editBtn}
+            onPress={() => openEditor(idx)}
+          >
+            <Ionicons name="pencil" size={12} color="#fff" />
+          </Pressable>
+        </Pressable>
+      </ScaleDecorator>
+    );
   };
 
   // Kept for future double-tap-to-set-cover gesture; the editor also toggles the cover flag.
@@ -194,88 +256,34 @@ export function PortfolioManager({ onChange }: Props) {
         </Pressable>
       )}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {items.map((it, idx) => (
-          <Pressable
-            key={`${idx}-${(it.url || "").slice(-8)}`}
-            style={styles.thumbWrap}
-            onPress={() => setViewerIdx(idx)}
-            onLongPress={() => openEditor(idx)}
-          >
-            <Image
-              source={{ uri: it.url }}
-              style={styles.thumb}
-              contentFit="cover"
-              testID={`portfolio-thumb-${idx}`}
-            />
-            {it.is_cover && (
-              <View style={styles.thumbCoverBadge}>
-                <Ionicons name="star" size={10} color="#fff" />
-              </View>
-            )}
-            {(it.caption || (it.tags && it.tags.length)) && (
-              <View style={styles.thumbCaptionRow}>
-                <Text style={styles.thumbCaption} numberOfLines={1}>
-                  {it.caption || it.tags?.[0]}
-                </Text>
-              </View>
-            )}
-            <Pressable
-              testID={`portfolio-remove-${idx}`}
-              hitSlop={8}
-              style={styles.removeBtn}
-              onPress={() => remove(idx)}
-            >
-              <Ionicons name="close" size={14} color="#fff" />
-            </Pressable>
-            <Pressable
-              testID={`portfolio-edit-${idx}`}
-              hitSlop={8}
-              style={styles.editBtn}
-              onPress={() => openEditor(idx)}
-            >
-              <Ionicons name="pencil" size={12} color="#fff" />
-            </Pressable>
-            {/* Reorder controls: left/right arrows. Disabled on the boundaries. */}
-            {idx > 0 && (
-              <Pressable
-                testID={`portfolio-move-left-${idx}`}
-                hitSlop={8}
-                style={[styles.reorderBtn, styles.reorderBtnLeft]}
-                onPress={() => move(idx, -1)}
-              >
-                <Ionicons name="chevron-back" size={14} color="#fff" />
+      <View style={styles.dragArea}>
+        <DraggableFlatList<PortfolioItem>
+          data={items}
+          horizontal
+          keyExtractor={(it, i) => `${i}-${(it.url || "").slice(-8)}`}
+          onDragEnd={({ data }) => {
+            void persist(data);
+          }}
+          renderItem={renderThumb}
+          contentContainerStyle={{ paddingRight: 8 }}
+          showsHorizontalScrollIndicator={false}
+          activationDistance={6}
+          ListFooterComponent={
+            items.length < MAX_IMAGES ? (
+              <Pressable testID="portfolio-add-btn" style={styles.addBtn} onPress={pick} disabled={busy}>
+                {busy ? (
+                  <ActivityIndicator color={theme.colors.brand} />
+                ) : (
+                  <>
+                    <Ionicons name="add" size={28} color={theme.colors.brand} />
+                    <Text style={styles.addText}>{t("portfolio.add")}</Text>
+                  </>
+                )}
               </Pressable>
-            )}
-            {idx < items.length - 1 && (
-              <Pressable
-                testID={`portfolio-move-right-${idx}`}
-                hitSlop={8}
-                style={[styles.reorderBtn, styles.reorderBtnRight]}
-                onPress={() => move(idx, 1)}
-              >
-                <Ionicons name="chevron-forward" size={14} color="#fff" />
-              </Pressable>
-            )}
-          </Pressable>
-        ))}
-        {items.length < MAX_IMAGES && (
-          <Pressable testID="portfolio-add-btn" style={styles.addBtn} onPress={pick} disabled={busy}>
-            {busy ? (
-              <ActivityIndicator color={theme.colors.brand} />
-            ) : (
-              <>
-                <Ionicons name="add" size={28} color={theme.colors.brand} />
-                <Text style={styles.addText}>{t("portfolio.add")}</Text>
-              </>
-            )}
-          </Pressable>
-        )}
-      </ScrollView>
+            ) : null
+          }
+        />
+      </View>
 
       {progress && <Text style={styles.progress}>{progress}</Text>}
       {items.length === 0 && !busy && <Text style={styles.emptyHint}>{t("portfolio.empty")}</Text>}
@@ -468,6 +476,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
+  thumbWrapActive: {
+    // Slightly bright border + shadow while dragging.
+    borderWidth: 2,
+    borderColor: theme.colors.brand,
+  },
+  dragArea: { minHeight: 118 },
+  dragHandleBadge: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   thumb: { width: "100%", height: "100%", backgroundColor: theme.colors.surfaceSecondary },
   thumbCoverBadge: {
     position: "absolute",
@@ -523,6 +548,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.65)",
     alignItems: "center",
     justifyContent: "center",
+    display: "none", // legacy — kept for backward compat; drag-to-reorder is the primary UX now
   },
   reorderBtnLeft: { left: 4 },
   reorderBtnRight: { right: 4 },

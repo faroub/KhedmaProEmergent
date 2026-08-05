@@ -18,6 +18,20 @@ import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 
+type SmsSection = {
+  provider: "mock" | "twilio" | "http";
+  healthy: boolean;
+  detail: string;
+  message_template: string;
+  twilio_from: string;
+  twilio_account_sid_masked: string;
+  http_url: string;
+  http_method: "GET" | "POST" | "PUT";
+  http_body_template: string;
+  http_content_type: string;
+  http_header_keys: string[];
+};
+
 type Settings = {
   subscription_price_dzd: number;
   trial_days: number;
@@ -27,6 +41,7 @@ type Settings = {
   chargily_secret_key_source: "env" | "db" | "none";
   chargily_webhook_secret_source: "env" | "db" | "none";
   chargily_secret_key_masked: string;
+  sms?: SmsSection;
 };
 
 type Health = Settings & { healthy: boolean; detail: string; http_status?: number };
@@ -49,6 +64,21 @@ export default function AdminSettings() {
   const [secretOverride, setSecretOverride] = useState("");
   const [showSecret, setShowSecret] = useState(false);
 
+  // SMS local state
+  const [smsProvider, setSmsProvider] = useState<"mock" | "twilio" | "http">("mock");
+  const [twilioSid, setTwilioSid] = useState("");
+  const [twilioToken, setTwilioToken] = useState("");
+  const [twilioFrom, setTwilioFrom] = useState("");
+  const [showTwilioToken, setShowTwilioToken] = useState(false);
+  const [httpUrl, setHttpUrl] = useState("");
+  const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT">("POST");
+  const [httpContentType, setHttpContentType] = useState("application/json");
+  const [httpBodyTpl, setHttpBodyTpl] = useState("");
+  const [httpHeadersRaw, setHttpHeadersRaw] = useState("");
+  const [msgTemplate, setMsgTemplate] = useState("");
+  const [smsTestPhone, setSmsTestPhone] = useState("");
+  const [smsTestBusy, setSmsTestBusy] = useState(false);
+
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
     setLoading(true);
@@ -59,6 +89,17 @@ export default function AdminSettings() {
       setTrial(String(s.trial_days || 90));
       setMode(s.chargily_mode || "test");
       setPayEnabled(!!s.payments_enabled);
+      if (s.sms) {
+        setSmsProvider(s.sms.provider || "mock");
+        setTwilioFrom(s.sms.twilio_from || "");
+        setTwilioSid(""); // never returned by backend — user must re-enter to change
+        setTwilioToken("");
+        setHttpUrl(s.sms.http_url || "");
+        setHttpMethod((s.sms.http_method as any) || "POST");
+        setHttpContentType(s.sms.http_content_type || "application/json");
+        setHttpBodyTpl(s.sms.http_body_template || "");
+        setMsgTemplate(s.sms.message_template || "");
+      }
     } catch {
       setSettings(null);
     }
@@ -92,14 +133,59 @@ export default function AdminSettings() {
       if (secretOverride.trim().length > 0) {
         patch.chargily_secret_key_override = secretOverride.trim();
       }
+      // SMS block. Empty strings clear a stored value on the server; unchanged
+      // secret fields (Twilio SID / token) are only sent when the admin actually
+      // typed something so we don't accidentally overwrite existing keys with blanks.
+      const smsPatch: any = { provider: smsProvider, message_template: msgTemplate };
+      if (twilioSid.trim().length > 0) smsPatch.twilio_account_sid = twilioSid.trim();
+      if (twilioToken.trim().length > 0) smsPatch.twilio_auth_token = twilioToken.trim();
+      smsPatch.twilio_from = twilioFrom.trim();
+      smsPatch.http_url = httpUrl.trim();
+      smsPatch.http_method = httpMethod;
+      smsPatch.http_content_type = httpContentType.trim() || "application/json";
+      smsPatch.http_body_template = httpBodyTpl;
+      // Parse "Header-Name: value" lines into an object.
+      if (httpHeadersRaw.trim().length > 0) {
+        const obj: Record<string, string> = {};
+        httpHeadersRaw.split(/\n+/).forEach((line) => {
+          const m = line.match(/^([^:]+):\s*(.+)$/);
+          if (m) obj[m[1].trim()] = m[2].trim();
+        });
+        smsPatch.http_headers = obj;
+      }
+      patch.sms = smsPatch;
+
       const updated: any = await api.adminUpdateSettings(patch);
       setSettings(updated);
       setSecretOverride("");
+      setTwilioSid("");
+      setTwilioToken("");
+      setHttpHeadersRaw("");
       Alert.alert("✓", "Settings saved");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to save");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const testSms = async () => {
+    if (!smsTestPhone.trim()) {
+      Alert.alert("Phone required", "Enter an Algerian mobile number (e.g. 0555 12 34 56) first.");
+      return;
+    }
+    setSmsTestBusy(true);
+    try {
+      const res: any = await api.adminTestSms(smsTestPhone.trim());
+      if (res.ok) {
+        Alert.alert("✓ SMS sent", `Provider: ${res.provider}${res.sid ? `\nSID: ${res.sid}` : ""}${res.http_status ? `\nHTTP: ${res.http_status}` : ""}`);
+      } else {
+        Alert.alert("✗ Send failed", res.error || "Unknown error");
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed");
+    } finally {
+      setSmsTestBusy(false);
     }
   };
 
@@ -275,6 +361,272 @@ export default function AdminSettings() {
                 placeholderTextColor={theme.colors.muted}
               />
               <Text style={styles.help}>Days from signup until the first payment is due.</Text>
+            </View>
+          </View>
+
+          {/* SMS provider section */}
+          <View style={styles.section}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>SMS provider (OTP delivery)</Text>
+              <View
+                style={[
+                  styles.sourcePill,
+                  {
+                    backgroundColor:
+                      (settings?.sms?.healthy ? theme.colors.success : theme.colors.warning) + "22",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sourcePillText,
+                    { color: settings?.sms?.healthy ? theme.colors.success : theme.colors.warning },
+                  ]}
+                >
+                  {settings?.sms?.provider ?? "mock"}
+                </Text>
+              </View>
+            </View>
+            {!!settings?.sms?.detail && (
+              <Text style={styles.help}>{settings.sms.detail}</Text>
+            )}
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Provider</Text>
+              <View style={styles.modeRow}>
+                {(["mock", "twilio", "http"] as const).map((p) => (
+                  <Pressable
+                    key={p}
+                    testID={`sms-provider-${p}`}
+                    onPress={() => setSmsProvider(p)}
+                    style={[styles.modeBtn, smsProvider === p && styles.modeBtnActive]}
+                  >
+                    <Ionicons
+                      name={p === "twilio" ? "cloud" : p === "http" ? "cloud-upload" : "flask"}
+                      size={14}
+                      color={smsProvider === p ? theme.colors.brand : theme.colors.muted}
+                    />
+                    <Text
+                      style={[
+                        styles.modeBtnText,
+                        smsProvider === p && { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {p === "mock" ? "Mock (dev)" : p === "twilio" ? "Twilio" : "HTTP gateway"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.help}>
+                {smsProvider === "mock"
+                  ? "Mock only logs the code to the server console — safe for development, not for production."
+                  : smsProvider === "twilio"
+                  ? "Uses Twilio Programmable SMS. Requires Account SID, Auth Token and a from-number."
+                  : "Generic HTTP gateway — good for local Algerian SMS providers. Configure URL + body template."}
+              </Text>
+            </View>
+
+            {smsProvider === "twilio" && (
+              <>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Twilio Account SID</Text>
+                  {settings?.sms?.twilio_account_sid_masked ? (
+                    <View style={styles.maskedRow}>
+                      <Ionicons name="key" size={14} color={theme.colors.muted} />
+                      <Text style={styles.masked}>{settings.sms.twilio_account_sid_masked}</Text>
+                    </View>
+                  ) : null}
+                  <TextInput
+                    testID="sms-twilio-sid"
+                    value={twilioSid}
+                    onChangeText={setTwilioSid}
+                    placeholder={settings?.sms?.twilio_account_sid_masked ? "Leave blank to keep" : "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Twilio Auth Token</Text>
+                  <View style={styles.secretInputRow}>
+                    <TextInput
+                      testID="sms-twilio-token"
+                      value={twilioToken}
+                      onChangeText={setTwilioToken}
+                      placeholder={settings?.sms?.twilio_account_sid_masked ? "Leave blank to keep" : "your-auth-token"}
+                      placeholderTextColor={theme.colors.muted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry={!showTwilioToken}
+                      style={styles.input}
+                    />
+                    <Pressable
+                      onPress={() => setShowTwilioToken((s) => !s)}
+                      hitSlop={8}
+                      style={styles.eyeBtn}
+                    >
+                      <Ionicons
+                        name={showTwilioToken ? "eye-off" : "eye"}
+                        size={18}
+                        color={theme.colors.muted}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>From-number</Text>
+                  <TextInput
+                    testID="sms-twilio-from"
+                    value={twilioFrom}
+                    onChangeText={setTwilioFrom}
+                    placeholder="+14155552671"
+                    placeholderTextColor={theme.colors.muted}
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                  <Text style={styles.help}>
+                    A verified Twilio number or messaging service SID. Must support SMS to Algeria (+213).
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {smsProvider === "http" && (
+              <>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Gateway URL</Text>
+                  <TextInput
+                    testID="sms-http-url"
+                    value={httpUrl}
+                    onChangeText={setHttpUrl}
+                    placeholder="https://sms.example.dz/api/send"
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>HTTP method</Text>
+                  <View style={styles.modeRow}>
+                    {(["GET", "POST", "PUT"] as const).map((m) => (
+                      <Pressable
+                        key={m}
+                        onPress={() => setHttpMethod(m)}
+                        style={[styles.modeBtn, httpMethod === m && styles.modeBtnActive]}
+                      >
+                        <Text style={[styles.modeBtnText, httpMethod === m && { color: theme.colors.onSurface }]}>
+                          {m}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Content-Type</Text>
+                  <TextInput
+                    testID="sms-http-ctype"
+                    value={httpContentType}
+                    onChangeText={setHttpContentType}
+                    placeholder="application/json"
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Body template</Text>
+                  <TextInput
+                    testID="sms-http-body"
+                    value={httpBodyTpl}
+                    onChangeText={setHttpBodyTpl}
+                    multiline
+                    numberOfLines={4}
+                    placeholder={'{"to": "{phone}", "text": "{message}"}'}
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={[styles.input, { height: 90, textAlignVertical: "top" }]}
+                  />
+                  <Text style={styles.help}>
+                    Placeholders: {"{phone}"} = E.164 number, {"{message}"} = the localized OTP text.
+                  </Text>
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Extra headers (one per line, `Name: value`)</Text>
+                  {settings?.sms?.http_header_keys && settings.sms.http_header_keys.length > 0 && (
+                    <Text style={styles.help}>
+                      Currently stored: {settings.sms.http_header_keys.join(", ")} (values hidden)
+                    </Text>
+                  )}
+                  <TextInput
+                    testID="sms-http-headers"
+                    value={httpHeadersRaw}
+                    onChangeText={setHttpHeadersRaw}
+                    multiline
+                    numberOfLines={3}
+                    placeholder={"Authorization: Bearer XXX\nX-API-Key: XXX"}
+                    placeholderTextColor={theme.colors.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+                  />
+                </View>
+              </>
+            )}
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Message template</Text>
+              <TextInput
+                testID="sms-msg-template"
+                value={msgTemplate}
+                onChangeText={setMsgTemplate}
+                placeholder="khedmaPro: your verification code is {code}. Valid 5 minutes."
+                placeholderTextColor={theme.colors.muted}
+                multiline
+                numberOfLines={2}
+                style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+              />
+              <Text style={styles.help}>
+                Uses placeholders {"{code}"} and {"{phone}"}. Leave blank to use the default template.
+              </Text>
+            </View>
+
+            {/* Test send row */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Send test SMS to</Text>
+              <View style={styles.secretInputRow}>
+                <TextInput
+                  testID="sms-test-phone"
+                  value={smsTestPhone}
+                  onChangeText={setSmsTestPhone}
+                  placeholder="0555 12 34 56"
+                  placeholderTextColor={theme.colors.muted}
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                />
+                <Pressable
+                  testID="sms-test-btn"
+                  onPress={testSms}
+                  disabled={smsTestBusy}
+                  style={[styles.healthBtn, { paddingHorizontal: 14, borderColor: theme.colors.brand }]}
+                >
+                  {smsTestBusy ? (
+                    <ActivityIndicator color={theme.colors.brand} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="paper-plane" size={14} color={theme.colors.brand} />
+                      <Text style={styles.healthBtnText}>Send</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+              <Text style={styles.help}>
+                Sends the fixed test code `000000` via the CURRENTLY saved settings.
+              </Text>
             </View>
           </View>
 

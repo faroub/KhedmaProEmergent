@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import db
@@ -10,7 +11,12 @@ from deps import current_user
 from phone import normalize_dz_phone
 from reference_data import WILAYAS
 from schemas import LoginIn, RegisterIn, Role, TokenOut
-from security import hash_password, make_token, verify_password
+from security import (
+    hash_password,
+    make_token,
+    verify_password,
+    decode_phone_verification_token,
+)
 from subscription import enforce_lifecycle, serialize_user
 
 
@@ -49,6 +55,30 @@ async def register(body: RegisterIn):
         if existing_phone:
             raise HTTPException(status_code=409, detail="This phone number is already registered")
 
+    # Enforce OTP verification BEFORE the provider account is created. Clients
+    # aren't subject to this because they can browse anonymously.
+    phone_verified_at = None
+    if body.role == Role.service_provider:
+        if not body.phone_verification_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Phone verification required. Verify your number before completing registration.",
+            )
+        try:
+            payload = decode_phone_verification_token(body.phone_verification_token)
+        except jwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=400,
+                detail="Phone verification token is invalid or expired — please verify again.",
+            )
+        token_phone = payload.get("phone_e164")
+        if not token_phone or token_phone != normalized_phone:
+            raise HTTPException(
+                status_code=400,
+                detail="Phone verification token does not match the phone number being registered.",
+            )
+        phone_verified_at = datetime.now(timezone.utc).isoformat()
+
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     doc = {
@@ -72,6 +102,9 @@ async def register(body: RegisterIn):
         "created_at": now.isoformat(),
         "last_paid_at": None,
     }
+    if phone_verified_at:
+        doc["phone_verified"] = True
+        doc["phone_verified_at"] = phone_verified_at
     # Only set phone_e164 when we have a normalized value — the collection has
     # a sparse UNIQUE index on this field, which rejects explicit nulls.
     if normalized_phone:

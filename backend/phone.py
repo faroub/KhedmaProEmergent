@@ -1,7 +1,9 @@
-"""Phone-number normalization and mock OTP sender."""
+"""Phone-number normalization and OTP SMS dispatch."""
 import logging
 import re
 from fastapi import HTTPException
+
+from sms import send_sms_otp
 
 logger = logging.getLogger(__name__)
 
@@ -23,5 +25,13 @@ def normalize_dz_phone(raw: str) -> str:
 
 
 async def send_otp_code(phone_e164: str, code: str) -> None:
-    """MOCK sender — logs the code. Swap this to add Twilio / Firebase / local SMS gateway."""
-    logger.warning("MOCK OTP for %s: %s", phone_e164, code)
+    """Delegate to the pluggable SMS dispatcher.
+
+    We deliberately don't raise on delivery failure — the code is already
+    persisted (hashed) server-side, so callers can retry `POST /auth/otp/request`
+    to trigger a resend without invalidating the challenge state.
+    """
+    result = await send_sms_otp(phone_e164, code)
+    if not result.get("ok"):
+        # Escalate to warning so it's visible in dev logs but non-fatal.
+        logger.warning("send_otp_code: delivery failed via %s — %s", result.get("provider"), result.get("error"))

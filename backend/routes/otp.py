@@ -10,8 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from deps import current_user
 from phone import normalize_dz_phone, send_otp_code
-from schemas import OtpRequestIn, OtpVerifyIn, VerifyMyPhoneIn
-from security import hash_password, make_token
+from schemas import (
+    OtpRequestIn,
+    OtpVerifyIn,
+    OtpVerifyForRegistrationIn,
+    VerifyMyPhoneIn,
+)
+from security import hash_password, make_token, make_phone_verification_token
 from subscription import enforce_lifecycle, serialize_user
 
 router = APIRouter(tags=["otp"])
@@ -200,3 +205,46 @@ async def verify_my_phone(
     )
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return {"phone_verified": True, "user": serialize_user(updated)}
+
+
+
+@router.post("/auth/otp/verify-for-registration")
+async def verify_otp_for_registration(body: OtpVerifyForRegistrationIn):
+    """Public OTP verify used by the multi-step provider registration flow.
+
+    Does NOT create a user. Instead, on success it returns a short-lived
+    (`15m`) signed `phone_verification_token` that MUST be POSTed to
+    `/auth/register` for a provider account. This lets us block registration
+    until the phone is proven owned, without polluting the users collection.
+    """
+    phone = normalize_dz_phone(body.phone)
+    now = datetime.now(timezone.utc)
+
+    challenge = await db.otp_challenges.find_one({"phone_e164": phone}, {"_id": 0})
+    if not challenge:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    expires_at = challenge.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    if not expires_at or expires_at <= now:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    if not bcrypt.checkpw(body.code.encode(), challenge["code_hash"].encode()):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+
+    # If the number already belongs to an account, block registration here so
+    # the caller doesn't waste time filling the rest of the form.
+    if await db.users.find_one({"phone_e164": phone}):
+        raise HTTPException(status_code=409, detail="This phone number is already registered")
+
+    # Single-use — burn the challenge.
+    deleted = await db.otp_challenges.delete_one({"phone_e164": phone})
+    if deleted.deleted_count != 1:
+        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+
+    token = make_phone_verification_token(phone, ttl_minutes=15)
+    return {
+        "phone_verified": True,
+        "phone_e164": phone,
+        "phone_verification_token": token,
+        "expires_in": 15 * 60,
+    }
