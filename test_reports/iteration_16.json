@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 16 — Admin Dashboard hub, ads, tri-lang categories, and marketing site multilingual switch. Backend: 35/35 pytest cases passed covering all NEW endpoints listed in the review request (categories tri-lang + painting=brush, admin categories CRUD + reorder + in-use guard, admin stats KPI, admin users search/deactivate/reactivate/force-verify/delete + self-guard, admin bookings monitor, admin revenue, admin broadcast wilaya validation, CSV exports for users/providers/bookings with content-disposition, public ads listing with impression/click counters no-auth, admin ads CRUD, auth guards returning 401 for unauth and 403 for non-admin). Frontend: Marketing site verified via Playwright at /api/site/ — loads with English default, switches to French and Arabic via #site-lang-select dropdown, Arabic sets html dir=rtl, the 'khedmaPro' logo text remains Latin/untranslated in all three languages, and the language choice persists to /api/site/contact.html via localStorage key 'khedmapro_site_lang'. Detailed admin screen UI testing skipped per review request.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter16_admin_hub.py",
+    "/app/test_reports/pytest/pytest_iter16.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/admin_dashboard.py: admin_bookings _hydrate uses .to_list(2) — safe because it filters by exactly 2 ids (client + provider), but the hard-coded 2 is fragile if the query ever changes. Consider .to_list(length=len(pids)).",
+    "routes/ads.py AdPatch: model_dump(exclude_unset=True) is applied so partial patches work; however 'link_url'/'subtitle' can be legitimately cleared to null — currently patching them to null works because the value is included in exclude_unset only when explicitly sent. OK, but worth documenting.",
+    "routes/admin_dashboard.py test_wilaya_backfill_idempotent (pre-existing iter15) may now leave DB in an over-updated state across runs — not a bug in this iteration, just noting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter16_admin_hub.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (35/35)",
+    "frontend": "100% (marketing site multilingual: EN/FR/AR + RTL + logo untranslated + persistence verified)"
+  },
+  "seed_data_creation": "No permanent seed data created; every test that creates a user/category/ad cleans up in a finally block or fixture teardown. Test emails are prefixed with 'TEST_iter16_'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "New pytest file /app/backend/tests/test_iter16_admin_hub.py covers all admin-hub endpoints — reuse it for regression. Admin login: admin@khedmapro.dz / admin123. Provider login for 403 checks: provider1@khedmapro.dz / password123. Marketing site is served at both /site/ and /api/site/ — the review request specified /api/site/, which returns 200 with i18n.js and #site-lang-select. Categories seeded with tri-language names on startup — the painting category icon is confirmed as 'brush'. No mocks were needed; push broadcast succeeded (returns sent count) though it internally uses the push mock relay.",
+  "rca_of_issue": "N/A — no bugs found in this iteration. All 35 backend assertions pass and the marketing site language dropdown behaves per spec."
+}

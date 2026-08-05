@@ -15,6 +15,7 @@ import { useT } from "@/src/language";
 import { WilayaPicker } from "@/src/WilayaPicker";
 import { type DropdownOption } from "@/src/Dropdown";
 import { FiltersSheet, FiltersPill } from "@/src/FiltersSheet";
+import { AdsCarousel } from "@/src/AdsCarousel";
 import { getClientLocation, peekLocationCache, type Coords } from "@/src/utils/location";
 
 // Radius presets in kilometers. "wilaya" and "country" are sentinel scopes.
@@ -227,6 +228,8 @@ export default function Home() {
             </View>
           </ImageBackground>
         </View>
+
+        <AdsCarousel />
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{selectedCat ? t(`cat.${selectedCat}`) : t("home.categories")}</Text>
