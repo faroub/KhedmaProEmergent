@@ -26,6 +26,7 @@ from . import (
     admin_dashboard,
     ads,
     provider_analytics,
+    settings as platform_settings,
 )
 
 
@@ -51,4 +52,5 @@ def build_api_router() -> APIRouter:
     api.include_router(admin_dashboard.router)
     api.include_router(ads.router)
     api.include_router(provider_analytics.router)
+    api.include_router(platform_settings.router)
     return api

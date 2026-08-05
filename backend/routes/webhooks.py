@@ -17,28 +17,30 @@ from config import (
     ALLOW_MOCK_PAYMENTS,
     API_PUBLIC_URL,
     APP_RETURN_URL,
-    CHARGILY_BASE_URL,
-    CHARGILY_SECRET_KEY,
-    CHARGILY_WEBHOOK_SECRET,
-    SUBSCRIPTION_FEE_DZD,
 )
 from database import db
+from routes.settings import get_effective_settings
 
 
 router = APIRouter(tags=["webhooks"])
 
 
-def is_chargily_enabled() -> bool:
-    return bool(CHARGILY_SECRET_KEY)
+async def is_chargily_enabled() -> bool:
+    eff = await get_effective_settings()
+    return bool(eff.get("_secret_key")) and bool(eff.get("payments_enabled", True))
 
 
 async def create_checkout(provider_id: str, provider_email: str, provider_name: str) -> dict:
-    """Create a Chargily checkout for the 1000 DZD monthly subscription."""
-    if not is_chargily_enabled():
+    """Create a Chargily checkout for the monthly subscription."""
+    eff = await get_effective_settings()
+    secret = eff.get("_secret_key") or ""
+    if not secret:
         raise HTTPException(status_code=503, detail="Payment provider is not configured")
+    if not eff.get("payments_enabled", True):
+        raise HTTPException(status_code=503, detail="Payments are temporarily disabled by admin")
 
     payload = {
-        "amount": SUBSCRIPTION_FEE_DZD,
+        "amount": int(eff["subscription_price_dzd"]),
         "currency": "dzd",
         "success_url": f"{APP_RETURN_URL}?result=success",
         "failure_url": f"{APP_RETURN_URL}?result=failure",
@@ -50,8 +52,8 @@ async def create_checkout(provider_id: str, provider_email: str, provider_name: 
     }
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.post(
-            f"{CHARGILY_BASE_URL}/checkouts",
-            headers={"Authorization": f"Bearer {CHARGILY_SECRET_KEY}", "Content-Type": "application/json"},
+            f"{eff['chargily_base_url']}/checkouts",
+            headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json"},
             json=payload,
         )
     if r.is_error:
@@ -64,7 +66,7 @@ async def create_checkout(provider_id: str, provider_email: str, provider_name: 
         "id": str(uuid.uuid4()),
         "provider_id": provider_id,
         "provider_checkout_id": checkout["id"],
-        "amount_dzd": SUBSCRIPTION_FEE_DZD,
+        "amount_dzd": int(eff["subscription_price_dzd"]),
         "currency": "dzd",
         "status": "pending",
         "provider": "chargily",
@@ -78,9 +80,11 @@ async def chargily_webhook(request: Request):
     """HMAC-verified idempotent webhook. Only `checkout.paid` activates the subscription."""
     raw = await request.body()
     signature = request.headers.get("signature") or request.headers.get("Signature")
-    if not CHARGILY_WEBHOOK_SECRET or not signature:
+    eff = await get_effective_settings()
+    webhook_secret = eff.get("_webhook_secret") or ""
+    if not webhook_secret or not signature:
         raise HTTPException(status_code=400, detail="Missing signature")
-    expected = hmac.new(CHARGILY_WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    expected = hmac.new(webhook_secret.encode(), raw, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected):
         raise HTTPException(status_code=403, detail="Invalid signature")
 
@@ -105,7 +109,8 @@ async def chargily_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Unknown checkout")
 
     # Server-controlled invariants — reject unexpected amounts.
-    if checkout.get("amount") != SUBSCRIPTION_FEE_DZD or checkout.get("currency") != "dzd":
+    expected_amount = int(eff["subscription_price_dzd"])
+    if checkout.get("amount") != expected_amount or checkout.get("currency") != "dzd":
         raise HTTPException(status_code=400, detail="Unexpected amount/currency")
 
     event_type = event.get("type")

@@ -32,6 +32,15 @@ async def list_providers(
     lat: Optional[float] = Query(default=None, ge=-90, le=90),
     lng: Optional[float] = Query(default=None, ge=-180, le=180),
     radius_km: Optional[float] = Query(default=None, gt=0, le=500),
+    # Price range in DZD on hourly_rate. min/max inclusive; open-ended if omitted.
+    min_price: Optional[float] = Query(default=None, ge=0),
+    max_price: Optional[float] = Query(default=None, ge=0),
+    verified_only: Optional[bool] = Query(default=None),
+    # Client-driven ordering. Falls back to legacy behavior (distance in radius mode,
+    # rating otherwise) when omitted or set to "auto".
+    sort: Optional[str] = Query(
+        default=None, regex="^(auto|rating|distance|price_asc|price_desc)$"
+    ),
 ):
     query = {
         "role": Role.service_provider.value,
@@ -67,6 +76,15 @@ async def list_providers(
         s = serialize_user(d, public=True)
         if not s["active"]:
             continue
+        if verified_only and not s.get("is_verified"):
+            continue
+        # Price range filter on hourly_rate. Providers with no hourly_rate are
+        # kept unless a bound is set (we can't compare to null).
+        hr = s.get("hourly_rate")
+        if min_price is not None and (hr is None or hr < min_price):
+            continue
+        if max_price is not None and (hr is None or hr > max_price):
+            continue
         if radius_mode:
             plat, plng = s.get("location_lat"), s.get("location_lng")
             if plat is None or plng is None:
@@ -77,11 +95,45 @@ async def list_providers(
             s["distance_km"] = round(dist, 2)
         result.append(s)
 
-    # Sort: flagged providers (search_penalty > 0) go last; then by distance if in radius mode; else by rating desc.
-    if radius_mode:
-        result.sort(key=lambda x: (bool(x.get("search_penalty")), x.get("distance_km", 1e9)))
-    else:
-        result.sort(key=lambda x: (bool(x.get("search_penalty")), -x.get("rating", 0)))
+    # Sort: flagged providers (search_penalty > 0) always go last, THEN honor the
+    # user's explicit `sort` if given, otherwise fall back to legacy behavior
+    # (distance ASC in radius mode, rating DESC everywhere else).
+    effective_sort = sort or "auto"
+    if effective_sort == "auto":
+        if radius_mode:
+            result.sort(key=lambda x: (bool(x.get("search_penalty")), x.get("distance_km", 1e9)))
+        else:
+            result.sort(key=lambda x: (bool(x.get("search_penalty")), -x.get("rating", 0)))
+    elif effective_sort == "rating":
+        result.sort(
+            key=lambda x: (
+                bool(x.get("search_penalty")),
+                -x.get("rating", 0),
+                -x.get("reviews_count", 0),
+            )
+        )
+    elif effective_sort == "distance":
+        # Providers without distance sink to the bottom (dist ~inf).
+        result.sort(
+            key=lambda x: (
+                bool(x.get("search_penalty")),
+                x.get("distance_km") if x.get("distance_km") is not None else 1e9,
+            )
+        )
+    elif effective_sort == "price_asc":
+        result.sort(
+            key=lambda x: (
+                bool(x.get("search_penalty")),
+                x.get("hourly_rate") if x.get("hourly_rate") is not None else 1e12,
+            )
+        )
+    elif effective_sort == "price_desc":
+        result.sort(
+            key=lambda x: (
+                bool(x.get("search_penalty")),
+                -(x.get("hourly_rate") if x.get("hourly_rate") is not None else -1),
+            )
+        )
     return result
 
 

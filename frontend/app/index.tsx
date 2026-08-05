@@ -90,17 +90,47 @@ export default function Index() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroBlock} testID="landing-hero">
-            <View style={styles.pilotBadge}>
-              <Ionicons name="location" size={12} color={theme.colors.brand} />
-              <Text style={styles.pilotBadgeText}>{t("landing.pilotBadge")}</Text>
-            </View>
-            <Text style={[styles.heroTitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
-              {t("landing.heroTitle")}
-            </Text>
-            <Text style={[styles.heroSubtitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}>
-              {t("landing.heroSubtitle")}
-            </Text>
+          {/* Promo banner card — same style as the old client-home "NEW" banner
+              but hosting the current landing hero copy. Uses a solid dark
+              gradient (no image) so the yellow badges/text pop. */}
+          <View style={styles.promoWrap} testID="landing-promo-banner">
+            <LinearGradient
+              colors={["#111C36", "#0B1120", "#050912"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.promo}
+            >
+              {/* Subtle amber glow in the top-right corner to tie to the brand. */}
+              <LinearGradient
+                colors={["rgba(234,179,8,0.22)", "rgba(234,179,8,0.05)", "transparent"]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0.3, y: 0.8 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: theme.radius.lg }]}
+              />
+              <View style={styles.promoContent}>
+                <View style={styles.promoBadgeRow}>
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>{t("landing.promoBadge")}</Text>
+                  </View>
+                  <View style={styles.pilotBadgeInline}>
+                    <Ionicons name="location" size={11} color={theme.colors.brand} />
+                    <Text style={styles.pilotBadgeText}>{t("landing.pilotBadge")}</Text>
+                  </View>
+                </View>
+                <Text
+                  style={[styles.promoTitle, isRTL && { textAlign: "right", writingDirection: "rtl" }]}
+                  numberOfLines={2}
+                >
+                  {t("landing.heroTitle")}
+                </Text>
+                <Text
+                  style={[styles.promoSub, isRTL && { textAlign: "right", writingDirection: "rtl" }]}
+                  numberOfLines={2}
+                >
+                  {t("landing.heroSubtitle")}
+                </Text>
+              </View>
+            </LinearGradient>
           </View>
 
           {/* Feature grid 2x2 */}
@@ -234,35 +264,59 @@ const styles = StyleSheet.create({
 
   scrollContent: { paddingBottom: theme.spacing.lg },
 
-  heroBlock: { marginTop: theme.spacing.lg },
-  pilotBadge: {
+  promoWrap: { marginTop: theme.spacing.lg },
+  promo: {
+    minHeight: 180,
+    borderRadius: theme.radius.lg,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+    borderWidth: 1,
+    borderColor: "rgba(234, 179, 8, 0.28)",
+  },
+  promoContent: { padding: theme.spacing.lg, gap: 6 },
+  promoBadgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    alignSelf: "flex-start",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    flexWrap: "wrap",
+  },
+  newBadge: {
+    backgroundColor: theme.colors.brand,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
+    borderRadius: theme.radius.sm,
+  },
+  newBadgeText: {
+    color: theme.colors.onBrandPrimary,
+    fontWeight: "800",
+    fontSize: 10,
+    letterSpacing: 0.6,
+  },
+  pilotBadgeInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: theme.radius.pill,
     backgroundColor: "rgba(234, 179, 8, 0.12)",
     borderWidth: 1,
     borderColor: "rgba(234, 179, 8, 0.35)",
-    marginBottom: theme.spacing.md,
   },
-  pilotBadgeText: { color: theme.colors.brand, fontSize: 11, fontWeight: "800", letterSpacing: 0.3 },
-
-  heroTitle: {
+  pilotBadgeText: { color: theme.colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
+  promoTitle: {
     color: theme.colors.onSurface,
-    fontSize: 34,
+    fontSize: 22,
     fontWeight: "800",
-    lineHeight: 40,
-    letterSpacing: -0.5,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
-  heroSubtitle: {
+  promoSub: {
     color: theme.colors.onSurfaceSecondary,
-    fontSize: 15,
-    lineHeight: 21,
-    marginTop: theme.spacing.md,
-    maxWidth: 360,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
 
   featureGrid: {

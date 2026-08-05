@@ -42,6 +42,7 @@ const TILES: ManageTile[] = [
   { key: "broadcast", labelKey: "admin.hub.broadcast", subKey: "admin.hub.broadcastSub", icon: "notifications", route: "/admin/broadcast", color: "#8B5CF6" },
   { key: "verification", labelKey: "admin.hub.verification", subKey: "admin.hubSub", icon: "shield-checkmark", route: "/admin/verification", color: "#06B6D4" },
   { key: "flags", labelKey: "admin.hub.flags", subKey: "flags.sectionSub", icon: "flag", route: "/admin/flags", color: "#EF4444" },
+  { key: "settings", labelKey: "admin.hub.settings", subKey: "admin.hub.settingsSub", icon: "settings", route: "/admin/settings", color: "#64748B" },
 ];
 
 function fmtDzd(n: number): string {

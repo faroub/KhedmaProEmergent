@@ -55,6 +55,9 @@ export default function Home() {
   const [coords, setCoords] = useState<Coords | null>(peekLocationCache());
   const [locationDenied, setLocationDenied] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [minPrice, setMinPrice] = useState<number | null>(null);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const [sort, setSort] = useState<"auto" | "rating" | "distance" | "price_asc" | "price_desc">("auto");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Resolve GPS lazily the first time a radius scope is active. If permission
@@ -94,6 +97,10 @@ export default function Home() {
           lat: useRadius ? coords!.lat : undefined,
           lng: useRadius ? coords!.lng : undefined,
           radius_km: useRadius ? km : undefined,
+          min_price: minPrice ?? undefined,
+          max_price: maxPrice ?? undefined,
+          verified_only: verifiedOnly || undefined,
+          sort,
         }),
       ]);
       setCategories(cats as any);
@@ -104,7 +111,7 @@ export default function Home() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCat, search, wilayaCode, scope, coords]);
+  }, [selectedCat, search, wilayaCode, scope, coords, minPrice, maxPrice, verifiedOnly, sort]);
 
   useEffect(() => {
     load();
@@ -116,10 +123,9 @@ export default function Home() {
   };
 
   const featured = useMemo(() => providers.slice(0, 5), [providers]);
-  const displayed = useMemo(
-    () => (verifiedOnly ? providers.filter((p: any) => p.is_verified) : providers),
-    [providers, verifiedOnly]
-  );
+  // Server-side filters (verified/price/sort) are applied — no need to
+  // re-filter locally. Kept `displayed` alias for backwards-compat in the JSX.
+  const displayed = providers;
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
@@ -177,7 +183,11 @@ export default function Home() {
           <FiltersPill
             testID="filters-pill"
             activeCount={
-              (scope !== "5" ? 1 : 0) + (selectedCat ? 1 : 0) + (verifiedOnly ? 1 : 0)
+              (scope !== "5" ? 1 : 0)
+              + (selectedCat ? 1 : 0)
+              + (verifiedOnly ? 1 : 0)
+              + (minPrice != null || maxPrice != null ? 1 : 0)
+              + (sort !== "auto" ? 1 : 0)
             }
             label={t("filters.title")}
             onPress={() => setFiltersOpen(true)}
@@ -286,7 +296,14 @@ export default function Home() {
                   contentFit="cover"
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.providerName} numberOfLines={1}>{p.full_name}</Text>
+                  <View style={styles.providerNameRow}>
+                    <Text style={styles.providerName} numberOfLines={1}>{p.full_name}</Text>
+                    {(p as any).is_verified && (
+                      <View style={styles.verifiedBadge} testID={`provider-verified-${p.id}`}>
+                        <Ionicons name="checkmark-circle" size={14} color={theme.colors.brand} />
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.providerCat} numberOfLines={1}>
                     {p.category ? t(`cat.${p.category}`) : ""} • {p.city || ""}
                   </Text>
@@ -319,7 +336,7 @@ export default function Home() {
       <FiltersSheet
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        state={{ scope, category: selectedCat, verifiedOnly }}
+        state={{ scope, category: selectedCat, verifiedOnly, minPrice, maxPrice, sort }}
         scopeOptions={SCOPE_PRESETS.map<DropdownOption>((p) => ({
           value: p.key,
           label:
@@ -346,12 +363,18 @@ export default function Home() {
           if (key !== "wilaya") setWilayaCode(null);
           setSelectedCat(next.category);
           setVerifiedOnly(!!next.verifiedOnly);
+          setMinPrice(next.minPrice ?? null);
+          setMaxPrice(next.maxPrice ?? null);
+          setSort(next.sort ?? "auto");
         }}
         onReset={() => {
           setScope("5");
           setSelectedCat(null);
           setVerifiedOnly(false);
           setWilayaCode(null);
+          setMinPrice(null);
+          setMaxPrice(null);
+          setSort("auto");
         }}
       />
     </SafeAreaView>
@@ -459,6 +482,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border,
   },
   providerAvatar: { width: 56, height: 56, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceTertiary },
+  providerNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  verifiedBadge: { alignItems: "center", justifyContent: "center" },
   providerName: { color: theme.colors.onSurface, fontSize: 15, fontWeight: "700" },
   providerCat: { color: theme.colors.onSurfaceSecondary, fontSize: 12, marginTop: 2 },
   providerMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },

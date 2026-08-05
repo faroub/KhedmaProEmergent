@@ -130,6 +130,15 @@ export function PortfolioManager({ onChange }: Props) {
     await persist(next);
   };
 
+  const move = async (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    const [item] = next.splice(idx, 1);
+    next.splice(target, 0, item);
+    await persist(next);
+  };
+
   // Kept for future double-tap-to-set-cover gesture; the editor also toggles the cover flag.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const setCover = async (idx: number) => {
@@ -164,6 +173,11 @@ export function PortfolioManager({ onChange }: Props) {
           {items.length}/{MAX_IMAGES} · {t("portfolio.limit")}
         </Text>
       </View>
+      {items.length > 1 && (
+        <Text style={styles.reorderHint} testID="portfolio-reorder-hint">
+          {t("portfolio.reorderHint")}
+        </Text>
+      )}
 
       {/* Cover preview */}
       {cover && (
@@ -226,6 +240,27 @@ export function PortfolioManager({ onChange }: Props) {
             >
               <Ionicons name="pencil" size={12} color="#fff" />
             </Pressable>
+            {/* Reorder controls: left/right arrows. Disabled on the boundaries. */}
+            {idx > 0 && (
+              <Pressable
+                testID={`portfolio-move-left-${idx}`}
+                hitSlop={8}
+                style={[styles.reorderBtn, styles.reorderBtnLeft]}
+                onPress={() => move(idx, -1)}
+              >
+                <Ionicons name="chevron-back" size={14} color="#fff" />
+              </Pressable>
+            )}
+            {idx < items.length - 1 && (
+              <Pressable
+                testID={`portfolio-move-right-${idx}`}
+                hitSlop={8}
+                style={[styles.reorderBtn, styles.reorderBtnRight]}
+                onPress={() => move(idx, 1)}
+              >
+                <Ionicons name="chevron-forward" size={14} color="#fff" />
+              </Pressable>
+            )}
           </Pressable>
         ))}
         {items.length < MAX_IMAGES && (
@@ -401,6 +436,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: theme.colors.onSurface, fontWeight: "700", fontSize: 15 },
   limit: { color: theme.colors.muted, fontSize: 11 },
+  reorderHint: { color: theme.colors.muted, fontSize: 10, fontStyle: "italic", marginTop: -2 },
 
   coverWrap: {
     width: "100%",
@@ -446,11 +482,12 @@ const styles = StyleSheet.create({
   },
   thumbCaptionRow: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 32,
+    right: 32,
+    bottom: 6,
     paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingVertical: 3,
+    borderRadius: 4,
     backgroundColor: "rgba(0,0,0,0.55)",
   },
   thumbCaption: { color: "#fff", fontSize: 10, fontWeight: "600" },
@@ -477,6 +514,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  reorderBtn: {
+    position: "absolute",
+    bottom: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reorderBtnLeft: { left: 4 },
+  reorderBtnRight: { right: 4 },
 
   addBtn: {
     width: 110,

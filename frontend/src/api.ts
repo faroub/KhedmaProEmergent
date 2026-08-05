@@ -55,7 +55,18 @@ export const api = {
   },
 
   categories: () => request("/categories", { auth: false }),
-  providers: (params?: { category?: string; search?: string; wilaya?: string; lat?: number; lng?: number; radius_km?: number }) => {
+  providers: (params?: {
+    category?: string;
+    search?: string;
+    wilaya?: string;
+    lat?: number;
+    lng?: number;
+    radius_km?: number;
+    min_price?: number;
+    max_price?: number;
+    verified_only?: boolean;
+    sort?: "auto" | "rating" | "distance" | "price_asc" | "price_desc";
+  }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.search) q.set("search", params.search);
@@ -65,6 +76,10 @@ export const api = {
       q.set("lng", String(params.lng));
       q.set("radius_km", String(params.radius_km));
     }
+    if (params?.min_price != null) q.set("min_price", String(params.min_price));
+    if (params?.max_price != null) q.set("max_price", String(params.max_price));
+    if (params?.verified_only) q.set("verified_only", "true");
+    if (params?.sort && params.sort !== "auto") q.set("sort", params.sort);
     const qs = q.toString();
     return request(`/providers${qs ? `?${qs}` : ""}`, { auth: false });
   },
@@ -206,6 +221,12 @@ export const api = {
   adminSubscriptionRevenueUrl: () => `${API_URL}/admin/export/subscription_revenue`,
   adminSubscriptionsRevenueChart: (months = 12) =>
     request<{ month: string; revenue_dzd: number; payments: number }[]>(`/admin/subscriptions/revenue?months=${months}`),
+
+  // Platform settings
+  adminGetSettings: () => request<any>("/admin/settings"),
+  adminUpdateSettings: (patch: any) =>
+    request<any>("/admin/settings", { method: "PATCH", body: JSON.stringify(patch) }),
+  adminChargilyHealth: () => request<any>("/admin/settings/chargily-health"),
 
   // OTP auth
   otpRequest: (phone: string) =>

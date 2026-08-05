@@ -1,14 +1,31 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Switch } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Modal,
+  ScrollView,
+  Switch,
+  TextInput,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "./theme";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { useT } from "./language";
 
+export type SortKey = "auto" | "rating" | "distance" | "price_asc" | "price_desc";
+
 export type FiltersState = {
   scope: string;      // one of "2","5","10","25","50","wilaya","country"
   category: string | null;
   verifiedOnly?: boolean;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  sort?: SortKey;
 };
 
 type Props = {
@@ -38,15 +55,53 @@ export function FiltersSheet({
 }: Props) {
   const { t } = useT();
   const [local, setLocal] = useState<FiltersState>(state);
+  const [minPriceStr, setMinPriceStr] = useState<string>(
+    state.minPrice != null ? String(state.minPrice) : ""
+  );
+  const [maxPriceStr, setMaxPriceStr] = useState<string>(
+    state.maxPrice != null ? String(state.maxPrice) : ""
+  );
 
   // Sync local state whenever the sheet is (re)opened with a new external state.
   React.useEffect(() => {
-    if (visible) setLocal(state);
+    if (visible) {
+      setLocal(state);
+      setMinPriceStr(state.minPrice != null ? String(state.minPrice) : "");
+      setMaxPriceStr(state.maxPrice != null ? String(state.maxPrice) : "");
+    }
   }, [visible, state]);
+
+  const sortOptions: { key: SortKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = useMemo(
+    () => [
+      { key: "rating", label: t("filters.sortRating"), icon: "star" },
+      { key: "distance", label: t("filters.sortDistance"), icon: "navigate" },
+      { key: "price_asc", label: t("filters.sortPriceAsc"), icon: "trending-down" },
+      { key: "price_desc", label: t("filters.sortPriceDesc"), icon: "trending-up" },
+    ],
+    [t]
+  );
+
+  const parsePrice = (s: string): number | null => {
+    const n = parseInt(s.replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const commitAndApply = () => {
+    Keyboard.dismiss();
+    const min = parsePrice(minPriceStr);
+    const max = parsePrice(maxPriceStr);
+    // Ensure min <= max if both set.
+    const clampedMax = max != null && min != null && max < min ? min : max;
+    onApply({ ...local, minPrice: min, maxPrice: clampedMax });
+    onClose();
+  };
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -57,7 +112,10 @@ export function FiltersSheet({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={{ gap: theme.spacing.md, paddingBottom: theme.spacing.xxl }}>
+          <ScrollView
+            contentContainerStyle={{ gap: theme.spacing.md, paddingBottom: theme.spacing.xxl }}
+            keyboardShouldPersistTaps="handled"
+          >
             <View>
               <Text style={styles.fieldLabel}>{t("filters.distance")}</Text>
               <Dropdown
@@ -86,6 +144,75 @@ export function FiltersSheet({
               />
             </View>
 
+            {/* Price range */}
+            <View>
+              <Text style={styles.fieldLabel}>{t("filters.priceRange")}</Text>
+              <Text style={styles.fieldHint}>{t("filters.priceRangeSub")}</Text>
+              <View style={styles.priceRow}>
+                <View style={styles.priceInputWrap}>
+                  <Text style={styles.priceInputPrefix}>{t("filters.priceMin")}</Text>
+                  <TextInput
+                    testID="filter-min-price"
+                    value={minPriceStr}
+                    onChangeText={(v) => setMinPriceStr(v.replace(/[^\d]/g, "").slice(0, 7))}
+                    keyboardType="numeric"
+                    inputMode="numeric"
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.muted}
+                    style={styles.priceInput}
+                  />
+                  <Text style={styles.priceInputSuffix}>{t("filters.priceCurrency")}</Text>
+                </View>
+                <Text style={styles.priceDash}>—</Text>
+                <View style={styles.priceInputWrap}>
+                  <Text style={styles.priceInputPrefix}>{t("filters.priceMax")}</Text>
+                  <TextInput
+                    testID="filter-max-price"
+                    value={maxPriceStr}
+                    onChangeText={(v) => setMaxPriceStr(v.replace(/[^\d]/g, "").slice(0, 7))}
+                    keyboardType="numeric"
+                    inputMode="numeric"
+                    placeholder="∞"
+                    placeholderTextColor={theme.colors.muted}
+                    style={styles.priceInput}
+                  />
+                  <Text style={styles.priceInputSuffix}>{t("filters.priceCurrency")}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Sort chips */}
+            <View>
+              <Text style={styles.fieldLabel}>{t("filters.sortBy")}</Text>
+              <View style={styles.sortRow}>
+                {sortOptions.map((opt) => {
+                  const active = (local.sort ?? "auto") === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      testID={`filter-sort-${opt.key}`}
+                      onPress={() =>
+                        setLocal((s) => ({ ...s, sort: active ? "auto" : opt.key }))
+                      }
+                      style={[styles.sortChip, active && styles.sortChipActive]}
+                    >
+                      <Ionicons
+                        name={opt.icon}
+                        size={13}
+                        color={active ? theme.colors.onBrandPrimary : theme.colors.brand}
+                      />
+                      <Text
+                        style={[styles.sortChipText, active && styles.sortChipTextActive]}
+                        numberOfLines={1}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fieldLabel}>{t("filters.verifiedOnly")}</Text>
@@ -105,6 +232,8 @@ export function FiltersSheet({
             {onReset && (
               <Pressable
                 onPress={() => {
+                  setMinPriceStr("");
+                  setMaxPriceStr("");
                   onReset();
                   onClose();
                 }}
@@ -115,10 +244,7 @@ export function FiltersSheet({
               </Pressable>
             )}
             <Pressable
-              onPress={() => {
-                onApply(local);
-                onClose();
-              }}
+              onPress={commitAndApply}
               style={[styles.actionBtn, styles.primary]}
               testID="filters-apply-btn"
             >
@@ -126,7 +252,7 @@ export function FiltersSheet({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -166,7 +292,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: theme.radius.lg,
     borderTopRightRadius: theme.radius.lg,
     padding: theme.spacing.xl,
-    maxHeight: "80%",
+    maxHeight: "85%",
   },
   handle: {
     alignSelf: "center",
@@ -184,7 +310,7 @@ const styles = StyleSheet.create({
   },
   title: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "800" },
   fieldLabel: { color: theme.colors.onSurface, fontWeight: "700", fontSize: 13, marginBottom: 6 },
-  fieldHint: { color: theme.colors.muted, fontSize: 11, marginTop: 2 },
+  fieldHint: { color: theme.colors.muted, fontSize: 11, marginTop: 2, marginBottom: 6 },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -195,6 +321,54 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     gap: theme.spacing.md,
   },
+
+  // Price range
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  priceInputWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: theme.spacing.md,
+    height: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  priceInputPrefix: { color: theme.colors.muted, fontSize: 11, fontWeight: "700" },
+  priceInput: {
+    flex: 1,
+    color: theme.colors.onSurface,
+    fontSize: 15,
+    fontWeight: "700",
+    paddingVertical: 0,
+    textAlign: "center",
+  },
+  priceInputSuffix: { color: theme.colors.brand, fontSize: 11, fontWeight: "800" },
+  priceDash: { color: theme.colors.muted, fontSize: 14, fontWeight: "700" },
+
+  // Sort chips
+  sortRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  sortChipActive: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  sortChipText: { color: theme.colors.onSurface, fontSize: 12, fontWeight: "700" },
+  sortChipTextActive: { color: theme.colors.onBrandPrimary },
+
   actions: {
     flexDirection: "row",
     gap: theme.spacing.md,
