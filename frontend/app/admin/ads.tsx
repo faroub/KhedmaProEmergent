@@ -194,12 +194,36 @@ export default function AdminAds() {
         <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.sm, paddingBottom: theme.spacing.xxxl }}>
           {items.map((a, idx) => {
             const ctr = a.impressions > 0 ? Math.round((a.clicks / a.impressions) * 100) : 0;
+            const badges: { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }[] = [];
+            if (a.start_at || a.end_at) {
+              const s = a.start_at ? new Date(a.start_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "…";
+              const e = a.end_at ? new Date(a.end_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "…";
+              badges.push({ icon: "calendar-outline", label: `${s} → ${e}`, color: "#8B5CF6" });
+            }
+            if (a.impression_cap && a.impression_cap > 0) {
+              const remaining = Math.max(0, a.impression_cap - a.impressions);
+              badges.push({
+                icon: "speedometer-outline",
+                label: `${remaining.toLocaleString()} / ${a.impression_cap.toLocaleString()} left`,
+                color: remaining === 0 ? theme.colors.error : "#F59E0B",
+              });
+            }
             return (
               <View key={a.id} style={[styles.card, !a.active && { opacity: 0.5 }]}>
                 <Image source={{ uri: a.image_url }} style={styles.banner} resizeMode="cover" />
                 <View style={styles.cardBody}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{a.title}</Text>
                   {!!a.subtitle && <Text style={styles.cardSub} numberOfLines={1}>{a.subtitle}</Text>}
+                  {badges.length > 0 && (
+                    <View style={styles.badgeRow}>
+                      {badges.map((b, i) => (
+                        <View key={i} style={[styles.scheduleBadge, { borderColor: b.color, backgroundColor: b.color + "18" }]}>
+                          <Ionicons name={b.icon} size={11} color={b.color} />
+                          <Text style={[styles.scheduleBadgeText, { color: b.color }]}>{b.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   <View style={styles.statsRow}>
                     <View style={styles.stat}><Ionicons name="eye-outline" size={12} color={theme.colors.muted} /><Text style={styles.statText}>{a.impressions}</Text></View>
                     <View style={styles.stat}><Ionicons name="hand-left-outline" size={12} color={theme.colors.muted} /><Text style={styles.statText}>{a.clicks}</Text></View>
@@ -387,6 +411,17 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: "row", gap: 12, marginTop: 4 },
   stat: { flexDirection: "row", gap: 4, alignItems: "center" },
   statText: { color: theme.colors.muted, fontSize: 11, fontWeight: "600" },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  scheduleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+  },
+  scheduleBadgeText: { fontSize: 10, fontWeight: "700" },
 
   rowActions: { flexDirection: "row", gap: 4, justifyContent: "flex-end" },
   iconBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 8 },

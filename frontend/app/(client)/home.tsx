@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TextInput, Pressable,
-  FlatList, ActivityIndicator, RefreshControl, ImageBackground,
+  FlatList, ActivityIndicator, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -210,24 +210,6 @@ export default function Home() {
             )}
           </View>
         )}
-
-        <View style={styles.promoWrap}>
-          <ImageBackground
-            source={{ uri: "https://images.unsplash.com/photo-1687463221023-02f259da7d77?w=800" }}
-            style={styles.promo}
-            imageStyle={{ borderRadius: theme.radius.lg }}
-          >
-            <LinearGradient
-              colors={["rgba(11,17,32,0.2)", "rgba(11,17,32,0.85)"]}
-              style={[StyleSheet.absoluteFill, { borderRadius: theme.radius.lg }]}
-            />
-            <View style={styles.promoContent}>
-              <Text style={styles.promoBadge}>{t("home.promoBadge")}</Text>
-              <Text style={styles.promoTitle}>{t("home.promoTitle")}</Text>
-              <Text style={styles.promoSub}>{t("home.promoSub")}</Text>
-            </View>
-          </ImageBackground>
-        </View>
 
         <AdsCarousel />
 

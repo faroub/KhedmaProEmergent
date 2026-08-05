@@ -378,7 +378,7 @@ async def admin_broadcast(
 # =========================================================================
 # CSV EXPORT
 # =========================================================================
-_EXPORTS = {"users", "providers", "bookings"}
+_EXPORTS = {"users", "providers", "bookings", "subscription_revenue"}
 
 
 @router.get("/admin/export/{kind}")
@@ -402,6 +402,38 @@ async def admin_export(
             "id", "full_name", "email", "phone", "category", "wilaya_code", "city",
             "verification_status", "rating", "reviews_count", "hourly_rate", "created_at",
         ]
+    elif kind == "subscription_revenue":
+        # Aggregate paid subscriptions by YYYY-MM month.
+        pipeline = [
+            {"$match": {"status": "paid"}},
+            {
+                "$group": {
+                    "_id": {"$substr": ["$paid_at", 0, 7]},
+                    "revenue_dzd": {"$sum": {"$ifNull": ["$amount_dzd", 0]}},
+                    "payments": {"$sum": 1},
+                    "unique_providers": {"$addToSet": "$provider_id"},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ]
+        rows = await db.subscription_payments.aggregate(pipeline).to_list(240)
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["month", "revenue_dzd", "payments_count", "unique_providers"])
+        for r in rows:
+            writer.writerow([
+                r["_id"],
+                int(r.get("revenue_dzd", 0)),
+                int(r.get("payments", 0)),
+                len(r.get("unique_providers", [])),
+            ])
+        buf.seek(0)
+        fname = f"khedmapro_subscription_revenue_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
     else:  # bookings
         cursor = db.bookings.find({}, {"_id": 0})
         fieldnames = [
@@ -534,3 +566,46 @@ async def admin_mark_paid(
         "note": body.note,
     })
     return {"success": True, "amount_dzd": body.amount_dzd}
+
+
+class RemindDueIn(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    message: str = Field(min_length=1, max_length=250)
+
+
+@router.post("/admin/subscriptions/remind-due")
+async def admin_remind_due(
+    body: RemindDueIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Send a push reminder to every provider whose subscription is currently
+    `due` or `expired` (computed on-the-fly). Non-blocking: never fails hard."""
+    require_admin(user)
+    providers = await db.users.find(
+        {"role": Role.service_provider.value, "is_deleted": {"$ne": True}},
+        {"_id": 0, "password_hash": 0},
+    ).to_list(2000)
+
+    due_ids: list[str] = []
+    for p in providers:
+        sub = compute_subscription(p)
+        if sub["subscription_status"] in {"due", "expired"}:
+            due_ids.append(p["id"])
+
+    if not due_ids:
+        return {"sent": 0, "recipients": 0}
+
+    try:
+        await send_push(
+            recipients=due_ids,
+            data={
+                "title": body.title,
+                "message": body.message,
+                "action_url": "/(provider)/dashboard",
+            },
+            idempotency_key=f"remind_due:{user['id']}:{datetime.now(timezone.utc).timestamp()}",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Reminder push error (non-fatal): %s", e)
+    return {"sent": len(due_ids), "recipients": len(due_ids)}

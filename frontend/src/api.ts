@@ -198,6 +198,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  adminRemindDue: (payload: { title: string; message: string }) =>
+    request<{ sent: number; recipients: number }>("/admin/subscriptions/remind-due", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  adminSubscriptionRevenueUrl: () => `${API_URL}/admin/export/subscription_revenue`,
 
   // OTP auth
   otpRequest: (phone: string) =>

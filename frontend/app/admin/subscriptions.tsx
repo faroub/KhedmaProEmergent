@@ -8,11 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { api } from "@/src/api";
+import { api, getAuthToken } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
@@ -35,12 +36,12 @@ type Sub = {
 
 type Payment = { id: string; amount_dzd: number; paid_at: string; method: string; status: string; note?: string | null };
 
-const FILTERS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: "", label: "All", icon: "list", color: theme.colors.brand },
-  { key: "trial", label: "Trial", icon: "gift", color: "#10B981" },
-  { key: "active", label: "Active", icon: "checkmark-circle", color: "#3B82F6" },
-  { key: "due", label: "Due", icon: "alert-circle", color: "#F59E0B" },
-  { key: "deactivated", label: "Deactivated", icon: "ban", color: "#EF4444" },
+const FILTERS: { key: string; labelKey: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { key: "", labelKey: "subs.filter.all", icon: "list", color: theme.colors.brand },
+  { key: "trial", labelKey: "subs.filter.trial", icon: "gift", color: "#10B981" },
+  { key: "active", labelKey: "subs.filter.active", icon: "checkmark-circle", color: "#3B82F6" },
+  { key: "due", labelKey: "subs.filter.due", icon: "alert-circle", color: "#F59E0B" },
+  { key: "deactivated", labelKey: "subs.filter.deact", icon: "ban", color: "#EF4444" },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
@@ -61,6 +62,7 @@ export default function AdminSubscriptions() {
   const [selected, setSelected] = useState<Sub | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [busy, setBusy] = useState(false);
+  const [remindBusy, setRemindBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.is_admin) return;
@@ -108,6 +110,51 @@ export default function AdminSubscriptions() {
     ]);
   };
 
+  const remindDue = () => {
+    const overdueCount = rows.filter((r) => r.subscription_status === "due" || r.subscription_status === "expired").length;
+    if (overdueCount === 0) {
+      Alert.alert("✓", t("subs.remindNone"));
+      return;
+    }
+    Alert.alert(t("subs.remindAll"), t("subs.remindConfirm"), [
+      { text: t("account.cancel"), style: "cancel" },
+      {
+        text: t("subs.remindAll"),
+        onPress: async () => {
+          setRemindBusy(true);
+          try {
+            const res: any = await api.adminRemindDue({
+              title: t("subs.reminderTitle"),
+              message: t("subs.reminderMsg"),
+            });
+            Alert.alert("✓", t("subs.remindSent", { n: res.sent || 0 }));
+          } catch (e: any) {
+            Alert.alert("Error", e?.message || "Failed");
+          } finally {
+            setRemindBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const exportRevenue = async () => {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(api.adminSubscriptionRevenueUrl(), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const csv = await res.text();
+      await Share.share({
+        title: "khedmaPro subscription revenue",
+        message: csv,
+      });
+    } catch (e: any) {
+      Alert.alert("Export failed", e?.message || "Could not export");
+    }
+  };
+
   if (!authLoading && !user?.is_admin) {
     return (
       <SafeAreaView style={styles.root} edges={["top"]}>
@@ -131,8 +178,8 @@ export default function AdminSubscriptions() {
           <Ionicons name={isRTL ? "chevron-forward" : "chevron-back"} size={26} color={theme.colors.onSurface} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Subscriptions</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>Provider payments &amp; billing status</Text>
+          <Text style={styles.title}>{t("subs.title")}</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>{t("subs.subtitle")}</Text>
         </View>
         <Pressable onPress={load} hitSlop={12}>
           <Ionicons name="refresh" size={22} color={theme.colors.onSurface} />
@@ -141,10 +188,37 @@ export default function AdminSubscriptions() {
 
       {/* Summary strip */}
       <View style={styles.summary}>
-        <SummaryBox label="Active" value={totalActive} color="#3B82F6" />
-        <SummaryBox label="Trial" value={totalTrial} color="#10B981" />
-        <SummaryBox label="Due" value={totalDue} color="#F59E0B" />
-        <SummaryBox label="Lifetime" value={`${totalLifetime.toLocaleString()} DA`} color={theme.colors.brand} />
+        <SummaryBox label={t("subs.summary.active")} value={totalActive} color="#3B82F6" />
+        <SummaryBox label={t("subs.summary.trial")} value={totalTrial} color="#10B981" />
+        <SummaryBox label={t("subs.summary.due")} value={totalDue} color="#F59E0B" />
+        <SummaryBox label={t("subs.summary.lifetime")} value={`${totalLifetime.toLocaleString()} DA`} color={theme.colors.brand} />
+      </View>
+
+      {/* Actions row */}
+      <View style={styles.actionsRow}>
+        <Pressable
+          testID="subs-remind-due"
+          onPress={remindDue}
+          disabled={remindBusy}
+          style={[styles.actionBtn, { backgroundColor: theme.colors.warning + "22", borderColor: theme.colors.warning }]}
+        >
+          {remindBusy ? (
+            <ActivityIndicator color={theme.colors.warning} size="small" />
+          ) : (
+            <>
+              <Ionicons name="notifications" size={14} color={theme.colors.warning} />
+              <Text style={[styles.actionBtnText, { color: theme.colors.warning }]} numberOfLines={1}>{t("subs.remindAll")}</Text>
+            </>
+          )}
+        </Pressable>
+        <Pressable
+          testID="subs-export-revenue"
+          onPress={exportRevenue}
+          style={[styles.actionBtn, { backgroundColor: theme.colors.brandTertiary, borderColor: theme.colors.brand }]}
+        >
+          <Ionicons name="download-outline" size={14} color={theme.colors.brand} />
+          <Text style={[styles.actionBtnText, { color: theme.colors.brand }]} numberOfLines={1}>{t("subs.exportRevenue")}</Text>
+        </Pressable>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
@@ -155,7 +229,7 @@ export default function AdminSubscriptions() {
             style={[styles.chip, filterKey === f.key && styles.chipActive]}
           >
             <Ionicons name={f.icon} size={12} color={filterKey === f.key ? theme.colors.onBrandPrimary : f.color} />
-            <Text style={[styles.chipText, filterKey === f.key && styles.chipTextActive]}>{f.label}</Text>
+            <Text style={[styles.chipText, filterKey === f.key && styles.chipTextActive]}>{t(f.labelKey)}</Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -165,7 +239,7 @@ export default function AdminSubscriptions() {
       ) : rows.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="card-outline" size={44} color={theme.colors.muted} />
-          <Text style={styles.emptyText}>No providers match</Text>
+          <Text style={styles.emptyText}>{t("subs.empty")}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.sm, paddingBottom: theme.spacing.xxxl }}>
@@ -225,10 +299,10 @@ export default function AdminSubscriptions() {
               </View>
             </View>
 
-            <Text style={styles.sectionLabel}>Payment history</Text>
+            <Text style={styles.sectionLabel}>{t("subs.paymentHistory")}</Text>
             <ScrollView style={{ maxHeight: 240 }} contentContainerStyle={{ gap: 6 }}>
               {payments.length === 0 ? (
-                <Text style={styles.rowMeta}>No payments yet.</Text>
+                <Text style={styles.rowMeta}>{t("subs.noPayments")}</Text>
               ) : (
                 payments.map((p) => (
                   <View key={p.id} style={styles.payRow}>
@@ -248,7 +322,7 @@ export default function AdminSubscriptions() {
               {busy ? <ActivityIndicator color="#fff" /> : (
                 <>
                   <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                  <Text style={styles.markBtnText}>Mark 1000 DA as paid (manual)</Text>
+                  <Text style={styles.markBtnText}>{t("subs.markPaid")}</Text>
                 </>
               )}
             </Pressable>
@@ -282,6 +356,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xl,
     marginBottom: theme.spacing.sm,
   },
+  actionsRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 8,
+    height: 38,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+  },
+  actionBtnText: { fontSize: 11, fontWeight: "800" },
   summaryBox: {
     flex: 1, padding: theme.spacing.sm,
     borderRadius: theme.radius.md,
