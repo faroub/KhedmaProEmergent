@@ -6,6 +6,8 @@ import uuid
 import requests
 from pymongo import MongoClient
 
+from helpers import with_phone_token
+
 API = os.environ.get("API_BASE", "http://localhost:8001/api")
 
 _mongo = MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
@@ -28,6 +30,7 @@ def _fresh_provider():
         "phone": f"+2135{tail}",
         "wilaya_code": "16",
     }
+    with_phone_token(body, API)
     r = requests.post(f"{API}/auth/register", json=body, timeout=10)
     assert r.status_code == 201, r.text
     return r.json(), body
@@ -58,10 +61,17 @@ def _cleanup(uid: str):
 # phone_verified in serialized user
 # =========================================================================
 
-def test_new_provider_starts_unverified():
+def test_new_provider_registered_with_otp_token_is_verified():
+    # Since iteration 14 provider registration requires an OTP-backed
+    # `phone_verification_token`, so a freshly registered provider is verified.
     reg, _ = _fresh_provider()
-    assert reg["user"]["phone_verified"] is False
+    assert reg["user"]["phone_verified"] is True
     _cleanup(reg["user"]["id"])
+
+
+def _mark_unverified(uid: str):
+    """Simulate a legacy provider (pre-OTP registration) whose phone is not verified."""
+    _db.users.update_one({"id": uid}, {"$set": {"phone_verified": False, "phone_verified_at": None}})
 
 
 # =========================================================================
@@ -145,6 +155,7 @@ def test_unverified_provider_cannot_confirm_booking():
     prov_token = reg_p["access_token"]
     client_token = reg_c["access_token"]
     prov_id = reg_p["user"]["id"]
+    _mark_unverified(prov_id)
 
     # Create a booking as the client
     body = {

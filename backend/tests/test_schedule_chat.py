@@ -7,6 +7,8 @@ import pytest
 import requests
 import websockets  # type: ignore
 
+from helpers import with_phone_token
+
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 WS_BASE = BASE.replace("https://", "wss://").replace("http://", "ws://")
@@ -57,12 +59,12 @@ class TestSchedule:
         # (phone + wilaya are now mandatory for providers)
         import random
         tail = "".join(str(random.randint(0, 9)) for _ in range(8))
-        r = s.post(f"{API}/auth/register", json={
+        r = s.post(f"{API}/auth/register", json=with_phone_token({
             "email": f"TEST_prov_{uuid.uuid4().hex[:6]}@x.dz",
             "password": "password123", "role": "service_provider",
             "full_name": "TEST Prov", "category": "plumbing",
             "phone": f"+2135{tail}", "wilaya_code": "16",
-        })
+        }, API))
         assert r.status_code == 201, r.text
         pid = r.json()["user"]["id"]
         r2 = s.get(f"{API}/schedule/{pid}")

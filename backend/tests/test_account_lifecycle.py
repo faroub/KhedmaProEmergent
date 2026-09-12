@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 import pytest
 import requests
 
+from helpers import skip_if_real_payment_provider
+
 BASE_URL = (
     os.environ.get("EXPO_BACKEND_URL")
     or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
@@ -99,7 +101,7 @@ class TestProviderLifecycle:
         assert isinstance(data["days_until_due"], int)
         assert data["days_until_due"] > 0
         assert data["fee_dzd"] == 1000
-        assert data["trial_months"] == 3
+        assert data["trial_days"] == 90
         assert data["is_manually_deactivated"] is False
         assert data["is_deleted"] is False
 
@@ -141,6 +143,7 @@ class TestProviderLifecycle:
 
     def test_07_pay_subscription(self, api):
         r = api.post(f"{API}/subscription/pay", headers=_auth(pytest.provider_token))
+        skip_if_real_payment_provider(r)
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["success"] is True

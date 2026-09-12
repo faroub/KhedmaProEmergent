@@ -14,6 +14,8 @@ import hashlib
 import hmac
 import json
 from datetime import datetime, timedelta, timezone
+
+from helpers import skip_if_real_payment_provider
 from pathlib import Path
 
 import pytest
@@ -68,7 +70,9 @@ def fresh_client():
         "password": "password123",
         "role": "client",
         "full_name": "TEST Iter11 Client",
-        "phone": "+213555000999",
+        # Unique per run — phones are unique in `users`, so a fixed number would
+        # collide with leftovers from an interrupted run.
+        "phone": "+2135" + uuid.uuid4().hex[:8].translate(str.maketrans("abcdef", "012345")),
     }
     r = requests.post(f"{API}/auth/register", json=payload)
     assert r.status_code in (200, 201), r.text
@@ -212,7 +216,7 @@ class TestTwoStepCompletion:
         r = requests.post(f"{API}/bookings", json=payload, headers=_hdr(fresh_client["token"]))
         assert r.status_code == 201, r.text
         bid = r.json()["id"]
-        state["booking_ids"].append(bid)
+        state.setdefault("booking_ids", []).append(bid)
         state["twostep_bid"] = bid
 
         r = requests.patch(f"{API}/bookings/{bid}/status", json={"status": "completed"},
@@ -316,7 +320,7 @@ class TestAutoFlag:
         r = requests.post(f"{API}/bookings", json=payload, headers=_hdr(fresh_client["token"]))
         assert r.status_code == 201, r.text
         bid = r.json()["id"]
-        state["booking_ids"].append(bid)
+        state.setdefault("booking_ids", []).append(bid)
 
         r = requests.patch(f"{API}/bookings/{bid}/status", json={"status": "cancelled"},
                            headers=_hdr(fresh_client["token"]))
@@ -393,6 +397,7 @@ class TestChargilyWebhook:
 class TestSubscriptionPayMockRegression:
     def test_mock_pay(self, provider1_token):
         r = requests.post(f"{API}/subscription/pay", headers=_hdr(provider1_token["access_token"]))
+        skip_if_real_payment_provider(r)
         assert r.status_code == 200, r.text
         j = r.json()
         assert j.get("provider") == "mock", j

@@ -421,3 +421,7 @@ JUnit: `/app/test_reports/pytest/pytest_iter12.xml`
 ### Next Action Items
 - ⏭ Real SMS provider — currently OTP is MOCKED (fixed code `910428`). For prod launch, integrate an SMS gateway (Twilio, Vonage, or a local Algerian provider).
 - ⏭ Optional: expose a shortcut on the profile screen to trigger phone verification without leaving the tab.
+
+## Iteration 18 — Test suite repair (Sep 2026)
+- Root causes of the 24 stale failures: (1) provider registration now requires an OTP `phone_verification_token`; (2) MOCK SMS log format changed; (3) settings renamed `trial_months`→`trial_days`; (4) categories are tri-lingual (`name_en`); (5) Chargily test key configured → `/subscription/pay` no longer returns the mock receipt; (6) `/site/` on the public URL is the Expo app, marketing site lives at `/api/site/`; (7) review counts polluted by other suites.
+- Fixes live in `backend/tests/helpers.py` + targeted edits per file. Result: **179 passed, 2 skipped** (parallel + serial), verified 4× in a row.

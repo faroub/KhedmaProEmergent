@@ -52,8 +52,11 @@ def _grep_mock_otp(phone_e164: str) -> str | None:
         )
     except Exception:
         return None
-    # Match lines like: "MOCK OTP for +213555000123: 775524"
-    matches = re.findall(rf"MOCK OTP for {re.escape(phone_e164)}: (\d{{6}})", out)
+    # Match lines like:
+    #   "[MOCK SMS] to=+213555000123 msg='khedmaPro: your verification code is 775524. …'"
+    matches = re.findall(
+        rf"\[MOCK SMS\] to={re.escape(phone_e164)} msg='[^']*?code is (\d{{6}})", out
+    )
     return matches[-1] if matches else None
 
 

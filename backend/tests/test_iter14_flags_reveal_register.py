@@ -6,6 +6,8 @@ import uuid
 import requests
 from pymongo import MongoClient
 
+from helpers import with_phone_token
+
 API = os.environ.get("API_BASE", "http://localhost:8001/api")
 
 _mongo = MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
@@ -79,7 +81,7 @@ def test_provider_register_bad_phone_400():
 
 
 def test_provider_register_happy_path_201():
-    payload = _new_provider_payload()
+    payload = with_phone_token(_new_provider_payload(), API)
     r = requests.post(f"{API}/auth/register", json=payload, timeout=10)
     assert r.status_code == 201, r.text
     user = r.json()["user"]

@@ -442,14 +442,14 @@ class TestMarketingSite:
     def test_site_index_serves_html(self):
         # Marketing site is served at /api/site/ per review request
         # Try /site/ first, then /api/site/ — both patterns exist in the code.
-        for path in ("/site/", "/api/site/", "/site/index.html", "/api/site/index.html"):
+        for path in ("/api/site/", "/api/site/index.html"):
             r = requests.get(f"{BASE_URL}{path}", timeout=10, allow_redirects=True)
             if r.status_code == 200 and "<html" in r.text.lower():
                 # Check i18n.js is referenced and language selector present
                 assert "i18n.js" in r.text or "site-lang-select" in r.text, \
                     f"i18n.js not found in {path}"
                 return
-        pytest.fail("Marketing site index not reachable at /site or /api/site")
+        pytest.fail("Marketing site index not reachable at /api/site")
 
     def test_site_i18n_js_reachable(self):
         for path in ("/site/i18n.js", "/api/site/i18n.js"):

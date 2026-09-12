@@ -36,8 +36,9 @@ def test_categories_endpoint_split(api):
     assert ids.count("education") == 1
     ac = next(c for c in cats if c["id"] == "admin_consulting")
     ed = next(c for c in cats if c["id"] == "education")
-    assert ac["name"] == "Administrative Consultants", ac
-    assert ed["name"] == "Education (Private Tutoring)", ed
+    # Categories are tri-lingual since the admin category editor landed.
+    assert ac["name_en"] == "Administrative Consultants", ac
+    assert ed["name_en"] == "Education (Private Tutoring)", ed
 
 
 # ---------- 2. providers?category=admin_consulting ----------
