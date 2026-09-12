@@ -22,6 +22,7 @@ import { useT } from "@/src/language";
 import { bookingsStore } from "@/src/db/localDb";
 import { RevealPhoneButton } from "@/src/RevealPhoneButton";
 import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
+import { TodayVisitCard } from "@/src/TodayVisitCard";
 import type { LocalBooking } from "@/src/db/schema";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -154,7 +155,12 @@ export default function Bookings() {
           data={filtered}
           keyExtractor={(b) => b.id}
           contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 100, gap: theme.spacing.md }}
-          ListHeaderComponent={<PhoneVerifyBanner />}
+          ListHeaderComponent={
+            <>
+              <PhoneVerifyBanner />
+              {!isProvider && <TodayVisitCard bookings={bookings} />}
+            </>
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
