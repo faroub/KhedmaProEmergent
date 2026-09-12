@@ -229,6 +229,33 @@ export default function Home() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{selectedCat ? t(`cat.${selectedCat}`) : t("home.categories")}</Text>
         </View>
+        <FlatList
+          horizontal
+          style={styles.chipRow}
+          data={[{ id: "", name: "", icon: "apps" }, ...categories]}
+          keyExtractor={(c) => c.id || "all"}
+          contentContainerStyle={styles.chipRowContent}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const active = (selectedCat || "") === item.id;
+            return (
+              <Pressable
+                testID={`cat-chip-${item.id || "all"}`}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setSelectedCat(item.id || null)}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={15}
+                  color={active ? theme.colors.onBrandPrimary : theme.colors.brand}
+                />
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {item.id ? t(`cat.${item.id}`) : t("home.all")}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
 
         {featured.length > 0 && (
           <>

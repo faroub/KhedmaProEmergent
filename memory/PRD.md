@@ -80,3 +80,7 @@ Subscription revenue model built-in: providers monetize the platform with a fair
 - Icons migrated from deprecated `@expo/vector-icons` to `@react-native-vector-icons/ionicons` (41 files). Icon-name typing now uses `IoniconsIconName`. Dropped the CDN icon-font loader hook (`use-icon-fonts.ts`) — the new package loads its font itself in Expo Go.
 - RN 0.86 API fixes: `StyleSheet.absoluteFillObject` removed → inline absolute style; style-factory function moved out of `StyleSheet.create` in client profile; `StatusBar backgroundColor` (no-op on edge-to-edge) removed.
 - Existing native builds (APK/IPA) must be regenerated via Publish after this upgrade.
+
+## Iteration 17 — Today's jobs reminder + category chips
+- **Provider dashboard**: `src/TodayJobsCard.tsx` shows every booking with `status=confirmed` scheduled for today (local date) — time pill, client name, task, tappable address (opens Maps), and a one-tap **Call** button (`tel:` link to `client_phone`, only revealed once confirmed). Hidden when there are no jobs today. EN/FR/AR strings `dash.today*`.
+- **Client home**: horizontal category chip row (All + every active category with its Ionicon) under the "Categories" title; tapping a chip filters providers (`selectedCat`), synced with the Filters sheet.

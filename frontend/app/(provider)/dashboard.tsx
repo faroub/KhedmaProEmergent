@@ -11,6 +11,7 @@ import { useT } from "@/src/language";
 import { PortfolioManager } from "@/src/PortfolioManager";
 import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
 import { ProviderAnalyticsCard } from "@/src/ProviderAnalyticsCard";
+import { TodayJobsCard } from "@/src/TodayJobsCard";
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
@@ -63,6 +64,8 @@ export default function Dashboard() {
         <Text style={styles.sub}>{t("dash.subDesc")}</Text>
 
         <PhoneVerifyBanner />
+
+        <TodayJobsCard bookings={bookings} />
 
         {/* Subscription banner */}
         <View style={styles.subBanner} testID="subscription-banner">
