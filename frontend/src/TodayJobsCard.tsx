@@ -1,11 +1,15 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, Linking, Platform } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, Pressable, Linking, Platform, ActivityIndicator } from "react-native";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
+import { api } from "@/src/api";
+
+const ETA_OPTIONS = [10, 20, 30, 45, 60];
 
 type Job = {
   id: string;
+  client_id?: string | null;
   status: string;
   scheduled_date: string;
   client_name?: string | null;
@@ -45,6 +49,28 @@ const openMaps = (job: Job) => {
 // today, with the address and a one-tap call to the client.
 export function TodayJobsCard({ bookings }: { bookings: Job[] }) {
   const { t, isRTL } = useT();
+  // Per-job "On my way" state: which job has the ETA picker open, which is
+  // sending, and the ETA (minutes) already sent.
+  const [etaOpenFor, setEtaOpenFor] = useState<string | null>(null);
+  const [sendingFor, setSendingFor] = useState<string | null>(null);
+  const [sentEta, setSentEta] = useState<Record<string, number>>({});
+
+  const canChat = (job: Job) => !!job.client_id && !job.client_id.startsWith("guest:");
+
+  const sendOnMyWay = async (job: Job, minutes: number) => {
+    if (!job.client_id) return;
+    setSendingFor(job.id);
+    try {
+      const arrival = new Date(Date.now() + minutes * 60_000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      await api.sendMessage(job.client_id, t("dash.onMyWayMsg", { minutes, time: arrival }));
+      setSentEta((prev) => ({ ...prev, [job.id]: minutes }));
+      setEtaOpenFor(null);
+    } catch {}
+    setSendingFor(null);
+  };
 
   const jobs = useMemo(
     () =>
@@ -103,6 +129,53 @@ export function TodayJobsCard({ bookings }: { bookings: Job[] }) {
                 color={theme.colors.muted}
               />
             </Pressable>
+          )}
+
+          {canChat(job) && (
+            <View style={styles.etaBlock}>
+              {sentEta[job.id] != null ? (
+                <View style={[styles.sentRow, isRTL && styles.rtlRow]} testID={`today-job-onmyway-sent-${job.id}`}>
+                  <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+                  <Text style={styles.sentText}>{t("dash.onMyWaySent", { minutes: sentEta[job.id] })}</Text>
+                  <Pressable onPress={() => setEtaOpenFor(job.id)} hitSlop={8} testID={`today-job-onmyway-edit-${job.id}`}>
+                    <Text style={styles.sentEdit}>{t("dash.onMyWayUpdate")}</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => setEtaOpenFor(etaOpenFor === job.id ? null : job.id)}
+                  style={[styles.onMyWayBtn, isRTL && styles.rtlRow]}
+                  testID={`today-job-onmyway-${job.id}`}
+                >
+                  <Ionicons name="car" size={16} color={theme.colors.brand} />
+                  <Text style={styles.onMyWayText}>{t("dash.onMyWay")}</Text>
+                  <Ionicons name={etaOpenFor === job.id ? "chevron-up" : "chevron-down"} size={14} color={theme.colors.brand} />
+                </Pressable>
+              )}
+
+              {etaOpenFor === job.id && (
+                <View style={styles.etaPicker} testID={`today-job-eta-picker-${job.id}`}>
+                  <Text style={[styles.etaLabel, isRTL && styles.rtlText]}>{t("dash.onMyWayPick")}</Text>
+                  <View style={[styles.etaRow, isRTL && styles.rtlRow]}>
+                    {ETA_OPTIONS.map((m) => (
+                      <Pressable
+                        key={m}
+                        onPress={() => sendOnMyWay(job, m)}
+                        disabled={sendingFor === job.id}
+                        style={styles.etaChip}
+                        testID={`today-job-eta-${job.id}-${m}`}
+                      >
+                        {sendingFor === job.id ? (
+                          <ActivityIndicator size="small" color={theme.colors.onBrandPrimary} />
+                        ) : (
+                          <Text style={styles.etaChipText}>{t("dash.onMyWayMin", { minutes: m })}</Text>
+                        )}
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
           )}
 
           <Pressable
@@ -172,6 +245,35 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.success,
   },
   callBtnDisabled: { backgroundColor: theme.colors.muted },
+  etaBlock: { gap: theme.spacing.sm },
+  onMyWayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.brandTertiary,
+  },
+  onMyWayText: { color: theme.colors.brand, fontWeight: "700", fontSize: 14 },
+  etaPicker: { gap: theme.spacing.sm },
+  etaLabel: { color: theme.colors.onSurfaceSecondary, fontSize: 12 },
+  etaRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm },
+  etaChip: {
+    minWidth: 60,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  etaChipText: { color: theme.colors.onBrandPrimary, fontWeight: "800", fontSize: 13 },
+  sentRow: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44 },
+  sentText: { color: theme.colors.success, fontWeight: "700", fontSize: 13, flex: 1 },
+  sentEdit: { color: theme.colors.brand, fontWeight: "700", fontSize: 13, textDecorationLine: "underline" },
   callText: { color: theme.colors.onBrandPrimary, fontWeight: "700", fontSize: 14 },
   rtlRow: { flexDirection: "row-reverse" },
   rtlText: { textAlign: "right", writingDirection: "rtl" },
