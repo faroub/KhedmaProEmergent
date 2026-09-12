@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   const stats = {
     pending: bookings.filter((b) => b.status === "pending").length,
-    confirmed: bookings.filter((b) => b.status === "confirmed").length,
+    confirmed: bookings.filter((b) => b.status === "confirmed" || b.status === "in_progress").length,
     completed: bookings.filter((b) => b.status === "completed").length,
     earnings: bookings
       .filter((b) => b.status === "completed" && b.estimated_total)
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
         <PhoneVerifyBanner />
 
-        <TodayJobsCard bookings={bookings} />
+        <TodayJobsCard bookings={bookings} onStatusChanged={load} />
 
         {/* Subscription banner */}
         <View style={styles.subBanner} testID="subscription-banner">

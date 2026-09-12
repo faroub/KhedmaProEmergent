@@ -16,7 +16,7 @@ type Props = {
   compact?: boolean;
 };
 
-const REVEAL_ALLOWED = new Set(["confirmed", "awaiting_confirmation", "completed"]);
+const REVEAL_ALLOWED = new Set(["confirmed", "in_progress", "awaiting_confirmation", "completed"]);
 
 /**
  * "Reveal phone" button. Calls `GET /api/users/{id}/phone`, which only returns

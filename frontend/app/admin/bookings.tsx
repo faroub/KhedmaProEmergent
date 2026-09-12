@@ -20,6 +20,7 @@ const FILTERS: { key: string; labelKey: string }[] = [
   { key: "", labelKey: "admin.users.filterAll" },
   { key: "pending", labelKey: "bookings.pending" },
   { key: "confirmed", labelKey: "bookings.confirmed" },
+  { key: "in_progress", labelKey: "bookings.inProgress" },
   { key: "awaiting_confirmation", labelKey: "bookings.pending" },
   { key: "completed", labelKey: "bookings.completed" },
   { key: "cancelled", labelKey: "bookings.cancel" },
@@ -27,6 +28,7 @@ const FILTERS: { key: string; labelKey: string }[] = [
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#F59E0B",
+  in_progress: "#8B5CF6",
   awaiting_confirmation: "#F59E0B",
   confirmed: "#3B82F6",
   completed: "#10B981",

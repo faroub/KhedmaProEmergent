@@ -10,7 +10,7 @@ from deps import current_user, require_admin
 router = APIRouter(tags=["phone-and-flags"])
 
 
-REVEAL_STATUSES = {"confirmed", "awaiting_confirmation", "completed"}
+REVEAL_STATUSES = {"confirmed", "in_progress", "awaiting_confirmation", "completed"}
 
 
 @router.get("/users/{other_id}/phone")

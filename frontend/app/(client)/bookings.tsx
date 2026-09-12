@@ -28,8 +28,19 @@ import type { LocalBooking } from "@/src/db/schema";
 const STATUS_COLOR: Record<string, string> = {
   pending: theme.colors.warning,
   confirmed: theme.colors.info,
+  in_progress: theme.colors.brand,
+  awaiting_confirmation: theme.colors.warning,
   completed: theme.colors.success,
   cancelled: theme.colors.error,
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "bookings.pending",
+  confirmed: "bookings.confirmed",
+  in_progress: "bookings.inProgress",
+  awaiting_confirmation: "bookings.awaitingShort",
+  completed: "bookings.completed",
+  cancelled: "bookings.cancelledLabel",
 };
 
 export default function Bookings() {
@@ -81,7 +92,12 @@ export default function Bookings() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const filtered = tab === "all" ? bookings : bookings.filter((b) => b.status === tab);
+  const filtered =
+    tab === "all"
+      ? bookings
+      : tab === "confirmed"
+      ? bookings.filter((b) => b.status === "confirmed" || b.status === "in_progress")
+      : bookings.filter((b) => b.status === tab);
   const isProvider = user?.role === "service_provider";
 
   const updateStatus = async (id: string, status: string) => {
@@ -195,7 +211,7 @@ export default function Bookings() {
                   ]}
                 >
                   <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>
-                    {item.status}
+                    {STATUS_LABEL[item.status] ? t(STATUS_LABEL[item.status]) : item.status}
                   </Text>
                 </View>
               </View>
@@ -275,6 +291,16 @@ export default function Bookings() {
                   </>
                 )}
                 {isProvider && item.status === "confirmed" && (
+                  <Pressable
+                    testID={`arrived-${item.id}`}
+                    style={[styles.actionBtn, styles.actionOutline]}
+                    onPress={() => updateStatus(item.id, "in_progress")}
+                  >
+                    <Ionicons name="location" size={14} color={theme.colors.onSurface} />
+                    <Text style={styles.actionOutlineText}>{t("bookings.arrived")}</Text>
+                  </Pressable>
+                )}
+                {isProvider && (item.status === "confirmed" || item.status === "in_progress") && (
                   <Pressable
                     testID={`complete-${item.id}`}
                     style={[styles.actionBtn, styles.actionPrimary]}

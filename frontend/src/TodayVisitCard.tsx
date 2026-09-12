@@ -29,7 +29,12 @@ export function TodayVisitCard({ bookings }: { bookings: LocalBooking[] }) {
   const visits = useMemo(
     () =>
       bookings
-        .filter((b) => b.status === "confirmed" && b.scheduled_date && isToday(b.scheduled_date))
+        .filter(
+          (b) =>
+            (b.status === "confirmed" || b.status === "in_progress") &&
+            b.scheduled_date &&
+            isToday(b.scheduled_date)
+        )
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
     [bookings]
   );
@@ -71,6 +76,13 @@ export function TodayVisitCard({ bookings }: { bookings: LocalBooking[] }) {
               <Text style={styles.timeText}>{formatTime(v.scheduled_date)}</Text>
             </View>
           </View>
+
+          {v.status === "in_progress" && (
+            <View style={[styles.inProgress, isRTL && styles.rtlRow]} testID={`today-visit-inprogress-${v.id}`}>
+              <Ionicons name="location" size={15} color={theme.colors.brand} />
+              <Text style={[styles.inProgressText, isRTL && styles.rtlText]}>{t("bookings.providerArrived")}</Text>
+            </View>
+          )}
 
           {!!v.address && (
             <View style={[styles.row, isRTL && styles.rtlRow]}>
@@ -147,6 +159,16 @@ const styles = StyleSheet.create({
   },
   timeText: { color: theme.colors.onBrandPrimary, fontWeight: "800", fontSize: 12 },
   address: { color: theme.colors.onSurfaceSecondary, fontSize: 13, flex: 1 },
+  inProgress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: theme.spacing.md,
+    minHeight: 36,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.brandTertiary,
+  },
+  inProgressText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13, flex: 1 },
   actions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
   chatBtn: {
     flex: 1,

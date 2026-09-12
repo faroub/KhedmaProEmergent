@@ -19,7 +19,8 @@ export type LocalBooking = {
   rate_type: string;
   estimated_hours?: number | null;
   estimated_total?: number | null;
-  status: "pending" | "confirmed" | "awaiting_confirmation" | "completed" | "cancelled";
+  status: "pending" | "confirmed" | "in_progress" | "awaiting_confirmation" | "completed" | "cancelled";
+  arrived_at?: string | null;
   booking_type?: "instant" | "quote";
   location_lat?: number | null;
   location_lng?: number | null;

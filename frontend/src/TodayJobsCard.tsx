@@ -10,6 +10,7 @@ const ETA_OPTIONS = [10, 20, 30, 45, 60];
 type Job = {
   id: string;
   client_id?: string | null;
+  arrived_at?: string | null;
   status: string;
   scheduled_date: string;
   client_name?: string | null;
@@ -47,8 +48,26 @@ const openMaps = (job: Job) => {
 
 // Reminder card shown on the provider dashboard: every job confirmed for
 // today, with the address and a one-tap call to the client.
-export function TodayJobsCard({ bookings }: { bookings: Job[] }) {
+const ACTIVE_STATUSES = new Set(["confirmed", "in_progress"]);
+
+export function TodayJobsCard({
+  bookings,
+  onStatusChanged,
+}: {
+  bookings: Job[];
+  onStatusChanged?: () => void;
+}) {
   const { t, isRTL } = useT();
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
+
+  const changeStatus = async (job: Job, status: "in_progress" | "completed") => {
+    setStatusBusy(job.id);
+    try {
+      await api.updateBookingStatus(job.id, status);
+      onStatusChanged?.();
+    } catch {}
+    setStatusBusy(null);
+  };
   // Per-job "On my way" state: which job has the ETA picker open, which is
   // sending, and the ETA (minutes) already sent.
   const [etaOpenFor, setEtaOpenFor] = useState<string | null>(null);
@@ -75,7 +94,7 @@ export function TodayJobsCard({ bookings }: { bookings: Job[] }) {
   const jobs = useMemo(
     () =>
       bookings
-        .filter((b) => b.status === "confirmed" && b.scheduled_date && isToday(b.scheduled_date))
+        .filter((b) => ACTIVE_STATUSES.has(b.status) && b.scheduled_date && isToday(b.scheduled_date))
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
     [bookings]
   );
@@ -131,7 +150,44 @@ export function TodayJobsCard({ bookings }: { bookings: Job[] }) {
             </Pressable>
           )}
 
-          {canChat(job) && (
+          {job.status === "in_progress" ? (
+            <View style={[styles.arrivedRow, isRTL && styles.rtlRow]} testID={`today-job-inprogress-${job.id}`}>
+              <Ionicons name="location" size={16} color={theme.colors.brand} />
+              <Text style={[styles.arrivedText, isRTL && styles.rtlText]}>
+                {t("dash.arrivedDone", { time: job.arrived_at ? formatTime(job.arrived_at) : "—" })}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => changeStatus(job, "in_progress")}
+              disabled={statusBusy === job.id}
+              style={[styles.arrivedBtn, isRTL && styles.rtlRow]}
+              testID={`today-job-arrived-${job.id}`}
+            >
+              {statusBusy === job.id ? (
+                <ActivityIndicator size="small" color={theme.colors.onBrandPrimary} />
+              ) : (
+                <>
+                  <Ionicons name="location" size={16} color={theme.colors.onBrandPrimary} />
+                  <Text style={styles.arrivedBtnText}>{t("dash.arrived")}</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+
+          {job.status === "in_progress" && (
+            <Pressable
+              onPress={() => changeStatus(job, "completed")}
+              disabled={statusBusy === job.id}
+              style={[styles.doneBtn, isRTL && styles.rtlRow]}
+              testID={`today-job-done-${job.id}`}
+            >
+              <Ionicons name="checkmark-done" size={16} color={theme.colors.brand} />
+              <Text style={styles.doneText}>{t("dash.markDone")}</Text>
+            </Pressable>
+          )}
+
+          {canChat(job) && job.status === "confirmed" && (
             <View style={styles.etaBlock}>
               {sentEta[job.id] != null ? (
                 <View style={[styles.sentRow, isRTL && styles.rtlRow]} testID={`today-job-onmyway-sent-${job.id}`}>
@@ -246,6 +302,37 @@ const styles = StyleSheet.create({
   },
   callBtnDisabled: { backgroundColor: theme.colors.muted },
   etaBlock: { gap: theme.spacing.sm },
+  arrivedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.brand,
+  },
+  arrivedBtnText: { color: theme.colors.onBrandPrimary, fontWeight: "800", fontSize: 14 },
+  arrivedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.brandTertiary,
+  },
+  arrivedText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13, flex: 1 },
+  doneBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+  },
+  doneText: { color: theme.colors.brand, fontWeight: "700", fontSize: 14 },
   onMyWayBtn: {
     flexDirection: "row",
     alignItems: "center",

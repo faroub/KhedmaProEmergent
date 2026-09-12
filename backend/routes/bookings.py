@@ -16,6 +16,7 @@ from deps import current_user, optional_current_user
 from routes.push import send_push
 from schemas import BookingCreate, BookingStatus, BookingStatusUpdate, Role
 from subscription import compute_subscription, enforce_lifecycle
+from ws_manager import thread_id, ws_manager
 
 router = APIRouter(tags=["bookings"])
 
@@ -153,6 +154,7 @@ async def update_booking_status(
             new_status
             in (
                 BookingStatus.confirmed.value,
+                BookingStatus.in_progress.value,
                 BookingStatus.completed.value,  # would become awaiting_confirmation
                 BookingStatus.awaiting_confirmation.value,
             )
@@ -162,13 +164,19 @@ async def update_booking_status(
                 status_code=403,
                 detail="Please verify your phone number to accept bookings",
             )
-        # Provider: pending→confirmed, confirmed→awaiting_confirmation (was completed), any→cancelled
+        # Provider: pending→confirmed, confirmed→in_progress (arrived),
+        # confirmed|in_progress→awaiting_confirmation (was completed), any→cancelled
         if new_status == BookingStatus.completed.value:
             # Provider "completing" now means they marked their side done; wait for client.
-            if booking["status"] != BookingStatus.confirmed.value:
+            if booking["status"] not in (BookingStatus.confirmed.value, BookingStatus.in_progress.value):
                 raise HTTPException(status_code=400, detail="Booking must be confirmed first")
             new_status = BookingStatus.awaiting_confirmation.value
             updates["provider_marked_done_at"] = now_iso
+        elif new_status == BookingStatus.in_progress.value:
+            # "I've arrived" check-in — only from a confirmed booking.
+            if booking["status"] != BookingStatus.confirmed.value:
+                raise HTTPException(status_code=400, detail="Booking must be confirmed first")
+            updates["arrived_at"] = now_iso
         elif new_status == BookingStatus.confirmed.value:
             updates["confirmed_at"] = now_iso
     else:
@@ -190,12 +198,12 @@ async def update_booking_status(
     # they confirm / complete / cancel a booking.
     if user["role"] == Role.service_provider.value and new_status in (
         BookingStatus.confirmed.value,
+        BookingStatus.in_progress.value,
         BookingStatus.awaiting_confirmation.value,
         BookingStatus.completed.value,
         BookingStatus.cancelled.value,
     ):
         try:
-            from datetime import datetime, timezone  # local import — avoid module top-level clutter
             await db.users.update_one(
                 {"id": booking["provider_id"]},
                 {"$set": {"last_activity_at": datetime.now(timezone.utc).isoformat()}},
@@ -207,6 +215,7 @@ async def update_booking_status(
     try:
         _messages = {
             BookingStatus.confirmed.value: ("Booking confirmed", "Your provider confirmed the booking."),
+            BookingStatus.in_progress.value: ("Provider arrived", "Your provider has arrived and started the job."),
             BookingStatus.awaiting_confirmation.value: ("Work marked done", "Please confirm the work is complete."),
             BookingStatus.completed.value: ("Booking completed", "The booking has been marked completed."),
             BookingStatus.cancelled.value: ("Booking cancelled", "The booking was cancelled."),
@@ -235,6 +244,29 @@ async def update_booking_status(
         import logging
         logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
 
+    # Arrival check-in: also drop an instant chat message in the client's thread
+    # (registered clients only — guests have no chat account).
+    if new_status == BookingStatus.in_progress.value:
+        client_id = booking.get("client_id") or ""
+        if client_id and not client_id.startswith("guest:"):
+            try:
+                msg = {
+                    "id": str(uuid.uuid4()),
+                    "thread_id": thread_id(user["id"], client_id),
+                    "from_id": user["id"],
+                    "from_name": user["full_name"],
+                    "to_id": client_id,
+                    "text": "📍 I've arrived and I'm starting the job now.",
+                    "created_at": now_iso,
+                }
+                await db.messages.insert_one(msg)
+                msg.pop("_id", None)
+                await ws_manager.send_to(client_id, {"type": "message", "message": msg})
+                await ws_manager.send_to(user["id"], {"type": "message", "message": msg})
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Arrival chat message failed: %s", e)
+
     # If terminal state, recompute completion metrics + auto-flag if needed.
     if new_status in (BookingStatus.completed.value, BookingStatus.cancelled.value):
         await _recompute_and_maybe_flag(booking["provider_id"])
@@ -247,12 +279,12 @@ async def _recompute_and_maybe_flag(provider_id: str):
     from datetime import timedelta
     now = datetime.now(timezone.utc)
     docs = await db.bookings.find(
-        {"provider_id": provider_id, "status": {"$in": ["confirmed", "awaiting_confirmation", "completed", "cancelled"]}},
+        {"provider_id": provider_id, "status": {"$in": ["confirmed", "in_progress", "awaiting_confirmation", "completed", "cancelled"]}},
         {"_id": 0, "status": 1, "confirmed_at": 1, "created_at": 1, "client_confirmed_done_at": 1},
     ).sort("created_at", -1).to_list(200)
 
     last_n = docs[:FLAG_RATE_WINDOW]
-    confirmed_or_more = [b for b in last_n if b["status"] in ("confirmed", "awaiting_confirmation", "completed", "cancelled")]
+    confirmed_or_more = [b for b in last_n if b["status"] in ("confirmed", "in_progress", "awaiting_confirmation", "completed", "cancelled")]
     completed = [b for b in confirmed_or_more if b["status"] == "completed"]
     rate = (len(completed) / len(confirmed_or_more)) if confirmed_or_more else 1.0
 
