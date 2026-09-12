@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { api } from "@/src/api";
@@ -59,7 +59,8 @@ export default function Dashboard() {
         contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.colors.brand} />}
       >
-        <Text style={styles.hello}>{t("home.hello")}, {user?.full_name?.split(" ")[0]}</Text>        <Text style={styles.sub}>{t("dash.subDesc")}</Text>
+        <Text style={styles.hello}>{t("home.hello")}, {user?.full_name?.split(" ")[0]}</Text>
+        <Text style={styles.sub}>{t("dash.subDesc")}</Text>
 
         <PhoneVerifyBanner />
 

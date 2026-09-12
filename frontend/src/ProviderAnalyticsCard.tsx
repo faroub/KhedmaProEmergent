@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { api } from "./api";
 import { theme } from "./theme";
 import { AnimatedBarChart, BarPoint } from "./AnimatedBarChart";
@@ -117,7 +117,7 @@ export function ProviderAnalyticsCard({ testID = "provider-analytics" }: { testI
 }
 
 function Stat({ icon, label, value, color, subLabel }: {
-  icon: keyof typeof Ionicons.glyphMap; label: string; value: number | string; color: string; subLabel?: string;
+  icon: IoniconsIconName; label: string; value: number | string; color: string; subLabel?: string;
 }) {
   return (
     <View style={styles.stat}>

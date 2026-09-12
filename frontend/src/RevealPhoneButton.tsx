@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Text, StyleSheet, Pressable, ActivityIndicator, Linking, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { theme } from "./theme";
 import { useT } from "./language";
 import { api } from "./api";

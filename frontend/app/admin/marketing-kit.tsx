@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useAuth } from "@/src/auth";
@@ -33,7 +33,7 @@ type Ad = {
   label: string;
   ratio: string;
   platform: string;
-  icon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap;
+  icon: import("@react-native-vector-icons/ionicons").IoniconsIconName;
 };
 
 const ADS: Ad[] = [
@@ -49,7 +49,7 @@ const ADS: Ad[] = [
 
 export default function MarketingKit() {
   const router = useRouter();
-  const { user, authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // Absolute URL builder so admins can copy something that works out of the app.
   const baseUrl = useMemo(() => (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/$/, ""), []);

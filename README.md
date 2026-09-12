@@ -1,6 +1,6 @@
 # khedmaPro — Local Dev Guide
 
-Full-stack marketplace for Algerian service providers. This guide covers running the **mobile app** (Expo SDK 54), the **backend API** (FastAPI + MongoDB), and the **marketing website** on your own machine.
+Full-stack marketplace for Algerian service providers. This guide covers running the **mobile app** (Expo SDK 57), the **backend API** (FastAPI + MongoDB), and the **marketing website** on your own machine.
 
 ---
 
@@ -10,7 +10,7 @@ Install these once:
 
 | Tool | Version | Install |
 |------|---------|---------|
-| **Node.js** | ≥ 20 | https://nodejs.org (or `nvm install 20`) |
+| **Node.js** | ≥ 22.13 | https://nodejs.org (or `nvm install 22`) |
 | **Yarn** | Classic (1.x) | `npm i -g yarn` |
 | **Python** | 3.11 | https://python.org / `pyenv install 3.11` |
 | **MongoDB** | ≥ 6 | https://www.mongodb.com/docs/manual/installation/ (Community Edition is fine) |

@@ -8,7 +8,6 @@ import { LogBox, Platform, StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/auth";
 import { LanguageProvider } from "@/src/language";
 
@@ -41,14 +40,11 @@ if (Platform.OS === "android") {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useIconFonts();
   const router = useRouter();
 
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
+    SplashScreen.hideAsync();
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -103,14 +99,12 @@ export default function RootLayout() {
     };
   }, [router]);
 
-  if (!loaded && !error) return null;
-
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0B1120" }}>
       <SafeAreaProvider>
         <LanguageProvider>
           <AuthProvider>
-            <StatusBar barStyle="light-content" backgroundColor="#0B1120" />
+            <StatusBar barStyle="light-content" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B1120" } }} />
           </AuthProvider>
         </LanguageProvider>

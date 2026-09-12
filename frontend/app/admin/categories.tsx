@@ -17,7 +17,7 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api, getAuthToken } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -26,7 +26,7 @@ import { useT } from "@/src/language";
 
 type Cat = {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   name_en: string;
   name_fr: string;
   name_ar: string;
@@ -35,7 +35,7 @@ type Cat = {
 };
 
 // Curated Ionicons palette for services categories.
-const ICON_PRESETS: (keyof typeof Ionicons.glyphMap)[] = [
+const ICON_PRESETS: (IoniconsIconName)[] = [
   "water", "flash", "sparkles", "hammer", "brush", "color-palette",
   "leaf", "flower", "laptop", "desktop", "briefcase", "school",
   "book", "camera", "cube", "car", "car-sport", "bus",
@@ -45,7 +45,7 @@ const ICON_PRESETS: (keyof typeof Ionicons.glyphMap)[] = [
   "cut", "shirt", "glasses", "musical-notes", "mic", "headset",
   "game-controller", "football", "basketball", "paw", "fish", "wine",
   "pizza", "pint", "ice-cream", "beer",
-  "construct", "build", "settings", "wrench",
+  "construct", "build", "settings",
   "shield-checkmark", "chatbubbles", "language", "megaphone",
 ];
 

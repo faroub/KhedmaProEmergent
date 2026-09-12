@@ -12,7 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -22,7 +22,7 @@ import { WilayaPicker } from "@/src/WilayaPicker";
 
 type Audience = "all" | "clients" | "providers" | "wilaya";
 
-const AUDIENCES: { key: Audience; labelKey: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+const AUDIENCES: { key: Audience; labelKey: string; icon: IoniconsIconName }[] = [
   { key: "all", labelKey: "admin.broadcast.audAll", icon: "globe" },
   { key: "clients", labelKey: "admin.broadcast.audClients", icon: "people" },
   { key: "providers", labelKey: "admin.broadcast.audProviders", icon: "briefcase" },

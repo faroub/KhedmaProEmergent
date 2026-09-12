@@ -8,10 +8,11 @@ import {
   ImageBackground,
   ActivityIndicator,
   Modal,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/auth";
 import { theme } from "@/src/theme";
@@ -229,7 +230,7 @@ export default function Profile() {
             <Text style={styles.sectionLabel}>{t("account.subscription")}</Text>
             <View style={styles.subCard} testID="subscription-card">
               <View style={styles.subRow}>
-                <View style={styles.subBadge(subStatus)}>
+                <View style={subBadgeStyle(subStatus)}>
                   <Ionicons
                     name={
                       subStatus === "active"
@@ -549,22 +550,6 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   subRow: { flexDirection: "row", alignItems: "center" },
-  subBadge: (status?: string | null) => ({
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: theme.radius.pill,
-    backgroundColor:
-      status === "active"
-        ? theme.colors.success
-        : status === "trial"
-        ? theme.colors.brand
-        : status === "manually_deactivated"
-        ? theme.colors.warning
-        : theme.colors.error,
-  }),
   subBadgeText: { color: theme.colors.onBrandPrimary, fontSize: 12, fontWeight: "700" },
   subDesc: { color: theme.colors.onSurfaceSecondary, fontSize: 13, lineHeight: 20 },
   payBtn: {
@@ -713,4 +698,21 @@ const styles = StyleSheet.create({
   modalConfirm: { backgroundColor: theme.colors.brand },
   modalConfirmDanger: { backgroundColor: theme.colors.error },
   modalConfirmText: { color: theme.colors.onBrandPrimary, fontWeight: "800" },
+});
+
+const subBadgeStyle = (status?: string | null): ViewStyle => ({
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+  paddingHorizontal: 10,
+  paddingVertical: 5,
+  borderRadius: theme.radius.pill,
+  backgroundColor:
+    status === "active"
+      ? theme.colors.success
+      : status === "trial"
+      ? theme.colors.brand
+      : status === "manually_deactivated"
+      ? theme.colors.warning
+      : theme.colors.error,
 });

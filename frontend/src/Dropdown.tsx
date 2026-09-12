@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, FlatList } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { theme } from "./theme";
 
 export type DropdownOption = {
   value: string;
   label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconsIconName;
   /** Optional trailing text (e.g., "5 km"). */
   hint?: string;
 };
@@ -26,7 +26,7 @@ type Props = {
   searchable?: boolean;
   searchPlaceholder?: string;
   /** Trigger button icon (defaults to grid). */
-  triggerIcon?: keyof typeof Ionicons.glyphMap;
+  triggerIcon?: IoniconsIconName;
   /** Small pill vs full-width row. */
   compact?: boolean;
   disabled?: boolean;

@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration 17 — Frontend regression test AFTER Expo SDK 54 -> 57 upgrade (React Native 0.86, React 19.2.3, TypeScript 6) and Ionicons migration to @react-native-vector-icons/ionicons@13.1.4. All 7 review targets verified on web preview at 390x844 viewport: (1) Landing page renders with every Ionicons glyph visible (shield-checkmark, flash, chatbubbles, star, search, location, phone-portrait, briefcase, hammer, arrow-forward) — NO '?' or empty boxes anywhere. (2) Language switcher EN -> FR -> AR works; Arabic renders RTL text correctly. (3) Guest browse -> client home shows provider cards with avatars + ratings; provider detail (/provider/[id]) hero, rating (4.9), reviews, portfolio all render; Request Booking opens /booking/new with date picker, time slots, rate type toggle, and 2 map iframes (Leaflet pin-drop). (4) Provider login (provider1@khedmapro.dz / password123) -> /(provider)/dashboard renders subscription banner (Free trial 49 days), stats KPIs, AnimatedBarChart with SVG bars (react-native-gifted-charts), portfolio, recent bookings, and bottom tabs; Schedule tab renders react-native-calendars (September 2026); Bookings and Messages tabs load. (5) /(client)/profile guest view renders 'Sign in to unlock more' card; logged-in provider view shows 'Provider' badge and 'Free trial' subscription badge (subBadge style moved out of StyleSheet.create works). (6) Admin login (admin@khedmapro.dz / admin123) -> /admin dashboard renders all 8 KPI cards with colored icons; /admin/categories lists all 11 categories with proper icons (droplet, flash, sparkles, hammer, brush for Painting, leaf, laptop, folder, school, camera, cube); icon picker modal 'Pick an icon' opens with ~40 icon presets all rendering as glyphs — NO '?' anywhere; /admin/marketing-kit loads without crash and shows hero creatives; /admin/ads list renders (AdsCarousel edited version working). (7) Browser console clean — the only warning is the ignorable expo-notifications web warning, plus ONE recurring React Native web strict-mode error: 'Unexpected text node: . A text node cannot be a child of a <View>' (4x on provider dashboard, 1x on schedule).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Provider dashboard / Schedule", "issue": "React Native web strict-mode console error: 'Unexpected text node: . A text node cannot be a child of a <View>.' (4x on dashboard, 1x on schedule). Caused by stray whitespace/newline between JSX children directly inside a <View> — likely a template-literal or conditional-render whitespace leak. Non-blocking on web but will crash on native iOS/Android. Grep for View children with '{ ' or trailing whitespace in /app/frontend/app/(provider)/dashboard.tsx and /app/frontend/app/(provider)/schedule.tsx.", "testID": "provider-analytics / provider-schedule", "priority": "MEDIUM"},
+      {"component": "Client home — Categories section", "issue": "The 'Categories' section header renders on /(client)/home but NO category tiles/chips are drawn between it and 'Top rated' — the categories array is fetched (setCategories in useEffect) but only consumed by the Filters dropdown at line 363 of /app/frontend/app/(client)/home.tsx; nothing is rendered under the title at lines 229–231. Review request explicitly asked for 'categories with icons and provider cards'. Not a SDK-57 regression (same pattern in older iterations) but violates the review acceptance criterion.", "testID": "N/A (no category testIDs)", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/screens/landing_en.png",
+    "/app/test_reports/screens/landing_fr.png",
+    "/app/test_reports/screens/landing_ar.png",
+    "/app/test_reports/screens/client_home.png",
+    "/app/test_reports/screens/provider_detail.png",
+    "/app/test_reports/screens/booking_flow.png",
+    "/app/test_reports/screens/provider_dashboard.png",
+    "/app/test_reports/screens/provider_schedule.png",
+    "/app/test_reports/screens/client_profile_provider.png",
+    "/app/test_reports/screens/client_profile_guest.png",
+    "/app/test_reports/screens/admin_dash.png",
+    "/app/test_reports/screens/admin_categories.png",
+    "/app/test_reports/screens/icon_picker_open.png",
+    "/app/test_reports/screens/admin_mktkit.png",
+    "/app/test_reports/screens/admin_ads.png"
+  ],
+  "action_items": [
+    "MEDIUM — Track down the stray whitespace text node inside a <View> in the provider dashboard and schedule screens. On web this only logs an error; on native (iOS/Android) it will throw and crash the screen. Look for JSX like `<View>\\n  {conditional && <X/>}\\n  </View>` where a template literal or a bare space is being emitted as a child, and for `{something && ' '}`. Files to inspect: /app/frontend/app/(provider)/dashboard.tsx, /app/frontend/app/(provider)/schedule.tsx.",
+    "LOW — Decide whether the 'Categories' section on /(client)/home should render category chips/cards (with icons) or the section title should be removed. Currently the title is orphaned above the 'Top rated' section.",
+    "INFO — expo-doctor is still reporting three phantom SDK-54 packages (expo@54.0.36, expo-constants@18.0.13, expo-file-system@19.0.23) — package.json lists SDK-57 versions, so this is a stale expo-doctor cache or a leftover node_modules resolution. Confirm with `yarn list --pattern expo` and if truly resolved to 57, ignore; otherwise re-run `yarn install --check-files`."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/(client)/home.tsx line 229-231: 'Categories' section title is rendered but the `categories` state array (populated at line 108) is never iterated for display — only used inside the Filters sheet (line 363). Either delete the orphan header or add a horizontal FlatList of category chips with Ionicons here.",
+    "The dashboard 'Unexpected text node' warning is not a false-positive; on New Architecture (RN 0.86 is New-Arch-by-default in SDK 57) this WILL crash on device. Fix before the next native build."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (145 tests already green per review)", "frontend": "95% — all screens load, all Ionicons render, all navigation works; only issue is the RN-web text-node warning and an orphan Categories section header"},
+  "seed_data_creation": "None — used existing seeded provider1@khedmapro.dz and admin@khedmapro.dz accounts only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Landing testID='onboarding-screen'; language switcher testID='onboarding-lang-switcher' opens a bottom sheet with the three language names (English / Français / العربية). Login testIDs: login-email-input, login-password-input, login-submit-btn. Provider cards on client home use testID `provider-{uuid}` (NOT `provider-card-{uuid}`). Provider bottom tabs: tab-schedule, tab-bookings, tab-messages. Admin category picker exposes testID `admin-cat-add` on the plus button; opens a modal whose icon button reads 'grid' by default and clicking it opens the 'Pick an icon' sheet (no testID on the icon button itself — target with `page.get_by_text('grid')`). The recurring 'Unexpected text node' warning is not fixed as of iter 17 and must be traced. All backend flows are unchanged from iter 16.",
+  "rca_of_issue": "SDK 57 + Ionicons migration verified end-to-end. The one recurring React Native web warning ('Unexpected text node' inside a <View>) is a JSX child hygiene issue in the provider dashboard/schedule screen — stray whitespace/newline is being emitted as a text node directly under a <View>. This is a strict-mode error on native (New Architecture) and must be fixed before a device build, but does not break the web preview. Reproduction: log in as provider1@khedmapro.dz / password123 and open the dashboard — the error fires 4x. Mitigation: wrap any bare text/whitespace in <Text> or remove the leading/trailing whitespace between JSX children in the offending View."
+}

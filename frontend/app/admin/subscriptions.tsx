@@ -11,7 +11,7 @@ import {
   Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api, getAuthToken } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -37,7 +37,7 @@ type Sub = {
 
 type Payment = { id: string; amount_dzd: number; paid_at: string; method: string; status: string; note?: string | null };
 
-const FILTERS: { key: string; labelKey: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+const FILTERS: { key: string; labelKey: string; icon: IoniconsIconName; color: string }[] = [
   { key: "", labelKey: "subs.filter.all", icon: "list", color: theme.colors.brand },
   { key: "trial", labelKey: "subs.filter.trial", icon: "gift", color: "#10B981" },
   { key: "active", labelKey: "subs.filter.active", icon: "checkmark-circle", color: "#3B82F6" },

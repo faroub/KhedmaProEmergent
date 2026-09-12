@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { theme } from "./theme";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { useT } from "./language";
@@ -72,7 +72,7 @@ export function FiltersSheet({
     }
   }, [visible, state]);
 
-  const sortOptions: { key: SortKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = useMemo(
+  const sortOptions: { key: SortKey; label: string; icon: IoniconsIconName }[] = useMemo(
     () => [
       { key: "rating", label: t("filters.sortRating"), icon: "star" },
       { key: "distance", label: t("filters.sortDistance"), icon: "navigate" },

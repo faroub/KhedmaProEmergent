@@ -1,7 +1,7 @@
 # ServicePro — Product Requirements
 
 ## Overview
-A professional, modern service marketplace mobile app (React Native Expo SDK 54) connecting service providers (Plumbing, Electrical, Cleaning, Carpentry, Painting, Landscaping, IT Support, Admin Education, Photography, Moving) with clients across Algeria.
+A professional, modern service marketplace mobile app (React Native Expo SDK 57) connecting service providers (Plumbing, Electrical, Cleaning, Carpentry, Painting, Landscaping, IT Support, Admin Education, Photography, Moving) with clients across Algeria.
 
 ## Design
 Bold professional dark theme: navy (#0B1120) primary + gold (#D4AF37) accent, generous spacing, glassmorphic overlays on hero surfaces.
@@ -73,3 +73,10 @@ Subscription revenue model built-in: providers monetize the platform with a fair
 - OTP phone-number authentication — planned for the next iteration.
 - Push notifications.
 - Provider photo upload.
+
+## Iteration 16 — Expo SDK 57 upgrade
+- Upgraded Expo SDK 54 → 57 (React Native 0.81 → 0.86, React 19.1 → 19.2, TypeScript 6, Reanimated 4.5, Gesture Handler 2.32, Screens 4.26). Requires Node ≥ 22.13.
+- `app.json`: removed `newArchEnabled` / `edgeToEdgeEnabled` (now mandatory defaults in SDK 55+); added `@react-native-vector-icons/ionicons` config plugin.
+- Icons migrated from deprecated `@expo/vector-icons` to `@react-native-vector-icons/ionicons` (41 files). Icon-name typing now uses `IoniconsIconName`. Dropped the CDN icon-font loader hook (`use-icon-fonts.ts`) — the new package loads its font itself in Expo Go.
+- RN 0.86 API fixes: `StyleSheet.absoluteFillObject` removed → inline absolute style; style-factory function moved out of `StyleSheet.create` in client profile; `StatusBar backgroundColor` (no-op on edge-to-edge) removed.
+- Existing native builds (APK/IPA) must be regenerated via Publish after this upgrade.

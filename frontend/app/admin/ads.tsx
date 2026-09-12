@@ -15,7 +15,7 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "@/src/api";
@@ -194,7 +194,7 @@ export default function AdminAds() {
         <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.sm, paddingBottom: theme.spacing.xxxl }}>
           {items.map((a, idx) => {
             const ctr = a.impressions > 0 ? Math.round((a.clicks / a.impressions) * 100) : 0;
-            const badges: { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }[] = [];
+            const badges: { icon: IoniconsIconName; label: string; color: string }[] = [];
             if (a.start_at || a.end_at) {
               const s = a.start_at ? new Date(a.start_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "…";
               const e = a.end_at ? new Date(a.end_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "…";

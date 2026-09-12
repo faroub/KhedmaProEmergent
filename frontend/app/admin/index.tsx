@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -27,7 +27,7 @@ type ManageTile = {
   key: string;
   labelKey: string;
   subKey: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconsIconName;
   route: string;
   color: string;
 };
@@ -173,7 +173,7 @@ export default function AdminHub() {
 }
 
 function KpiCard({ color, icon, label, value, suffix }: {
-  color: string; icon: keyof typeof Ionicons.glyphMap; label: string; value: number | string; suffix?: string;
+  color: string; icon: IoniconsIconName; label: string; value: number | string; suffix?: string;
 }) {
   return (
     <View style={styles.kpiCard}>

@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     overflow: "hidden",
   },
-  image: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  image: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" },
   body: { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing.md, gap: 4 },
   badge: {
     alignSelf: "flex-start",

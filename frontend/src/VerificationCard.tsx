@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { api } from "./api";
 import { theme } from "./theme";
 import { useT } from "./language";
@@ -42,7 +42,7 @@ type ServerDoc = {
   uploaded_at?: string;
 };
 
-const STATUS_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+const STATUS_ICON: Record<string, IoniconsIconName> = {
   unverified: "shield-outline",
   pending: "hourglass-outline",
   verified: "shield-checkmark",

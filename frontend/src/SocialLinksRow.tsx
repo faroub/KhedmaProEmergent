@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Linking } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { theme } from "./theme";
 
 type Social = {
@@ -53,7 +53,7 @@ export function SocialLinksRow({ compact = false, color, testID = "social-links-
   }, []);
 
   if (!social) return null;
-  const items: { key: keyof Social; icon: keyof typeof Ionicons.glyphMap }[] = [
+  const items: { key: keyof Social; icon: IoniconsIconName }[] = [
     { key: "facebook_url", icon: "logo-facebook" },
     { key: "instagram_url", icon: "logo-instagram" },
     { key: "tiktok_url", icon: "logo-tiktok" },

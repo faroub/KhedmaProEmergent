@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -293,7 +293,7 @@ export default function AdminUsers() {
   );
 }
 
-function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+function DetailRow({ icon, label, value }: { icon: IoniconsIconName; label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
       <Ionicons name={icon} size={14} color={theme.colors.muted} />

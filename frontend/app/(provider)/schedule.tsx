@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";

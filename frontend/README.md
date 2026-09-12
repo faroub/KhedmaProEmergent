@@ -1,6 +1,6 @@
 # Frontend — Quick Start
 
-Expo SDK 54 + expo-router + TypeScript. See `/app/README.md` for the full guide.
+Expo SDK 57 + expo-router + TypeScript. See `/app/README.md` for the full guide.
 
 ## Run locally (recommended — Expo Go real-device testing works out of the box)
 
