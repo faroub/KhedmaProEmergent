@@ -320,3 +320,107 @@ def test_on_my_way_empty_text_422(pair):
         timeout=10,
     )
     assert r.status_code == 422, r.text
+
+
+# =========================================================================
+# Structured ETA endpoint (client countdown) + job timer billing
+# =========================================================================
+
+def test_eta_endpoint_stores_countdown_fields_and_messages_client(pair):
+    r = requests.post(
+        f"{API}/bookings/{pair['bid']}/eta",
+        json={"minutes": 25},
+        headers=_hdr(pair["prov"]["access_token"]),
+        timeout=10,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["eta_minutes"] == 25
+    assert body["eta_sent_at"] and body["eta_arrival_at"]
+    from datetime import datetime
+    sent = datetime.fromisoformat(body["eta_sent_at"])
+    arrival = datetime.fromisoformat(body["eta_arrival_at"])
+    assert abs((arrival - sent).total_seconds() - 25 * 60) < 2
+
+    # Client sees the fields in their bookings list and an automatic chat line.
+    mine_c = requests.get(f"{API}/bookings/mine", headers=_hdr(pair["cli"]["access_token"]), timeout=10).json()
+    b = next(x for x in mine_c if x["id"] == pair["bid"])
+    assert b["eta_minutes"] == 25 and b["eta_arrival_at"] == body["eta_arrival_at"]
+    history = _client_history(pair["cli"]["access_token"], pair["pid"])
+    assert any("on my way" in m["text"].lower() and "25 minutes" in m["text"] for m in history), history
+
+
+def test_eta_can_be_updated_and_validates_range(pair):
+    ok = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": 10}, headers=_hdr(pair["prov"]["access_token"]), timeout=10)
+    assert ok.status_code == 200
+    again = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": 45}, headers=_hdr(pair["prov"]["access_token"]), timeout=10)
+    assert again.status_code == 200 and again.json()["eta_minutes"] == 45
+    for bad in (0, -5, 500, "soon"):
+        r = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": bad}, headers=_hdr(pair["prov"]["access_token"]), timeout=10)
+        assert r.status_code == 422, (bad, r.text)
+
+
+def test_eta_guards(pair):
+    # Client cannot send an ETA.
+    r = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": 15}, headers=_hdr(pair["cli"]["access_token"]), timeout=10)
+    assert r.status_code == 403
+    # Another provider cannot either.
+    intruder = _fresh_provider()
+    try:
+        r = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": 15}, headers=_hdr(intruder["access_token"]), timeout=10)
+        assert r.status_code == 403
+    finally:
+        _db.users.delete_one({"id": intruder["user"]["id"]})
+    # Unknown booking.
+    r = requests.post(f"{API}/bookings/{uuid.uuid4()}/eta", json={"minutes": 15}, headers=_hdr(pair["prov"]["access_token"]), timeout=10)
+    assert r.status_code == 404
+    # Only while confirmed — once checked in, no more ETA.
+    assert _set_status(pair["bid"], pair["prov"]["access_token"], "in_progress").status_code == 200
+    r = requests.post(f"{API}/bookings/{pair['bid']}/eta", json={"minutes": 15}, headers=_hdr(pair["prov"]["access_token"]), timeout=10)
+    assert r.status_code == 400
+
+
+def test_job_timer_bills_exact_time_for_hourly_jobs(pair):
+    from datetime import datetime, timedelta, timezone
+    # Turn the pair's booking into an hourly job at 1200 DZD/h and pretend the
+    # provider checked in 90 minutes ago.
+    _db.users.update_one({"id": pair["pid"]}, {"$set": {"hourly_rate": 1200}})
+    assert _set_status(pair["bid"], pair["prov"]["access_token"], "in_progress").status_code == 200
+    arrived = datetime.now(timezone.utc) - timedelta(minutes=90)
+    _db.bookings.update_one(
+        {"id": pair["bid"]},
+        {"$set": {"rate_type": "hourly", "estimated_hours": 2, "estimated_total": 2400, "arrived_at": arrived.isoformat()}},
+    )
+
+    r = _set_status(pair["bid"], pair["prov"]["access_token"], "completed")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "awaiting_confirmation"
+    # ceil() of the elapsed minutes — 90 or 91 depending on the request latency.
+    assert body["worked_minutes"] in (90, 91), body
+    expected = round(1200 * body["worked_minutes"] / 60)
+    assert body["final_total_dzd"] == expected
+    assert body["estimated_total"] == expected  # replaces the 2 h estimate (2400)
+
+
+def test_job_timer_records_minutes_but_keeps_task_price(pair):
+    from datetime import datetime, timedelta, timezone
+    assert _set_status(pair["bid"], pair["prov"]["access_token"], "in_progress").status_code == 200
+    _db.bookings.update_one(
+        {"id": pair["bid"]},
+        {"$set": {"rate_type": "task", "estimated_total": 3000,
+                  "arrived_at": (datetime.now(timezone.utc) - timedelta(minutes=40)).isoformat()}},
+    )
+    r = _set_status(pair["bid"], pair["prov"]["access_token"], "completed")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["worked_minutes"] in (40, 41)
+    assert "final_total_dzd" not in body
+    assert body["estimated_total"] == 3000
+
+
+def test_mark_done_without_check_in_has_no_worked_minutes(pair):
+    r = _set_status(pair["bid"], pair["prov"]["access_token"], "completed")
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "awaiting_confirmation"
+    assert "worked_minutes" not in r.json()

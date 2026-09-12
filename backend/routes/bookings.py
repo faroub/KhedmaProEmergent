@@ -1,6 +1,7 @@
 """Booking creation + listing + status transitions."""
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from math import ceil
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +15,7 @@ from config import (
 from database import db
 from deps import current_user, optional_current_user
 from routes.push import send_push
-from schemas import BookingCreate, BookingStatus, BookingStatusUpdate, Role
+from schemas import BookingCreate, BookingEtaIn, BookingStatus, BookingStatusUpdate, Role
 from subscription import compute_subscription, enforce_lifecycle
 from ws_manager import thread_id, ws_manager
 
@@ -130,6 +131,84 @@ async def my_bookings(user: Annotated[dict, Depends(current_user)]):
     return docs
 
 
+async def _post_chat_message(from_user: dict, to_id: str, text: str, now_iso: str) -> None:
+    """Drop an automatic message from `from_user` into the thread with `to_id`.
+
+    Registered recipients only — guest bookings (`guest:` ids) have no chat
+    account. Failures are logged, never raised: the booking change is the
+    source of truth, the chat line is a courtesy.
+    """
+    if not to_id or to_id.startswith("guest:"):
+        return
+    try:
+        msg = {
+            "id": str(uuid.uuid4()),
+            "thread_id": thread_id(from_user["id"], to_id),
+            "from_id": from_user["id"],
+            "from_name": from_user["full_name"],
+            "to_id": to_id,
+            "text": text,
+            "created_at": now_iso,
+        }
+        await db.messages.insert_one(msg)
+        msg.pop("_id", None)
+        await ws_manager.send_to(to_id, {"type": "message", "message": msg})
+        await ws_manager.send_to(from_user["id"], {"type": "message", "message": msg})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Automatic chat message failed: %s", e)
+
+
+@router.post("/bookings/{booking_id}/eta")
+async def send_booking_eta(
+    booking_id: str,
+    body: BookingEtaIn,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Provider "On my way": store a structured ETA on the booking so the client
+    app can show a live countdown, and tell the client in chat + push."""
+    if user["role"] != Role.service_provider.value:
+        raise HTTPException(status_code=403, detail="Only providers can send an ETA")
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking["provider_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not your booking")
+    if booking["status"] != BookingStatus.confirmed.value:
+        raise HTTPException(status_code=400, detail="ETA can only be sent for a confirmed booking")
+
+    now = datetime.now(timezone.utc)
+    arrival = now + timedelta(minutes=body.minutes)
+    updates = {
+        "eta_minutes": body.minutes,
+        "eta_sent_at": now.isoformat(),
+        "eta_arrival_at": arrival.isoformat(),
+    }
+    await db.bookings.update_one({"id": booking_id}, {"$set": updates})
+    booking.update(updates)
+
+    await _post_chat_message(
+        user,
+        booking.get("client_id") or "",
+        f"🚗 I'm on my way! I should arrive in about {body.minutes} minutes.",
+        now.isoformat(),
+    )
+    try:
+        await send_push(
+            recipients=[booking["client_id"]],
+            data={
+                "title": "Provider on the way",
+                "message": f"{user['full_name']} will arrive in about {body.minutes} minutes.",
+                "action_url": "/(client)/bookings",
+            },
+            idempotency_key=f"booking-eta:{booking_id}:{now.isoformat()}",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    return booking
+
+
 @router.patch("/bookings/{booking_id}/status")
 async def update_booking_status(
     booking_id: str,
@@ -172,6 +251,18 @@ async def update_booking_status(
                 raise HTTPException(status_code=400, detail="Booking must be confirmed first")
             new_status = BookingStatus.awaiting_confirmation.value
             updates["provider_marked_done_at"] = now_iso
+            # Job timer: if the provider checked in, bill the exact time worked.
+            arrived_at = booking.get("arrived_at")
+            if arrived_at:
+                started = datetime.fromisoformat(arrived_at.replace("Z", "+00:00"))
+                worked_minutes = max(1, ceil((datetime.now(timezone.utc) - started).total_seconds() / 60))
+                updates["worked_minutes"] = worked_minutes
+                if booking.get("rate_type") == "hourly":
+                    rate = user.get("hourly_rate")
+                    if rate:
+                        final_total = round(rate * worked_minutes / 60)
+                        updates["final_total_dzd"] = final_total
+                        updates["estimated_total"] = final_total
         elif new_status == BookingStatus.in_progress.value:
             # "I've arrived" check-in — only from a confirmed booking.
             if booking["status"] != BookingStatus.confirmed.value:
@@ -244,28 +335,11 @@ async def update_booking_status(
         import logging
         logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
 
-    # Arrival check-in: also drop an instant chat message in the client's thread
-    # (registered clients only — guests have no chat account).
+    # Arrival check-in: also drop an instant chat message in the client's thread.
     if new_status == BookingStatus.in_progress.value:
-        client_id = booking.get("client_id") or ""
-        if client_id and not client_id.startswith("guest:"):
-            try:
-                msg = {
-                    "id": str(uuid.uuid4()),
-                    "thread_id": thread_id(user["id"], client_id),
-                    "from_id": user["id"],
-                    "from_name": user["full_name"],
-                    "to_id": client_id,
-                    "text": "📍 I've arrived and I'm starting the job now.",
-                    "created_at": now_iso,
-                }
-                await db.messages.insert_one(msg)
-                msg.pop("_id", None)
-                await ws_manager.send_to(client_id, {"type": "message", "message": msg})
-                await ws_manager.send_to(user["id"], {"type": "message", "message": msg})
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("Arrival chat message failed: %s", e)
+        await _post_chat_message(
+            user, booking.get("client_id") or "", "📍 I've arrived and I'm starting the job now.", now_iso
+        )
 
     # If terminal state, recompute completion metrics + auto-flag if needed.
     if new_status in (BookingStatus.completed.value, BookingStatus.cancelled.value):

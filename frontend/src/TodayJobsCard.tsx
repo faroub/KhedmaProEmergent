@@ -4,6 +4,7 @@ import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { api } from "@/src/api";
+import { formatClock, useNow } from "@/src/hooks/useNow";
 
 const ETA_OPTIONS = [10, 20, 30, 45, 60];
 
@@ -11,6 +12,8 @@ type Job = {
   id: string;
   client_id?: string | null;
   arrived_at?: string | null;
+  eta_minutes?: number | null;
+  rate_type?: string | null;
   status: string;
   scheduled_date: string;
   client_name?: string | null;
@@ -53,11 +56,14 @@ const ACTIVE_STATUSES = new Set(["confirmed", "in_progress"]);
 export function TodayJobsCard({
   bookings,
   onStatusChanged,
+  hourlyRate,
 }: {
   bookings: Job[];
   onStatusChanged?: () => void;
+  hourlyRate?: number | null;
 }) {
   const { t, isRTL } = useT();
+  const now = useNow(1000);
   const [statusBusy, setStatusBusy] = useState<string | null>(null);
 
   const changeStatus = async (job: Job, status: "in_progress" | "completed") => {
@@ -80,13 +86,10 @@ export function TodayJobsCard({
     if (!job.client_id) return;
     setSendingFor(job.id);
     try {
-      const arrival = new Date(Date.now() + minutes * 60_000).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      await api.sendMessage(job.client_id, t("dash.onMyWayMsg", { minutes, time: arrival }));
+      await api.sendEta(job.id, minutes);
       setSentEta((prev) => ({ ...prev, [job.id]: minutes }));
       setEtaOpenFor(null);
+      onStatusChanged?.();
     } catch {}
     setSendingFor(null);
   };
@@ -151,11 +154,28 @@ export function TodayJobsCard({
           )}
 
           {job.status === "in_progress" ? (
-            <View style={[styles.arrivedRow, isRTL && styles.rtlRow]} testID={`today-job-inprogress-${job.id}`}>
-              <Ionicons name="location" size={16} color={theme.colors.brand} />
-              <Text style={[styles.arrivedText, isRTL && styles.rtlText]}>
-                {t("dash.arrivedDone", { time: job.arrived_at ? formatTime(job.arrived_at) : "—" })}
-              </Text>
+            <View style={styles.timerBox} testID={`today-job-inprogress-${job.id}`}>
+              <View style={[styles.arrivedRow, isRTL && styles.rtlRow]}>
+                <Ionicons name="location" size={16} color={theme.colors.brand} />
+                <Text style={[styles.arrivedText, isRTL && styles.rtlText]}>
+                  {t("dash.arrivedDone", { time: job.arrived_at ? formatTime(job.arrived_at) : "—" })}
+                </Text>
+              </View>
+              <View style={[styles.timerRow, isRTL && styles.rtlRow]}>
+                <View style={styles.timerDot} />
+                <Text style={styles.timerLabel}>{t("dash.workingFor")}</Text>
+                <Text style={styles.timerClock} testID={`today-job-timer-${job.id}`}>
+                  {formatClock(now - new Date(job.arrived_at || now).getTime())}
+                </Text>
+              </View>
+              {job.rate_type === "hourly" && !!hourlyRate && (
+                <Text style={[styles.timerHint, isRTL && styles.rtlText]}>
+                  {t("dash.soFar", {
+                    amount: Math.round((hourlyRate * Math.max(0, now - new Date(job.arrived_at || now).getTime())) / 3_600_000),
+                    rate: hourlyRate,
+                  })}
+                </Text>
+              )}
             </View>
           ) : (
             <Pressable
@@ -189,10 +209,10 @@ export function TodayJobsCard({
 
           {canChat(job) && job.status === "confirmed" && (
             <View style={styles.etaBlock}>
-              {sentEta[job.id] != null ? (
+              {(sentEta[job.id] ?? job.eta_minutes) != null ? (
                 <View style={[styles.sentRow, isRTL && styles.rtlRow]} testID={`today-job-onmyway-sent-${job.id}`}>
                   <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
-                  <Text style={styles.sentText}>{t("dash.onMyWaySent", { minutes: sentEta[job.id] })}</Text>
+                  <Text style={styles.sentText}>{t("dash.onMyWaySent", { minutes: sentEta[job.id] ?? job.eta_minutes })}</Text>
                   <Pressable onPress={() => setEtaOpenFor(job.id)} hitSlop={8} testID={`today-job-onmyway-edit-${job.id}`}>
                     <Text style={styles.sentEdit}>{t("dash.onMyWayUpdate")}</Text>
                   </Pressable>
@@ -322,6 +342,27 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.brandTertiary,
   },
   arrivedText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13, flex: 1 },
+  timerBox: { gap: theme.spacing.sm },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: theme.spacing.md,
+    height: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  timerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.success },
+  timerLabel: { color: theme.colors.onSurfaceSecondary, fontSize: 13, flex: 1 },
+  timerClock: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
+  timerHint: { color: theme.colors.onSurfaceSecondary, fontSize: 12 },
   doneBtn: {
     flexDirection: "row",
     alignItems: "center",

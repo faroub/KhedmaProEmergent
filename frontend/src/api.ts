@@ -91,6 +91,8 @@ export const api = {
   createBooking: (payload: any) =>
     request("/bookings", { method: "POST", body: JSON.stringify(payload) }),
   myBookings: () => request("/bookings/mine"),
+  sendEta: (id: string, minutes: number) =>
+    request(`/bookings/${id}/eta`, { method: "POST", body: JSON.stringify({ minutes }) }),
   updateBookingStatus: (id: string, status: string) =>
     request(`/bookings/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
 

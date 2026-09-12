@@ -20,7 +20,15 @@ export type LocalBooking = {
   estimated_hours?: number | null;
   estimated_total?: number | null;
   status: "pending" | "confirmed" | "in_progress" | "awaiting_confirmation" | "completed" | "cancelled";
+  // Live job fields (check-in / ETA / timer) — persisted as JSON in the
+  // SQLite `extra` column, see LIVE_FIELDS.
   arrived_at?: string | null;
+  eta_minutes?: number | null;
+  eta_sent_at?: string | null;
+  eta_arrival_at?: string | null;
+  provider_marked_done_at?: string | null;
+  worked_minutes?: number | null;
+  final_total_dzd?: number | null;
   booking_type?: "instant" | "quote";
   location_lat?: number | null;
   location_lng?: number | null;
@@ -33,6 +41,16 @@ export type LocalBooking = {
   local_notes?: string | null;
   cached_at?: string;
 };
+
+export const LIVE_FIELDS = [
+  "arrived_at",
+  "eta_minutes",
+  "eta_sent_at",
+  "eta_arrival_at",
+  "provider_marked_done_at",
+  "worked_minutes",
+  "final_total_dzd",
+] as const;
 
 export type LocalSchedule = {
   provider_id: string;

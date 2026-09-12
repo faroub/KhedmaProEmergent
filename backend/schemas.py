@@ -157,6 +157,11 @@ class BookingStatusUpdate(BaseModel):
     status: BookingStatus
 
 
+class BookingEtaIn(BaseModel):
+    """Provider "On my way" — minutes until arrival."""
+    minutes: int = Field(ge=1, le=240)
+
+
 class ReviewCreate(BaseModel):
     booking_id: Optional[str] = None
     provider_id: Optional[str] = None

@@ -7,7 +7,7 @@
 // so the same import continues to work on the web preview.
 
 import * as SQLite from "expo-sqlite";
-import type { LocalBooking, LocalSchedule } from "./schema";
+import { LIVE_FIELDS, type LocalBooking, type LocalSchedule } from "./schema";
 
 const DB_NAME = "khedmapro_offline_v1.db";
 
@@ -66,6 +66,11 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
           value TEXT
         );
       `);
+      // v2: JSON blob for live job fields (arrived_at, ETA, timer). Guarded —
+      // ALTER TABLE fails harmlessly when the column already exists.
+      try {
+        await db.execAsync("ALTER TABLE bookings ADD COLUMN extra TEXT;");
+      } catch {}
       return db;
     });
   }
@@ -101,9 +106,9 @@ export const bookingsStore = {
             scheduled_date, task_description, address, rate_type,
             estimated_hours, estimated_total, status, booking_type,
             location_lat, location_lng, wilaya_code, baladiya, reviewed,
-            created_at, local_notes, cached_at
+            created_at, local_notes, cached_at, extra
           )
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET
             provider_id = excluded.provider_id,
             provider_name = excluded.provider_name,
@@ -128,7 +133,8 @@ export const bookingsStore = {
             baladiya = excluded.baladiya,
             reviewed = excluded.reviewed,
             created_at = excluded.created_at,
-            cached_at = excluded.cached_at`,
+            cached_at = excluded.cached_at,
+            extra = excluded.extra`,
           b.id,
           userId,
           b.provider_id ?? null,
@@ -156,6 +162,7 @@ export const bookingsStore = {
           b.created_at ?? null,
           b.local_notes ?? null,
           cachedAt,
+          JSON.stringify(Object.fromEntries(LIVE_FIELDS.map((k) => [k, b[k] ?? null]))),
         );
       }
       await db.runAsync(
@@ -246,7 +253,12 @@ export const scheduleStore = {
 };
 
 function rowToBooking(row: any): LocalBooking {
+  let extra: Partial<LocalBooking> = {};
+  try {
+    extra = row.extra ? JSON.parse(row.extra) : {};
+  } catch {}
   return {
+    ...extra,
     id: row.id,
     provider_id: row.provider_id,
     provider_name: row.provider_name,

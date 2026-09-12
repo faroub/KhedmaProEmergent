@@ -65,7 +65,7 @@ export default function Dashboard() {
 
         <PhoneVerifyBanner />
 
-        <TodayJobsCard bookings={bookings} onStatusChanged={load} />
+        <TodayJobsCard bookings={bookings} onStatusChanged={load} hourlyRate={user?.hourly_rate} />
 
         {/* Subscription banner */}
         <View style={styles.subBanner} testID="subscription-banner">

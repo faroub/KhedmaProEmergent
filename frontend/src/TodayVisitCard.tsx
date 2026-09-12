@@ -7,6 +7,7 @@ import { theme } from "@/src/theme";
 import { useT } from "@/src/language";
 import { RevealPhoneButton } from "@/src/RevealPhoneButton";
 import type { LocalBooking } from "@/src/db/schema";
+import { formatClock, useNow } from "@/src/hooks/useNow";
 
 const isToday = (iso: string) => {
   const d = new Date(iso);
@@ -25,6 +26,16 @@ const formatTime = (iso: string) =>
 export function TodayVisitCard({ bookings }: { bookings: LocalBooking[] }) {
   const { t, isRTL } = useT();
   const router = useRouter();
+  const now = useNow(1000);
+
+  const etaLabel = (v: LocalBooking): string | null => {
+    if (v.status !== "confirmed" || !v.eta_arrival_at) return null;
+    const minsLeft = Math.ceil((new Date(v.eta_arrival_at).getTime() - now) / 60_000);
+    if (minsLeft > 0) return t("bookings.arrivingIn", { minutes: minsLeft });
+    // Grace window after the promised time — still "any moment".
+    if (minsLeft > -30) return t("bookings.arrivingNow");
+    return null;
+  };
 
   const visits = useMemo(
     () =>
@@ -77,10 +88,26 @@ export function TodayVisitCard({ bookings }: { bookings: LocalBooking[] }) {
             </View>
           </View>
 
+          {etaLabel(v) && (
+            <View style={[styles.eta, isRTL && styles.rtlRow]} testID={`today-visit-eta-${v.id}`}>
+              <Ionicons name="car" size={15} color={theme.colors.onBrandPrimary} />
+              <Text style={[styles.etaText, isRTL && styles.rtlText]}>{etaLabel(v)}</Text>
+            </View>
+          )}
+
           {v.status === "in_progress" && (
-            <View style={[styles.inProgress, isRTL && styles.rtlRow]} testID={`today-visit-inprogress-${v.id}`}>
-              <Ionicons name="location" size={15} color={theme.colors.brand} />
-              <Text style={[styles.inProgressText, isRTL && styles.rtlText]}>{t("bookings.providerArrived")}</Text>
+            <View style={styles.inProgressBox} testID={`today-visit-inprogress-${v.id}`}>
+              <View style={[styles.inProgress, isRTL && styles.rtlRow]}>
+                <Ionicons name="location" size={15} color={theme.colors.brand} />
+                <Text style={[styles.inProgressText, isRTL && styles.rtlText]}>{t("bookings.providerArrived")}</Text>
+              </View>
+              <View style={[styles.timerRow, isRTL && styles.rtlRow]}>
+                <View style={styles.timerDot} />
+                <Text style={styles.timerLabel}>{t("bookings.workingFor")}</Text>
+                <Text style={styles.timerClock} testID={`today-visit-timer-${v.id}`}>
+                  {formatClock(now - new Date(v.arrived_at || now).getTime())}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -169,6 +196,31 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.brandTertiary,
   },
   inProgressText: { color: theme.colors.brand, fontWeight: "700", fontSize: 13, flex: 1 },
+  inProgressBox: { gap: theme.spacing.sm },
+  eta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: theme.spacing.md,
+    minHeight: 40,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.success,
+  },
+  etaText: { color: theme.colors.onBrandPrimary, fontWeight: "800", fontSize: 14, flex: 1 },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: theme.spacing.md,
+    height: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  timerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.success },
+  timerLabel: { color: theme.colors.onSurfaceSecondary, fontSize: 13, flex: 1 },
+  timerClock: { color: theme.colors.onSurface, fontSize: 20, fontWeight: "800", fontVariant: ["tabular-nums"] },
   actions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
   chatBtn: {
     flex: 1,

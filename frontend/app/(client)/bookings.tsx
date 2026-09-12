@@ -23,6 +23,7 @@ import { bookingsStore } from "@/src/db/localDb";
 import { RevealPhoneButton } from "@/src/RevealPhoneButton";
 import { PhoneVerifyBanner } from "@/src/PhoneVerifyBanner";
 import { TodayVisitCard } from "@/src/TodayVisitCard";
+import { formatMinutes } from "@/src/hooks/useNow";
 import type { LocalBooking } from "@/src/db/schema";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -90,7 +91,15 @@ export default function Bookings() {
     setRefreshing(false);
   }, [user]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Reload on focus, then poll every 60 s while the tab stays open so the
+  // client sees the provider's ETA / arrival without pulling to refresh.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      const id = setInterval(load, 60_000);
+      return () => clearInterval(id);
+    }, [load])
+  );
 
   const filtered =
     tab === "all"
@@ -243,8 +252,18 @@ export default function Bookings() {
                   </View>
                 );
               })()}
+              {item.worked_minutes ? (
+                <View style={styles.workedRow} testID={`worked-${item.id}`}>
+                  <Ionicons name="stopwatch-outline" size={14} color={theme.colors.onSurfaceSecondary} />
+                  <Text style={styles.workedText}>
+                    {t("bookings.workedFor", { duration: formatMinutes(item.worked_minutes) })}
+                  </Text>
+                </View>
+              ) : null}
               {item.estimated_total ? (
-                <Text style={styles.cardTotal}>≈ {item.estimated_total} DZD</Text>
+                <Text style={styles.cardTotal}>
+                  {item.final_total_dzd ? "" : "≈ "}{item.estimated_total} DZD
+                </Text>
               ) : null}
 
               {/* Provider-only offline note */}
@@ -431,6 +450,8 @@ const styles = StyleSheet.create({
   cardMeta: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   cardMetaText: { color: theme.colors.muted, fontSize: 12, flex: 1 },
   cardTotal: { color: theme.colors.brand, fontSize: 14, fontWeight: "700" },
+  workedRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  workedText: { color: theme.colors.onSurfaceSecondary, fontSize: 12 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: theme.radius.pill, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
   actions: { flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xs, flexWrap: "wrap" },
