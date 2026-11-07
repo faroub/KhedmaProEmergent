@@ -5,7 +5,7 @@ This file used to be a 1650-line monolith. It's now a thin composition root:
 - Registers the WebSocket chat handler on the app directly (WS routes cannot
   live inside a mounted APIRouter with a prefix).
 - Adds CORS.
-- Runs startup/shutdown hooks (indexes, one-shot migration, admin seed).
+- Runs startup/shutdown hooks (indexes, one-shot migration).
 
 Feature code has moved to focused modules:
 - `config.py`         — env vars + business constants
@@ -21,7 +21,6 @@ Feature code has moved to focused modules:
 """
 import logging
 import os
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
@@ -32,7 +31,7 @@ from database import client, db
 from routes import build_api_router
 from routes.messages import ws_chat
 from schemas import Role
-from security import hash_password
+from security import verify_password
 from wilaya_geo import approx_coords_for
 
 from config import CORS_ORIGINS
@@ -97,7 +96,7 @@ async def _validate_startup_config() -> None:
 
 @app.on_event("startup")
 async def on_startup():
-    """Validate startup config, create indexes, migrate data, seed admin."""
+    """Validate startup config, create indexes, migrate data."""
     await _validate_startup_config()
     await db.users.create_index("email", unique=True)
     await db.users.create_index("role")
@@ -202,31 +201,18 @@ async def on_startup():
     except Exception as e:
         logger.warning("Category migration skipped: %s", e)
 
-    # Seed a default admin account if none exists — powers manual verification review.
-    admin = await db.users.find_one({"is_admin": True})
-    if not admin:
-        admin_email = "admin@khedmapro.dz"
-        existing = await db.users.find_one({"email": admin_email})
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if existing:
-            await db.users.update_one({"id": existing["id"]}, {"$set": {"is_admin": True}})
-        else:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": admin_email,
-                "phone": None,
-                "password_hash": hash_password("admin123"),
-                "full_name": "khedmaPro Admin",
-                "role": Role.client.value,  # placeholder role; is_admin gates admin endpoints
-                "city": "Alger",
-                "is_admin": True,
-                "rating": 0.0,
-                "reviews_count": 0,
-                "created_at": now_iso,
-                "profile_complete": True,
-                "auth_methods": ["password"],
-            })
-            logger.info("Seeded default admin account (email=%s)", admin_email)
+    # Warn (never block) if an admin account still uses the historical default
+    # password "admin123" from the removed startup seed. Operators should
+    # rotate it: scripts/create_admin.py sets a new password.
+    async for admin in db.users.find(
+        {"is_admin": True}, {"_id": 0, "email": 1, "password_hash": 1}
+    ):
+        if admin.get("password_hash") and verify_password("admin123", admin["password_hash"]):
+            logger.warning(
+                "Admin account %s uses the default password 'admin123' — "
+                "rotate it with scripts/create_admin.py immediately.",
+                admin.get("email"),
+            )
 
 
 @app.on_event("shutdown")

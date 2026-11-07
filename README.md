@@ -256,9 +256,26 @@ Default accounts (after seed):
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | `admin@khedmapro.dz` | `admin123` |
 | Provider | `provider1@khedmapro.dz` | `password123` |
 | OTP mock code | any phone number | `910428` |
+
+The seed does **not** create an admin. Admins are provisioned explicitly (see below).
+
+### Admin accounts
+
+Startup never creates or promotes accounts. Create the first admin (or reset an existing one) from the backend directory:
+
+```bash
+ADMIN_EMAIL=ops@khedmapro.dz ADMIN_PASSWORD='a-strong-password' python scripts/create_admin.py
+```
+
+Omit the env vars to be prompted interactively (the password is read with `getpass`, so it never appears in shell history). The password must be at least 12 characters. Running the script with an existing user's email promotes that user to admin and resets its password.
+
+At startup the backend logs a warning if any admin account still uses the historical default password `admin123`. If you are rotating away from that credential:
+
+1. Change the admin password (`python scripts/create_admin.py`).
+2. Rotate `JWT_SECRET` as well — changing the password does not invalidate already-issued tokens, while a new secret logs everyone out.
+3. If the account was ever reachable from the internet, treat it as compromised: review the audit logs before trusting the deployment.
 
 ---
 
@@ -348,7 +365,7 @@ Never commit real secrets. `.env` is in `.gitignore`.
 | **OTP code not accepted** | In local dev the code is always `910428`. Check backend stdout for the real code if seed changed it. |
 | **Push notifications don't fire** | Expected — they only work in production builds after `Publish → Generate build`. |
 | **Chargily payments look fake** | You didn't set `CHARGILY_SECRET_KEY`. Mock mode is intentional for local dev. |
-| **`admin@khedmapro.dz` not present** | Restart the backend once — it auto-seeds on first launch. |
+| **`admin@khedmapro.dz` not present** | It is no longer auto-seeded — create one with `python scripts/create_admin.py` (see "Admin accounts" above). |
 
 ---
 

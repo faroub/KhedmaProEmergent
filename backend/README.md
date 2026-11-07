@@ -59,7 +59,9 @@ payment-receipt assertions skip only when `CHARGILY_SECRET_KEY` is set.
 curl -X POST http://localhost:8001/api/seed
 ```
 
-Default admin: `admin@khedmapro.dz` / `admin123`.
+This only seeds sample providers — it does **not** create an admin account.
+Admins are provisioned explicitly with `python scripts/create_admin.py`
+(minimum 12-character password, or the script exits with an error).
 
 In production (`ALLOW_DEV_SEED=false`, set by `docker-compose.prod.yml`), the
 seed endpoint requires an admin token instead:
