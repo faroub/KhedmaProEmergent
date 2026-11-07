@@ -19,7 +19,13 @@ async def current_user(token: Annotated[Optional[str], Depends(oauth2_scheme)]) 
     try:
         payload = decode_token(token)
         user_id = payload["sub"]
+        if payload.get("purpose") is not None:
+            # Tokens minted for a specific purpose (e.g. phone verification) are
+            # not session tokens — reject instead of confusing the caller.
+            raise jwt.InvalidTokenError("Wrong token purpose")
     except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except (KeyError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
@@ -36,7 +42,11 @@ async def optional_current_user(token: Annotated[Optional[str], Depends(oauth2_s
     try:
         payload = decode_token(token)
         user_id = payload["sub"]
+        if payload.get("purpose") is not None:
+            raise jwt.InvalidTokenError("Wrong token purpose")
     except jwt.InvalidTokenError:
+        return None
+    except (KeyError, TypeError):
         return None
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:

@@ -33,6 +33,9 @@ from routes import build_api_router
 from routes.messages import ws_chat
 from schemas import Role
 from security import hash_password
+from wilaya_geo import approx_coords_for
+
+from config import CORS_ORIGINS
 
 
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +64,7 @@ app.add_api_websocket_route("/api/ws/chat", ws_chat)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -133,10 +136,10 @@ async def on_startup():
     # One-shot: backfill approximate location coordinates for existing providers
     # from their wilaya's centroid (nudged with a tiny per-provider offset so
     # they don't all collapse onto a single map pin). Runs only for providers
-    # who don't yet have `location_lat`/`location_lng` set.
+    # who don't yet have `location_lat`/`location_lng` set. Providers created
+    # after startup get the same treatment from `routes/users.py`.
     try:
-        from wilaya_geo import WILAYA_CENTROIDS
-        import hashlib
+        from wilaya_geo import approx_coords_for
 
         missing = db.users.find(
             {
@@ -147,18 +150,14 @@ async def on_startup():
             {"_id": 0, "id": 1, "wilaya_code": 1},
         )
         async for doc in missing:
-            centroid = WILAYA_CENTROIDS.get(doc.get("wilaya_code") or "")
-            if not centroid:
+            coords = approx_coords_for(doc["id"], doc.get("wilaya_code"))
+            if not coords:
                 continue
-            # Deterministic ~±0.01° (~1 km) offset from the wilaya centroid.
-            h = int(hashlib.sha1(doc["id"].encode()).hexdigest(), 16)
-            lat_off = ((h % 200) - 100) / 10000.0
-            lng_off = (((h // 200) % 200) - 100) / 10000.0
             await db.users.update_one(
                 {"id": doc["id"]},
                 {"$set": {
-                    "location_lat": centroid[0] + lat_off,
-                    "location_lng": centroid[1] + lng_off,
+                    "location_lat": coords[0],
+                    "location_lng": coords[1],
                     "location_source": "wilaya_centroid",
                 }},
             )

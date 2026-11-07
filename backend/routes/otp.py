@@ -6,6 +6,7 @@ from typing import Annotated
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
+from pymongo import ReturnDocument
 
 from database import db
 from deps import current_user
@@ -20,6 +21,23 @@ from security import hash_password, make_token, make_phone_verification_token
 from subscription import enforce_lifecycle, serialize_user
 
 router = APIRouter(tags=["otp"])
+
+# Wrong-code attempts allowed per challenge before the challenge is burned.
+# bcrypt makes each guess expensive, but capping avoids unbounded retry within
+# the 5-minute validity window.
+MAX_OTP_ATTEMPTS = 5
+
+
+async def _fail_challenge(phone_e164: str) -> None:
+    """Record one wrong code; burn the challenge once the attempt cap is hit."""
+    updated = await db.otp_challenges.find_one_and_update(
+        {"phone_e164": phone_e164},
+        {"$inc": {"attempts": 1}},
+        projection={"attempts": 1, "_id": 0},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated and (updated.get("attempts") or 0) >= MAX_OTP_ATTEMPTS:
+        await db.otp_challenges.delete_one({"phone_e164": phone_e164})
 
 
 @router.post("/auth/otp/request")
@@ -97,7 +115,10 @@ async def verify_otp(body: OtpVerifyIn):
         expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
     if not expires_at or expires_at <= now:
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    if (challenge.get("attempts") or 0) >= MAX_OTP_ATTEMPTS:
+        raise HTTPException(status_code=401, detail="Too many wrong attempts — please request a new code")
     if not bcrypt.checkpw(body.code.encode(), challenge["code_hash"].encode()):
+        await _fail_challenge(phone)
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
 
     # Single-use race protection
@@ -187,7 +208,10 @@ async def verify_my_phone(
         expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
     if not expires_at or expires_at <= now:
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    if (challenge.get("attempts") or 0) >= MAX_OTP_ATTEMPTS:
+        raise HTTPException(status_code=401, detail="Too many wrong attempts — please request a new code")
     if not bcrypt.checkpw(body.code.encode(), challenge["code_hash"].encode()):
+        await _fail_challenge(phone)
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
 
     # Single-use.
@@ -228,7 +252,10 @@ async def verify_otp_for_registration(body: OtpVerifyForRegistrationIn):
         expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
     if not expires_at or expires_at <= now:
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
+    if (challenge.get("attempts") or 0) >= MAX_OTP_ATTEMPTS:
+        raise HTTPException(status_code=401, detail="Too many wrong attempts — please request a new code")
     if not bcrypt.checkpw(body.code.encode(), challenge["code_hash"].encode()):
+        await _fail_challenge(phone)
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
 
     # If the number already belongs to an account, block registration here so

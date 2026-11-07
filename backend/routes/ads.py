@@ -22,17 +22,39 @@ Stored doc:
   updated_at: iso,
 }
 """
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import db
 from deps import current_user, require_admin
 
 router = APIRouter(tags=["ads"])
+
+# The impression/click counters are unauthenticated fire-and-forget calls, so
+# a trivial bot could inflate them. Soft per-IP cap (in-memory — each gunicorn
+# worker counts separately, which is fine for an approximate metric).
+_RATE_LIMIT = 30   # hits per IP …
+_RATE_WINDOW = 60  # … per 60 seconds
+_ip_hits: dict[str, deque] = {}
+
+
+def _rate_limited(request: Request) -> bool:
+    ip = request.client.host if request.client else None
+    if not ip:
+        return False
+    now = time.monotonic()
+    hits = [h for h in _ip_hits.get(ip, ()) if now - h <= _RATE_WINDOW]
+    if len(hits) >= _RATE_LIMIT:
+        _ip_hits[ip] = hits
+        return True
+    hits.append(now)
+    _ip_hits[ip] = hits
+    return False
 
 
 # ---------- Schemas ----------
@@ -87,15 +109,19 @@ async def public_list_ads():
 
 
 @router.post("/ads/{ad_id}/impression", status_code=204)
-async def ad_impression(ad_id: str):
-    """Fire-and-forget impression counter — no auth required."""
+async def ad_impression(ad_id: str, request: Request):
+    """Fire-and-forget impression counter — no auth required (soft rate-limited per IP)."""
+    if _rate_limited(request):
+        raise HTTPException(status_code=429, detail="Too many requests")
     await db.ads.update_one({"id": ad_id}, {"$inc": {"impressions": 1}})
     return None
 
 
 @router.post("/ads/{ad_id}/click", status_code=204)
-async def ad_click(ad_id: str):
-    """Fire-and-forget click counter — no auth required."""
+async def ad_click(ad_id: str, request: Request):
+    """Fire-and-forget click counter — no auth required (soft rate-limited per IP)."""
+    if _rate_limited(request):
+        raise HTTPException(status_code=429, detail="Too many requests")
     await db.ads.update_one({"id": ad_id}, {"$inc": {"clicks": 1}})
     return None
 

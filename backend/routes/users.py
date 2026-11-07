@@ -9,6 +9,7 @@ from database import db
 from deps import current_user, require_role
 from schemas import PortfolioUpdateIn, ProfileCompleteIn, Role
 from subscription import serialize_user
+from wilaya_geo import approx_coords_for
 
 router = APIRouter(tags=["users"])
 
@@ -41,6 +42,16 @@ async def complete_profile(
             update["hourly_rate"] = body.hourly_rate
         if body.task_rate is not None:
             update["task_rate"] = body.task_rate
+    # If the caller pinned an exact service area we keep their coordinates.
+    # Otherwise derive approximate ones from their wilaya so radius search
+    # finds them right away (previously this only happened on server restart).
+    if "location_lat" not in update:
+        wilaya = body.wilaya_code or user.get("wilaya_code")
+        coords = approx_coords_for(user["id"], wilaya)
+        if coords:
+            update["location_lat"] = coords[0]
+            update["location_lng"] = coords[1]
+            update["location_source"] = "wilaya_centroid"
     await db.users.update_one({"id": user["id"]}, {"$set": update})
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return serialize_user(updated)

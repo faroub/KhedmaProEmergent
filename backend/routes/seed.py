@@ -1,12 +1,26 @@
-"""Dev-only seed endpoint — populates providers and fake reviews."""
+"""Dev-only seed endpoint — populates providers and fake reviews.
+
+Two access modes:
+- `ALLOW_DEV_SEED=true` (default in local dev): anyone may call it, and the
+  seeded providers get the well-known `password123` (matching the README).
+- Otherwise (production): requires an admin token; seeded providers get
+  random passwords that are returned once in the response so the operator
+  can hand them out. This keeps the endpoint useful for staging fresh data
+  without leaving a predictable backdoor on a live deployment.
+"""
+import secrets
 import uuid
 from datetime import datetime, timezone
+from typing import Annotated, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
+from config import ALLOW_DEV_SEED
 from database import db
+from deps import current_user, optional_current_user, require_admin
 from schemas import Role
 from security import hash_password
+from wilaya_geo import approx_coords_for
 
 router = APIRouter(tags=["seed"])
 
@@ -45,30 +59,46 @@ FAKE_CLIENT_NAMES = [
 
 
 @router.post("/seed")
-async def seed_data():
+async def seed_data(admin: Annotated[Optional[dict], Depends(optional_current_user)] = None):
+    # Production gate: without the dev flag only an admin may seed data.
+    if not ALLOW_DEV_SEED:
+        if admin is None:
+            raise HTTPException(status_code=401, detail="Seeding is disabled — admin access required")
+        require_admin(admin)
+    dev_passwords = ALLOW_DEV_SEED  # dev mode keeps the documented password123
+
     existing = await db.users.count_documents({"role": Role.service_provider.value})
     reviews_count = await db.reviews.count_documents({})
     if existing > 0 and reviews_count > 0:
         return {"message": "Already seeded", "providers": existing, "reviews": reviews_count}
 
+    credentials = []
     for i, p in enumerate(SEED_PROVIDERS):
         if await db.users.find_one({"email": f"provider{i+1}@khedmapro.dz"}):
             continue
+        password = "password123" if dev_passwords else secrets.token_urlsafe(12)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        coords = approx_coords_for(f"seed-{i}", p["wilaya_code"])
         doc = {
             "id": str(uuid.uuid4()),
             "email": f"provider{i+1}@khedmapro.dz",
-            "password_hash": hash_password("password123"),
+            "password_hash": hash_password(password),
             "role": Role.service_provider.value,
             "phone": f"+21355500{i+1:04d}",
             "phone_verified": True,  # seeded providers are pre-verified
-            "phone_verified_at": datetime.now(timezone.utc).isoformat(),
+            "phone_verified_at": now_iso,
             "rating": round(3.8 + (i % 5) * 0.25, 2),
             "reviews_count": 5 + i * 2,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": now_iso,
             "last_paid_at": None,
             **p,
         }
+        if coords:
+            doc["location_lat"], doc["location_lng"] = coords
+            doc["location_source"] = "wilaya_centroid"
         await db.users.insert_one(doc)
+        if not dev_passwords:
+            credentials.append({"email": doc["email"], "password": password})
 
     provider_docs = await db.users.find({"role": Role.service_provider.value}, {"_id": 0}).to_list(500)
     for pdoc in provider_docs:
@@ -94,4 +124,4 @@ async def seed_data():
             {"$set": {"rating": round(avg, 2), "reviews_count": len(ratings)}},
         )
 
-    return {"message": "Seeded", "providers": len(SEED_PROVIDERS)}
+    return {"message": "Seeded", "providers": len(SEED_PROVIDERS), "credentials": credentials}

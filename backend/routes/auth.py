@@ -1,6 +1,6 @@
 """Auth: register, login, me."""
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
@@ -21,6 +21,47 @@ from subscription import enforce_lifecycle, serialize_user
 
 
 router = APIRouter(tags=["auth"])
+
+# Login brute-force guard. Same pattern as the OTP rate limiter: a persistent
+# counter per email, reset on any successful login. 5 failures per 15 minutes
+# → 429. DB-backed (not in-memory) so it holds across all gunicorn workers.
+LOGIN_MAX_FAILURES = 5
+LOGIN_WINDOW = timedelta(minutes=15)
+
+
+async def _check_login_rate_limit(email: str) -> None:
+    row = await db.login_attempts.find_one({"_id": email})
+    if not row:
+        return
+    window_start = row.get("window_started_at")
+    if isinstance(window_start, str):
+        window_start = datetime.fromisoformat(window_start.replace("Z", "+00:00"))
+    if window_start and window_start > datetime.now(timezone.utc) - LOGIN_WINDOW:
+        if row.get("failures", 0) >= LOGIN_MAX_FAILURES:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed login attempts — please try again in a few minutes",
+            )
+
+
+async def _record_login_failure(email: str) -> None:
+    now = datetime.now(timezone.utc)
+    row = await db.login_attempts.find_one({"_id": email}, {"_id": 0, "window_started_at": 1})
+    window_start = row.get("window_started_at") if row else None
+    if isinstance(window_start, str):
+        window_start = datetime.fromisoformat(window_start.replace("Z", "+00:00"))
+    if window_start and window_start > now - LOGIN_WINDOW:
+        await db.login_attempts.update_one({"_id": email}, {"$inc": {"failures": 1}})
+    else:
+        await db.login_attempts.update_one(
+            {"_id": email},
+            {"$set": {"window_started_at": now.isoformat(), "failures": 1}},
+            upsert=True,
+        )
+
+
+async def _reset_login_failures(email: str) -> None:
+    await db.login_attempts.delete_one({"_id": email})
 
 _VALID_WILAYA_CODES = {w["code"] for w in WILAYAS}
 
@@ -116,9 +157,13 @@ async def register(body: RegisterIn):
 
 @router.post("/auth/login", response_model=TokenOut)
 async def login(body: LoginIn):
-    user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    email = body.email.lower()
+    await _check_login_rate_limit(email)
+    user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):
+        await _record_login_failure(email)
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    await _reset_login_failures(email)
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
         raise HTTPException(status_code=410, detail="This account has been deleted")

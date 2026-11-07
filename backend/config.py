@@ -32,6 +32,21 @@ API_PUBLIC_URL = os.environ.get("API_PUBLIC_URL", "http://localhost:8001").rstri
 APP_RETURN_URL = os.environ.get("APP_RETURN_URL", "khedmapro://payment-return")
 ALLOW_MOCK_PAYMENTS = os.environ.get("ALLOW_MOCK_PAYMENTS", "true").lower() == "true"
 
+# CORS: comma-separated list of browser origins allowed to call the API with
+# credentials. The marketing site is served by this backend (same origin), so
+# the defaults only cover the Expo web preview.("*" + credentials is invalid
+# per the CORS spec — enumerate explicitly.)
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:8081,http://localhost:8001").split(",")
+    if o.strip()
+]
+
+# Dev-only helpers. /api/seed is unauthenticated + writes test data with known
+# passwords, so it must stay off in production (admins can still seed there —
+# the endpoint falls back to requiring an admin token when this is false).
+ALLOW_DEV_SEED = os.environ.get("ALLOW_DEV_SEED", "true").lower() == "true"
+
 # Flagging thresholds
 FLAG_CONSECUTIVE_NO_COMPLETE = 3
 FLAG_CONFIRMED_WINDOW_DAYS = 14

@@ -31,6 +31,11 @@ services:
       WEB_CONCURRENCY: "4"
       GUNICORN_TIMEOUT: "60"
       GUNICORN_KEEPALIVE: "5"
+      # Production hardening: the dev seed endpoint (known test passwords,
+      # unauthenticated writes) falls back to admin-only access. NOTE: real-time
+      # chat fan-out is in-memory per worker — set WEB_CONCURRENCY to 1 until a
+      # Redis pub/sub layer is added, or chats can miss messages across workers.
+      ALLOW_DEV_SEED: "false"
     # Read-only rootfs + writable /tmp for defense-in-depth.
     read_only: true
     tmpfs:

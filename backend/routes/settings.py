@@ -349,6 +349,13 @@ async def admin_update_settings(
         {"$set": {"id": "global", **updates}},
         upsert=True,
     )
+    # Trial-length changes must affect subscription math immediately.
+    try:
+        from subscription import invalidate_trial_days_cache
+
+        invalidate_trial_days_cache()
+    except Exception:
+        pass
     # Best-effort audit trail (never blocks response).
     try:
         await db.platform_settings_audit.insert_one({

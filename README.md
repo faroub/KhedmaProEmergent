@@ -136,7 +136,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 **What the prod image gives you:**
 | Feature | How |
 |---------|-----|
-| Small final image | Multi-stage: builder → runtime. No `gcc`, no `.venv`, no build tooling in the shipped layer. |
+| Small final image | Multi-stage: builder → runtime. No `gcc`, no `.venv`, no build tooling in the shipped layer. Runtime deps are the trimmed subset in `backend/requirements.prod.txt`. |
 | Non-root | Runs as UID 10001 (user `app`). |
 | No wheel building at runtime | Wheels built in stage 1, installed offline (`--no-index --find-links`) in stage 2. |
 | Fast fail-over | `gunicorn` master + N uvicorn workers (`WEB_CONCURRENCY=4` by default). Set higher for beefier hosts. |
@@ -324,6 +324,8 @@ Use the in-repo screenshot script or Playwright:
 | `JWT_EXPIRE_MINUTES` | ❌ | Default `1440` (24h) |
 | `EMERGENT_PUSH_KEY` | ❌ | Managed push relay key — leave as `placeholder` locally; auto-filled at deploy |
 | `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset for mock-mode payments |
+| `ALLOW_DEV_SEED` | ❌ | Default `true` (local dev). In production (`docker-compose.prod.yml` sets it to `false`), `POST /api/seed` requires an admin token and seeds random passwords instead of the known dev ones |
+| `CORS_ORIGINS` | ❌ | Comma-separated browser origins allowed to call the API with credentials. Default covers the Expo web preview (`http://localhost:8081,http://localhost:8001`) |
 
 **`frontend/.env`**
 

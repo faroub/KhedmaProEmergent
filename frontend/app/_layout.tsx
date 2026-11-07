@@ -4,15 +4,32 @@ import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
-import { LogBox, Platform, StatusBar } from "react-native";
+import { Platform, StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AuthProvider } from "@/src/auth";
 import { LanguageProvider } from "@/src/language";
 
-LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
+
+// Push notification taps deep-link into the app. Only these route prefixes
+// are accepted — anything else (e.g. an unexpected URL from a crafted push)
+// is ignored rather than pushed onto the router.
+const DEEPLINK_PREFIXES = [
+  "/(client)",
+  "/(provider)",
+  "/(auth)",
+  "/admin",
+  "/booking",
+  "/chat",
+  "/provider/",
+  "/review",
+];
+
+function isAllowedDeeplink(url: string): boolean {
+  return DEEPLINK_PREFIXES.some((p) => url.startsWith(p));
+}
 
 // --- Push notifications (module scope; runs before any component) ---
 if (Platform.OS !== "web") {
@@ -54,7 +71,7 @@ export default function RootLayout() {
       if (!url) return;
       if (url.startsWith("http")) {
         Linking.openURL(url).catch(() => {});
-      } else {
+      } else if (isAllowedDeeplink(url)) {
         try {
           router.push(url as any);
         } catch {}

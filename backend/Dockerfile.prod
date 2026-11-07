@@ -21,9 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /wheels
 
-# Only requirements.txt is copied — max layer caching until deps change.
-COPY requirements.txt ./
-RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+# Only the production subset is copied — max layer caching until deps change.
+# requirements.prod.txt is the trimmed runtime set (no dev/ML/platform tooling).
+COPY requirements.prod.txt ./
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.prod.txt
 
 # =========================================================================
 # STAGE 2 — runtime: distroless-ish. No compilers. Non-root. Wheels only.
@@ -42,8 +43,8 @@ WORKDIR /app
 
 # Bring wheels in, install offline (no network, no compilers), then delete.
 COPY --from=builder /wheels /wheels
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+COPY requirements.prod.txt ./
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.prod.txt \
     && rm -rf /wheels
 
 # Copy source. Owned by the non-root `app` user.

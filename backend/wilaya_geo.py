@@ -3,6 +3,8 @@
 Not gazetteer-precise — these are administrative center points suitable for
 falling back when a provider hasn't pinned their exact service area yet.
 """
+import hashlib
+
 
 WILAYA_CENTROIDS: dict[str, tuple[float, float]] = {
     "01": (27.8742, -0.2891),   # Adrar
@@ -64,3 +66,22 @@ WILAYA_CENTROIDS: dict[str, tuple[float, float]] = {
     "57": (33.9500, 5.9200),    # El M'Ghair
     "58": (30.5770, 2.8790),    # El Meniaa
 }
+
+
+def approx_coords_for(seed_key: str, wilaya_code: str | None) -> tuple[float, float] | None:
+    """Wilaya centroid nudged with a deterministic ~±0.01° (~1 km) offset so
+    providers from the same wilaya don't all collapse onto one map pin.
+
+    `seed_key` should be the provider's user id — the same input always yields
+    the same offset, so coordinates are stable across restarts. Returns None
+    when the wilaya has no known centroid.
+    """
+    if not wilaya_code:
+        return None
+    centroid = WILAYA_CENTROIDS.get(wilaya_code)
+    if not centroid:
+        return None
+    h = int(hashlib.sha1((seed_key or "").encode()).hexdigest(), 16)
+    lat_off = ((h % 200) - 100) / 10000.0
+    lng_off = (((h // 200) % 200) - 100) / 10000.0
+    return (centroid[0] + lat_off, centroid[1] + lng_off)

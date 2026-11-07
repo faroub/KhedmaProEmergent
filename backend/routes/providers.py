@@ -1,5 +1,6 @@
 """Provider listing + detail + provider reviews list."""
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -79,11 +80,15 @@ async def list_providers(
     if wilaya:
         query["$and"].append({"$or": [{"wilaya_code": wilaya}, {"cross_wilaya": True}]})
     if search:
+        # re.escape: search input is a literal string, never a regex —
+        # unescaped input made "." a wildcard and allowed catastrophic
+        # patterns to burn database CPU.
+        esc = re.escape(search)
         query["$and"].append({"$or": [
-            {"full_name": {"$regex": search, "$options": "i"}},
-            {"bio": {"$regex": search, "$options": "i"}},
-            {"city": {"$regex": search, "$options": "i"}},
-            {"baladiya": {"$regex": search, "$options": "i"}},
+            {"full_name": {"$regex": esc, "$options": "i"}},
+            {"bio": {"$regex": esc, "$options": "i"}},
+            {"city": {"$regex": esc, "$options": "i"}},
+            {"baladiya": {"$regex": esc, "$options": "i"}},
         ]})
 
     radius_mode = lat is not None and lng is not None and radius_km is not None
@@ -93,7 +98,10 @@ async def list_providers(
 
     docs = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
 
-    result = []
+    result: list[dict] = []
+    # Parallel flags: search_penalty is honored when sorting but is no longer
+    # included in public responses (internal moderation state).
+    penalties: list[bool] = []
     for d in docs:
         d = await enforce_lifecycle(d)
         if d.get("is_deleted"):
@@ -121,53 +129,55 @@ async def list_providers(
                 continue
             s["distance_km"] = round(dist, 2)
         result.append(s)
+        penalties.append(bool(d.get("search_penalty")))
 
-    # Sort: flagged providers (search_penalty > 0) always go last, THEN honor the
-    # user's explicit `sort` if given, otherwise fall back to legacy behavior
-    # (distance ASC in radius mode, weighted-rating DESC everywhere else).
+    # Sort: flagged providers always go last, THEN honor the user's explicit
+    # `sort` if given, otherwise fall back to legacy behavior (distance ASC in
+    # radius mode, weighted-rating DESC everywhere else).
     def _score(x: dict) -> float:
         """Bayesian-weighted rating + tiny recency bonus. Higher is better."""
         return float(x.get("weighted_rating") or 0.0) + _recency_bonus(x.get("last_activity_at"))
 
+    ranked = list(zip(penalties, result))
     effective_sort = sort or "auto"
     if effective_sort == "auto":
         if radius_mode:
-            result.sort(key=lambda x: (bool(x.get("search_penalty")), x.get("distance_km", 1e9)))
+            ranked.sort(key=lambda t: (t[0], t[1].get("distance_km", 1e9)))
         else:
-            result.sort(key=lambda x: (bool(x.get("search_penalty")), -_score(x)))
+            ranked.sort(key=lambda t: (t[0], -_score(t[1])))
     elif effective_sort == "rating":
-        result.sort(
-            key=lambda x: (
-                bool(x.get("search_penalty")),
-                -_score(x),
-                -x.get("reviews_count", 0),
+        ranked.sort(
+            key=lambda t: (
+                t[0],
+                -_score(t[1]),
+                -t[1].get("reviews_count", 0),
             )
         )
     elif effective_sort == "distance":
         # Providers without distance sink to the bottom (dist ~inf).
-        result.sort(
-            key=lambda x: (
-                bool(x.get("search_penalty")),
-                x.get("distance_km") if x.get("distance_km") is not None else 1e9,
+        ranked.sort(
+            key=lambda t: (
+                t[0],
+                t[1].get("distance_km") if t[1].get("distance_km") is not None else 1e9,
             )
         )
     elif effective_sort == "price_asc":
-        result.sort(
-            key=lambda x: (
-                bool(x.get("search_penalty")),
-                x.get("hourly_rate") if x.get("hourly_rate") is not None else 1e12,
+        ranked.sort(
+            key=lambda t: (
+                t[0],
+                t[1].get("hourly_rate") if t[1].get("hourly_rate") is not None else 1e12,
             )
         )
     elif effective_sort == "price_desc":
-        result.sort(
-            key=lambda x: (
-                bool(x.get("search_penalty")),
-                -(x.get("hourly_rate") if x.get("hourly_rate") is not None else -1),
+        ranked.sort(
+            key=lambda t: (
+                t[0],
+                -(t[1].get("hourly_rate") if t[1].get("hourly_rate") is not None else -1),
             )
         )
     elif effective_sort == "newest":
-        result.sort(key=lambda x: (bool(x.get("search_penalty")), -_iso_to_epoch(x.get("created_at"))))
-    return result
+        ranked.sort(key=lambda t: (t[0], -_iso_to_epoch(t[1].get("created_at"))))
+    return [s for _, s in ranked]
 
 
 def _iso_to_epoch(iso: Optional[str]) -> float:

@@ -3,6 +3,7 @@ revenue view, push broadcast, and CSV exports.
 """
 import csv
 import io
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional
 
@@ -62,14 +63,23 @@ async def admin_stats(user: Annotated[dict, Depends(current_user)]):
     completed_bookings = await db.bookings.count_documents({"status": "completed"})
     pending_bookings = await db.bookings.count_documents({"status": {"$in": ["pending", "awaiting_confirmation"]}})
 
-    # Revenue this month (commission on completed bookings only)
+    # Revenue this month (commission on completed bookings only).
+    # NOTE: `platform_commission_dzd` is never written today — the platform's
+    # revenue model is the provider subscription, not booking commission — so
+    # commission stays 0 until a commission policy exists. GMV uses the real
+    # billing fields (`final_total_dzd` on completed work, `estimated_total`
+    # before that).
     pipeline = [
         {"$match": {"status": "completed", "created_at": {"$gte": month_start}}},
         {
             "$group": {
                 "_id": None,
                 "commission": {"$sum": {"$ifNull": ["$platform_commission_dzd", 0]}},
-                "gmv": {"$sum": {"$ifNull": ["$total_dzd", 0]}},
+                "gmv": {
+                    "$sum": {
+                        "$ifNull": ["$final_total_dzd", {"$ifNull": ["$estimated_total", 0]}]
+                    }
+                },
                 "n": {"$sum": 1},
             }
         },
@@ -134,8 +144,9 @@ async def admin_search_users(
 
     filt: dict = {"is_deleted": {"$ne": True}}
     if q:
-        # Case-insensitive prefix search on name/email/phone.
-        safe = q.strip()
+        # Case-insensitive LITERAL prefix search on name/email/phone — the
+        # input is escaped so regex metacharacters can't widen or DoS the query.
+        safe = re.escape(q.strip())
         filt["$or"] = [
             {"full_name": {"$regex": safe, "$options": "i"}},
             {"email": {"$regex": safe, "$options": "i"}},
@@ -310,7 +321,9 @@ async def admin_revenue(
             "$group": {
                 "_id": {"$substr": ["$created_at", 0, 7]},  # YYYY-MM
                 "commission": {"$sum": {"$ifNull": ["$platform_commission_dzd", 0]}},
-                "gmv": {"$sum": {"$ifNull": ["$total_dzd", 0]}},
+                "gmv": {
+                    "$sum": {"$ifNull": ["$final_total_dzd", {"$ifNull": ["$estimated_total", 0]}]}
+                },
                 "count": {"$sum": 1},
             }
         },
@@ -436,9 +449,12 @@ async def admin_export(
         )
     else:  # bookings
         cursor = db.bookings.find({}, {"_id": 0})
+        # Field names match what the bookings collection actually stores:
+        # billing lives in `estimated_total` (quote) / `final_total_dzd`
+        # (exact, set on completion), and the schedule date is `scheduled_date`.
         fieldnames = [
-            "id", "status", "client_id", "provider_id", "total_dzd",
-            "platform_commission_dzd", "scheduled_for", "created_at",
+            "id", "status", "client_id", "provider_id", "estimated_total",
+            "final_total_dzd", "worked_minutes", "scheduled_date", "created_at",
         ]
 
     buf = io.StringIO()

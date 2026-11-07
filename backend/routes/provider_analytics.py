@@ -3,7 +3,7 @@
 Aggregates bookings by ISO week over the last 12 weeks:
 - count of bookings (all statuses)
 - completed count
-- earned DZD (sum of total_dzd on completed bookings)
+- earned DZD (final total on completed bookings, estimate as fallback)
 - rating snapshot
 
 Kept in a dedicated router so it doesn't clutter `providers.py`. Requires
@@ -48,7 +48,10 @@ async def my_provider_analytics(
                     "$sum": {
                         "$cond": [
                             {"$eq": ["$status", "completed"]},
-                            {"$ifNull": ["$total_dzd", 0]},
+                            # Completed jobs may carry an exact final total
+                            # (hourly billing by minutes worked); otherwise
+                            # fall back to the quoted estimate.
+                            {"$ifNull": ["$final_total_dzd", {"$ifNull": ["$estimated_total", 0]}]},
                             0,
                         ]
                     }

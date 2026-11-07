@@ -10,11 +10,13 @@ fixed.
 """
 import logging
 import os
-from typing import Optional
+from typing import Annotated, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from deps import current_user
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,18 @@ class RegisterPushBody(BaseModel):
 
 
 @router.post("/register-push", status_code=201)
-async def register_push(body: RegisterPushBody):
-    """Register (or refresh) a device token with the Emergent push relay."""
+async def register_push(
+    body: RegisterPushBody,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Register (or refresh) a device token with the Emergent push relay.
+
+    Authenticated: a user may only register a token for their OWN account —
+    otherwise anyone could subscribe to another user's push notifications
+    (booking details, chat previews, verification decisions).
+    """
+    if body.user_id != user["id"]:
+        raise HTTPException(status_code=403, detail="You can only register push for your own account")
     try:
         resp = await _client.post(
             "/api/v1/push/users/register", json=body.model_dump()

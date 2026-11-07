@@ -5,6 +5,7 @@ Mongo when a provider crosses the auto-delete threshold. `serialize_user`
 produces the public/private user dict returned from every user-facing endpoint.
 """
 from datetime import datetime, timedelta, timezone
+import time
 from typing import Optional
 
 from config import TRIAL_MONTHS, DEACTIVATION_MONTHS
@@ -12,9 +13,49 @@ from database import db
 from schemas import Role
 
 
-def compute_subscription(user: dict) -> dict:
+# In-process cache for the DB-backed trial-days override (see
+# `refresh_trial_days_cache`). Kept tiny so the sync `compute_subscription`
+# path stays allocation-free; refreshed by `enforce_lifecycle` (i.e. on every
+# authenticated request) and invalidated whenever an admin PATCHes settings.
+_TRIAL_DAYS_DEFAULT = TRIAL_MONTHS * 30
+_trial_days_cache: dict = {"value": None, "expires": 0.0}
+
+
+async def refresh_trial_days_cache() -> None:
+    """Re-read the effective trial-days setting from the platform settings doc.
+
+    TTL-guarded (30 s) so hot loops like the provider listing don't add a DB
+    round-trip per provider. Never raises — any failure keeps the last value.
+    """
+    if _trial_days_cache["expires"] > time.monotonic():
+        return
+    try:
+        from routes.settings import get_effective_settings  # lazy: avoids a circular import
+
+        eff = await get_effective_settings()
+        value = int(eff.get("trial_days") or _TRIAL_DAYS_DEFAULT)
+    except Exception:
+        value = _TRIAL_DAYS_DEFAULT
+    _trial_days_cache["value"] = value
+    _trial_days_cache["expires"] = time.monotonic() + 30
+
+
+def invalidate_trial_days_cache() -> None:
+    """Drop the cached value — called after an admin changes platform settings."""
+    _trial_days_cache["value"] = None
+    _trial_days_cache["expires"] = 0.0
+
+
+def _effective_trial_days() -> int:
+    return _trial_days_cache["value"] or _TRIAL_DAYS_DEFAULT
+
+
+def compute_subscription(user: dict, trial_days: Optional[int] = None) -> dict:
     """Compute subscription status for provider based on created_at.
     Honors manual deactivation & soft-delete flags on the user doc.
+
+    `trial_days` overrides the default trial length (env/DB platform setting);
+    callers that already hold the effective value pass it to skip the cache.
 
     Returns dict with keys: trial_ends_at, subscription_status, days_until_due,
     active, should_soft_delete (bool — for callers to persist).
@@ -63,7 +104,7 @@ def compute_subscription(user: dict) -> dict:
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
 
-    trial_end = created_at + timedelta(days=TRIAL_MONTHS * 30)
+    trial_end = created_at + timedelta(days=trial_days if trial_days is not None else _effective_trial_days())
     last_paid_at = user.get("last_paid_at")
     if isinstance(last_paid_at, str):
         last_paid_at = datetime.fromisoformat(last_paid_at.replace("Z", "+00:00"))
@@ -110,6 +151,7 @@ def compute_subscription(user: dict) -> dict:
 
 async def enforce_lifecycle(user: dict) -> dict:
     """Persist auto soft-delete when subscription says so. Safe to call on every fetch."""
+    await refresh_trial_days_cache()
     sub = compute_subscription(user)
     if sub.get("should_soft_delete") and not user.get("is_deleted"):
         now = datetime.now(timezone.utc).isoformat()
@@ -215,4 +257,18 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         out["verification_submitted_at"] = doc.get("verification_submitted_at")
         out["verification_reviewed_at"] = doc.get("verification_reviewed_at")
         out["is_admin"] = bool(doc.get("is_admin"))
+    else:
+        # Public views (marketplace listings, provider detail): keep only what
+        # the UI needs. Internal moderation + billing state (flags, penalties,
+        # deactivation timestamps, payment history) is private to the user and
+        # admins. Sorting still honors search_penalty — see routes/providers.py.
+        for _internal in (
+            "is_manually_deactivated",
+            "is_deleted",
+            "manually_deactivated_at",
+            "last_paid_at",
+            "is_flagged",
+            "search_penalty",
+        ):
+            out.pop(_internal, None)
     return out

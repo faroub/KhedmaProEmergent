@@ -27,7 +27,16 @@ async function request<T = any>(path: string, opts: FetchOpts = {}): Promise<T> 
   }
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  // Guard the parse: a proxy/gateway 5xx returns HTML, and a bare JSON.parse
+  // would surface a confusing SyntaxError instead of the real status.
+  let data: any = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Request failed (${res.status})`);
+    }
+  }
   if (!res.ok) {
     if (res.status === 401 || res.status === 410) await clearToken();
     const msg = (data && (data.detail || data.message)) || `Request failed (${res.status})`;

@@ -223,6 +223,11 @@ async def update_booking_status(
     updates: dict = {}
     new_status = body.status.value
 
+    # Terminal state guard: a completed booking is a permanent work record —
+    # neither side can cancel it after the fact.
+    if new_status == BookingStatus.cancelled.value and booking["status"] == BookingStatus.completed.value:
+        raise HTTPException(status_code=400, detail="A completed booking cannot be cancelled")
+
     if user["role"] == Role.service_provider.value:
         if booking["provider_id"] != user["id"]:
             raise HTTPException(status_code=403, detail="Not your booking")

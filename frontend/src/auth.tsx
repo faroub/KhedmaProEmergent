@@ -59,10 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = await bootstrapAuth();
       setUser(u);
       setLoading(false);
-      // Best-effort seed for dev demo
-      try {
-        await api.seed();
-      } catch {}
+      // Best-effort seed for the local dev demo only — this endpoint writes
+      // test data with known passwords, so it must never fire in production.
+      if (__DEV__) {
+        try {
+          await api.seed();
+        } catch {}
+      }
       // Register for push if already signed in.
       if (u?.id) registerForPush(u.id);
     })();

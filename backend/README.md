@@ -57,3 +57,13 @@ curl -X POST http://localhost:8001/api/seed
 ```
 
 Default admin: `admin@khedmapro.dz` / `admin123`.
+
+In production (`ALLOW_DEV_SEED=false`, set by `docker-compose.prod.yml`), the
+seed endpoint requires an admin token instead:
+
+```bash
+curl -X POST http://localhost:8001/api/seed -H "Authorization: Bearer <ADMIN_JWT>"
+```
+
+— and seeded provider accounts get random one-time passwords (returned in the
+response) instead of the documented dev password.

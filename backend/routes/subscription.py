@@ -22,8 +22,8 @@ router = APIRouter(tags=["subscription"])
 
 @router.get("/subscription/status")
 async def subscription_status(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
-    sub = compute_subscription(user)
     eff = await get_effective_settings()
+    sub = compute_subscription(user, trial_days=int(eff["trial_days"]))
     return {
         "role": user["role"],
         "subscription_status": sub["subscription_status"],

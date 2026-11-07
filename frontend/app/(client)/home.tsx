@@ -60,6 +60,7 @@ export default function Home() {
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [sort, setSort] = useState<"auto" | "rating" | "distance" | "price_asc" | "price_desc" | "newest">("auto");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // Resolve GPS lazily the first time a radius scope is active. If permission
   // is denied, fall back to the user's profile wilaya (or All Algeria).
@@ -107,8 +108,13 @@ export default function Home() {
       ]);
       setCategories(cats as any);
       setProviders(provs as any);
+      setLoadError(false);
     } catch (e) {
       console.log(e);
+      // Surface the failure: a silent empty list looks like "no providers",
+      // when the real cause is a network/API error the user can retry.
+      setProviders([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -306,6 +312,27 @@ export default function Home() {
 
         {loading ? (
           <ActivityIndicator color={theme.colors.brand} style={{ marginTop: theme.spacing.xl }} />
+        ) : loadError && displayed.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={40} color={theme.colors.muted} />
+            <Text style={styles.emptyText}>{t("home.loadError")}</Text>
+            <Pressable
+              testID="home-retry-btn"
+              onPress={onRefresh}
+              style={{
+                marginTop: theme.spacing.sm,
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: theme.spacing.sm,
+                borderRadius: theme.radius.pill,
+                borderWidth: 1,
+                borderColor: theme.colors.brand,
+              }}
+            >
+              <Text style={{ color: theme.colors.brand, fontWeight: "700", fontSize: 13 }}>
+                {t("home.retry")}
+              </Text>
+            </Pressable>
+          </View>
         ) : displayed.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="search-outline" size={40} color={theme.colors.muted} />
