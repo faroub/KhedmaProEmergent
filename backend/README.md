@@ -50,6 +50,9 @@ pytest -n 0                     # serial (recommended)
 pytest tests/test_iter15_*.py   # single file
 ```
 
+Current suite: **212 tests passing** (serial `-n 0`, fresh database). The two
+payment-receipt assertions skip only when `CHARGILY_SECRET_KEY` is set.
+
 ## Seed sample data
 
 ```bash

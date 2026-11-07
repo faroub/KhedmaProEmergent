@@ -28,7 +28,7 @@ Optional but nice: **VS Code**, **mongosh** (CLI for MongoDB).
 │   ├── server.py            # entry point
 │   ├── routes/*.py          # one file per feature area
 │   ├── site/                # static marketing website (HTML + CSS)
-│   ├── tests/               # pytest suite (~145 tests)
+│   ├── tests/               # pytest suite (212 tests)
 │   ├── requirements.txt
 │   └── .env                 # local secrets (see below)
 ├── frontend/                # Expo (React Native) app
@@ -291,7 +291,8 @@ pytest -n 2 --dist loadscope         # parallel (default in CI)
 pytest tests/test_iter14_*.py -v     # single file
 ```
 
-Current suite: **145 tests passing**.
+Current suite: **212 tests passing** (serial `-n 0`, fresh database).
+Two tests skip only when `CHARGILY_SECRET_KEY` is set (payment-receipt assertions).
 
 ### Frontend (lint)
 
