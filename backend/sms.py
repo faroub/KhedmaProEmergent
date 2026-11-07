@@ -28,7 +28,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Env fallbacks. Admin DB overrides always win when present.
-ENV_SMS_PROVIDER = (os.getenv("SMS_PROVIDER") or "mock").lower()
+# SMS_PROVIDER lives in config.py so startup validation (server.py) sees the
+# same value without importing this module's httpx client.
+from config import SMS_PROVIDER as ENV_SMS_PROVIDER
 ENV_TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 ENV_TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 ENV_TWILIO_FROM = os.getenv("TWILIO_FROM_NUMBER", "")

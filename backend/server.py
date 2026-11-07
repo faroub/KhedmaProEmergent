@@ -36,6 +36,7 @@ from security import hash_password
 from wilaya_geo import approx_coords_for
 
 from config import CORS_ORIGINS
+from sms import get_provider_status
 
 
 logging.basicConfig(level=logging.INFO)
@@ -70,9 +71,34 @@ app.add_middleware(
 )
 
 
+async def _validate_startup_config() -> None:
+    """Fail closed in production, warn in development/test (P5).
+
+    Production must not serve with a weak/placeholder JWT secret, mock
+    payments, the dev seed route, the mock SMS provider, or a placeholder
+    push key. Outside production the same conditions only produce warnings
+    so local development keeps working with the defaults.
+    """
+    import config
+
+    problems = config.production_config_problems(
+        sms_provider=(await get_provider_status()).get("provider", "")
+    )
+    if config.APP_ENV == "production" and problems:
+        for p in problems:
+            logger.error("Refusing to start: %s", p)
+        raise RuntimeError(
+            "Unsafe production configuration (set APP_ENV=development to "
+            "override): " + "; ".join(problems)
+        )
+    for p in problems:
+        logger.warning("Development-mode config issue (APP_ENV=%s): %s", config.APP_ENV, p)
+
+
 @app.on_event("startup")
 async def on_startup():
-    """Create indexes, migrate legacy data, and seed a default admin account."""
+    """Validate startup config, create indexes, migrate data, seed admin."""
+    await _validate_startup_config()
     await db.users.create_index("email", unique=True)
     await db.users.create_index("role")
     await db.users.create_index("category")

@@ -9,19 +9,20 @@ integration_playbook_expert_v2. The relay endpoint + header contract is
 fixed.
 """
 import logging
-import os
 from typing import Annotated, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from config import EMERGENT_PUSH_KEY
 from deps import current_user
 
 logger = logging.getLogger(__name__)
 
 PUSH_BASE_URL = "https://integrations.emergentagent.com"
-PUSH_KEY = os.environ.get("EMERGENT_PUSH_KEY", "placeholder")
+# Read once by config.py so startup validation (server.py) sees the same value.
+PUSH_KEY = EMERGENT_PUSH_KEY
 
 _client = httpx.AsyncClient(
     base_url=PUSH_BASE_URL,
