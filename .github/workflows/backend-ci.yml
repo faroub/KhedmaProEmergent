@@ -15,6 +15,9 @@ jobs:
       DB_NAME: khedmapro_ci_test
       JWT_SECRET: ci-only-jwt-secret-never-used-outside-ci-0123456789
       EMERGENT_PUSH_KEY: placeholder
+      # CI runs in development mode; the payment tests need the mock fallback
+      # (ALLOW_MOCK_PAYMENTS is off by default since P9).
+      ALLOW_MOCK_PAYMENTS: "true"
       EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
 
     services:

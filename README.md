@@ -182,7 +182,9 @@ DB_NAME=khedmapro
 JWT_SECRET=change-me-to-a-32+-char-random-string
 JWT_EXPIRE_MINUTES=1440
 EMERGENT_PUSH_KEY=placeholder
-# CHARGILY_SECRET_KEY=live_...     # optional — leave commented for mock payments
+# CHARGILY_SECRET_KEY=live_...     # optional — leave unset to use the mock
+# ALLOW_MOCK_PAYMENTS=true         # dev-only fallback when Chargily is unset
+#                                   # (without it, /subscription/pay returns 503)
 ```
 
 ### 3. Frontend
@@ -348,7 +350,8 @@ Use the in-repo screenshot script or Playwright:
 | `JWT_SECRET` | ✅ | 32+ char random string for signing tokens |
 | `JWT_EXPIRE_MINUTES` | ❌ | Default `1440` (24h) |
 | `EMERGENT_PUSH_KEY` | ❌ | Managed push relay key — leave as `placeholder` locally; auto-filled at deploy |
-| `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset for mock-mode payments |
+| `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset to use the mock-mode payments |
+| `ALLOW_MOCK_PAYMENTS` | ❌ | Mock payment fallback (no Chargily key). Default `false`; `true` is honored only when `APP_ENV` is `development`/`test` — `docker-compose.yml` sets it `true` for local dev, and without it `/subscription/pay` returns 503 |
 | `ALLOW_DEV_SEED` | ❌ | Defaults `true` only when `APP_ENV` is `development`/`test`. Outside development the seed endpoint requires an admin token and `scripts/seed_dev.py` refuses to run |
 | `CORS_ORIGINS` | ❌ | Comma-separated browser origins allowed to call the API with credentials. Default covers the Expo web preview (`http://localhost:8081,http://localhost:8001`) |
 

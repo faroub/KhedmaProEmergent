@@ -38,7 +38,11 @@ SUBSCRIPTION_FEE_DZD = 1000
 # Payload guardrails
 MAX_IMAGE_BYTES = 900_000  # ~900 KB per base64 image string
 
-# Chargily Pay (all optional — MOCK fallback used when unset)
+# Chargily Pay (all optional). When it is not configured, /subscription/pay
+# falls back to a MOCK receipt — that fallback is dev-only: it is enabled only
+# when APP_ENV is development/test AND the variable is explicitly "true".
+# Otherwise unconfigured payments fail closed with 503 instead of silently
+# granting subscriptions.
 CHARGILY_SECRET_KEY = os.environ.get("CHARGILY_SECRET_KEY", "").strip()
 CHARGILY_WEBHOOK_SECRET = (os.environ.get("CHARGILY_WEBHOOK_SECRET") or CHARGILY_SECRET_KEY).strip()
 CHARGILY_MODE = os.environ.get("CHARGILY_MODE", "test").strip().lower()
@@ -49,7 +53,10 @@ CHARGILY_BASE_URL = (
 )
 API_PUBLIC_URL = os.environ.get("API_PUBLIC_URL", "http://localhost:8001").rstrip("/")
 APP_RETURN_URL = os.environ.get("APP_RETURN_URL", "khedmapro://payment-return")
-ALLOW_MOCK_PAYMENTS = os.environ.get("ALLOW_MOCK_PAYMENTS", "true").lower() == "true"
+ALLOW_MOCK_PAYMENTS = (
+    os.environ.get("ALLOW_MOCK_PAYMENTS", "false").lower() == "true"
+    and APP_ENV in ("development", "test")
+)
 
 # CORS: comma-separated list of browser origins allowed to call the API with
 # credentials. The marketing site is served by this backend (same origin), so
