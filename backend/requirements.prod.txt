@@ -20,3 +20,4 @@ python-multipart==0.0.32     # FastAPI form support (tiny safety net)
 starlette==0.37.2            # pinned alongside fastapi as in requirements.txt
 twilio==9.10.9               # SMS provider (lazy import; needed when configured)
 uvicorn==0.25.0              # gunicorn worker class
+websockets==16.1.1           # required by uvicorn to serve /api/ws/chat (mirrors requirements.txt)
