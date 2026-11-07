@@ -1,0 +1,79 @@
+name: backend CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # CI-only values — no real secrets here. The job never deploys anything.
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME: khedmapro_ci_test
+      JWT_SECRET: ci-only-jwt-secret-never-used-outside-ci-0123456789
+      EMERGENT_PUSH_KEY: placeholder
+      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
+
+    services:
+      mongo:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Match the production image (backend/Dockerfile.prod): catches
+          # import-time errors that newer Pythons hide via PEP 649.
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      # Separate step so an import error is visible on its own line.
+      - name: Import smoke test (import server)
+        working-directory: backend
+        run: python -c "import server; print('import server OK')"
+
+      - name: Lint (real errors only)
+        run: flake8 --select=E9,F63,F7,F82 backend
+
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          # OTP tests read the server log at this fixed path (test_otp_auth.py).
+          sudo mkdir -p /var/log/supervisor
+          sudo touch /var/log/supervisor/backend.err.log
+          sudo chown -R "$USER" /var/log/supervisor
+          nohup python -m uvicorn server:app --host 127.0.0.1 --port 8001 \
+            > /var/log/supervisor/backend.err.log 2>&1 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/api/categories || true)
+            if [ "$code" = "200" ]; then
+              echo "backend up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::backend failed to start"
+          tail -50 /var/log/supervisor/backend.err.log
+          exit 1
+
+      - name: Seed development data
+        run: curl -s -f -X POST http://127.0.0.1:8001/api/seed
+
+      - name: Run tests
+        working-directory: backend
+        run: python -m pytest -n 0 -q
