@@ -3,28 +3,21 @@ Iteration 8 backend tests — three new feature groups:
   A) Rich Portfolios (PATCH /api/users/me/portfolio) with objects + legacy strings,
      cover-flag rules, and 900 KB size cap.
   B) Provider Verification flow (submit / list docs / delete / admin approve+reject).
-  C) Admin seed integrity (admin@khedmapro.dz login + is_admin flag on /auth/me).
+  C) Admin account behavior (throwaway admin login + is_admin flag on /auth/me).
 
-The suite runs against EXPO_PUBLIC_BACKEND_URL and cleans up all mutations at end
-via a session-scoped Motor cleanup fixture so future test runs stay deterministic.
+Since P6 the provider and admin are created by the suite itself (helpers.
+fresh_provider / helpers.make_admin) with random credentials per run — no
+seeded-account dependency and no cross-run cleanup needed.
 """
 import os
-import asyncio
 import pytest
 import requests
-from motor.motor_asyncio import AsyncIOMotorClient
+
+from helpers import fresh_provider, make_admin
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 API = f"{BASE_URL}/api"
-
-MONGO_URL = "mongodb://localhost:27017"
-DB_NAME = "test_database"
-
-PROVIDER_EMAIL = "provider1@khedmapro.dz"
-PROVIDER_PW = "password123"
-ADMIN_EMAIL = "admin@khedmapro.dz"
-ADMIN_PW = "admin123"
 
 
 # ------------------------------- fixtures -------------------------------
@@ -33,20 +26,19 @@ def s():
     return requests.Session()
 
 
-def _login(session, email, password):
-    r = session.post(f"{API}/auth/login", json={"email": email, "password": password})
-    assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+@pytest.fixture(scope="session")
+def admin_creds():
+    return make_admin()
+
+
+@pytest.fixture(scope="session")
+def admin_token(admin_creds):
+    return admin_creds["token"]
 
 
 @pytest.fixture(scope="session")
 def provider_token(s):
-    return _login(s, PROVIDER_EMAIL, PROVIDER_PW)
-
-
-@pytest.fixture(scope="session")
-def admin_token(s):
-    return _login(s, ADMIN_EMAIL, ADMIN_PW)
+    return fresh_provider(s)["access_token"]
 
 
 @pytest.fixture(scope="session")
@@ -56,40 +48,14 @@ def provider_id(s, provider_token):
     return r.json()["id"]
 
 
-# --------------------------- cleanup at teardown ---------------------------
-@pytest.fixture(scope="session", autouse=True)
-def _cleanup_db(provider_id):
-    """
-    Session teardown: reset provider1 portfolio & verification state so re-runs
-    are deterministic.
-    """
-    yield
-    async def _run():
-        client = AsyncIOMotorClient(MONGO_URL)
-        db = client[DB_NAME]
-        await db.users.update_one(
-            {"id": provider_id},
-            {"$set": {
-                "portfolio_images": [],
-                "verification_documents": [],
-                "verification_status": "unverified",
-                "verification_reject_reason": None,
-                "verification_submitted_at": None,
-                "verification_reviewed_at": None,
-                "verification_reviewer_id": None,
-                "is_verified": False,
-            }},
-        )
-        client.close()
-    asyncio.run(_run())
-
-
 # ============================================================
 # Group C — Admin seed
 # ============================================================
 class TestAdminSeed:
-    def test_admin_login_ok(self, s):
-        r = s.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PW})
+    def test_admin_login_ok(self, s, admin_creds):
+        # The throwaway admin's credentials must authenticate via /auth/login.
+        r = s.post(f"{API}/auth/login",
+                   json={"email": admin_creds["email"], "password": admin_creds["password"]})
         assert r.status_code == 200, r.text
         body = r.json()
         assert "access_token" in body

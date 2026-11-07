@@ -21,6 +21,8 @@ import pytest
 import requests
 from pymongo import MongoClient
 
+from helpers import fresh_provider, make_admin
+
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:8001").rstrip("/")
 API = f"{BASE_URL}/api"
 
@@ -34,12 +36,9 @@ def _hdr(t: str) -> dict:
 
 @pytest.fixture(scope="session")
 def admin_token():
-    r = requests.post(f"{API}/auth/login",
-                      json={"email": "admin@khedmapro.dz", "password": "admin123"},
-                      timeout=10)
-    if r.status_code != 200:
-        pytest.skip(f"Admin login failed: {r.status_code} {r.text}")
-    return r.json()["access_token"]
+    # Throwaway admin inserted directly into MongoDB — no seeded
+    # admin@khedmapro.dz dependency (P6).
+    return make_admin()["token"]
 
 
 @pytest.fixture(scope="session")
@@ -50,12 +49,7 @@ def admin_id(admin_token):
 
 @pytest.fixture(scope="session")
 def provider_token():
-    r = requests.post(f"{API}/auth/login",
-                      json={"email": "provider1@khedmapro.dz", "password": "password123"},
-                      timeout=10)
-    if r.status_code != 200:
-        pytest.skip(f"Provider login failed: {r.text}")
-    return r.json()["access_token"]
+    return fresh_provider()["access_token"]
 
 
 # =========================================================================

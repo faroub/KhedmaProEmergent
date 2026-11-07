@@ -71,9 +71,7 @@ jobs:
           tail -50 /var/log/supervisor/backend.err.log
           exit 1
 
-      - name: Seed development data
-        run: curl -s -f -X POST http://127.0.0.1:8001/api/seed
-
+      # No /api/seed step: since P6 the suite creates every account it needs.
       - name: Run tests
         working-directory: backend
         run: python -m pytest -n 0 -q

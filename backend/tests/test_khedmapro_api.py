@@ -1,10 +1,17 @@
 """khedmaPro backend API tests — validates follow-up changes:
 rename to khedmaPro, guest bookings, privacy (email/phone hiding),
-direct provider reviews, password min-length 8, seeded fake reviews."""
+direct provider reviews, password min-length 8, seeded fake reviews.
+
+Since P6 every provider/review this module asserts on is created by the
+module itself (helpers.fresh_provider / fresh_client) — the suite no longer
+depends on /api/seed or admin@khedmapro.dz.
+"""
 import os
 import uuid
 import pytest
 import requests
+
+from helpers import fresh_client, fresh_provider
 
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
@@ -17,6 +24,22 @@ def s():
 
 def auth(tok):
     return {"Authorization": f"Bearer {tok}"}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def own_providers(s):
+    """Twelve throwaway providers + one with 4 distinct-client reviews — the
+    suite-side replacement for the dev seed (P6)."""
+    for _ in range(12):
+        fresh_provider(s)
+    prov = fresh_provider(s)
+    for _ in range(4):
+        cli = fresh_client(s)
+        r = s.post(f"{API}/reviews", headers=auth(cli["access_token"]), json={
+            "provider_id": prov["user"]["id"], "rating": 5, "comment": "TEST seeded-style review"
+        })
+        assert r.status_code == 201, r.text
+    return {"reviewed_provider_id": prov["user"]["id"]}
 
 
 # ---------- Root branding ----------
@@ -49,17 +72,19 @@ def test_register_password_8_chars_ok(s):
 
 # ---------- Seeded providers ----------
 def test_seeded_provider_login_khedmapro_email(s):
+    prov = fresh_provider(s)
     r = s.post(f"{API}/auth/login", json={
-        "email": "provider1@khedmapro.dz",
-        "password": "password123",
+        "email": prov["user"]["email"],
+        "password": prov["password"],
     })
     assert r.status_code == 200, r.text
 
 
-def test_seed_has_12_providers(s):
+def test_seed_has_12_providers(s, own_providers):
     r = s.get(f"{API}/providers")
     assert r.status_code == 200
     data = r.json()
+    # This module registers 12 of its own (P6); other modules may add more.
     assert len(data) >= 12, f"expected >=12 providers, got {len(data)}"
 
 
@@ -82,27 +107,29 @@ def test_provider_detail_public_hides_email_and_phone(s):
 
 
 def test_auth_me_includes_email_and_phone(s):
+    prov = fresh_provider(s)
     r = s.post(f"{API}/auth/login", json={
-        "email": "provider1@khedmapro.dz", "password": "password123"
+        "email": prov["user"]["email"], "password": prov["password"],
     })
     tok = r.json()["access_token"]
     r2 = s.get(f"{API}/auth/me", headers=auth(tok))
     assert r2.status_code == 200
     me = r2.json()
-    assert me["email"] == "provider1@khedmapro.dz"
+    assert me["email"] == prov["user"]["email"]
     assert me.get("phone")  # provider has phone
 
 
-def test_providers_have_seeded_reviews(s):
-    plist = s.get(f"{API}/providers").json()
-    # At least a few providers should have between 4 and 8 reviews with ~4-5 rating
-    for p in plist[:5]:
-        rc = p.get("reviews_count", 0)
-        assert rc >= 4, f"provider {p['id']} has unexpected reviews_count={rc}"
-        assert 3.5 <= p["rating"] <= 5.0, f"provider {p['id']} rating out of range: {p['rating']}"
-        # Fetch reviews list
-        rr = s.get(f"{API}/providers/{p['id']}/reviews").json()
-        assert len(rr) >= 4
+def test_providers_have_seeded_reviews(s, own_providers):
+    # The provider this module registered with 4 distinct-client reviews (P6).
+    pid = own_providers["reviewed_provider_id"]
+    p = next((x for x in s.get(f"{API}/providers").json() if x["id"] == pid), None)
+    assert p is not None, "reviewed provider missing from /providers"
+    rc = p.get("reviews_count", 0)
+    assert rc >= 4, f"provider {pid} has unexpected reviews_count={rc}"
+    assert 3.5 <= p["rating"] <= 5.0, f"provider {pid} rating out of range: {p['rating']}"
+    # Fetch reviews list
+    rr = s.get(f"{API}/providers/{pid}/reviews").json()
+    assert len(rr) >= 4
 
 
 # ---------- Guest booking ----------

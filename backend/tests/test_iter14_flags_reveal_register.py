@@ -6,7 +6,7 @@ import uuid
 import requests
 from pymongo import MongoClient
 
-from helpers import with_phone_token
+from helpers import fresh_provider, make_admin, with_phone_token
 
 API = os.environ.get("API_BASE", "http://localhost:8001/api")
 
@@ -24,13 +24,8 @@ def _cleanup_user(uid: str) -> None:
 
 
 def _admin_token():
-    r = requests.post(
-        f"{API}/auth/login",
-        json={"email": "admin@khedmapro.dz", "password": "admin123"},
-        timeout=10,
-    )
-    assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    # Throwaway admin created by the suite (P6) — no seeded admin@khedmapro.dz.
+    return make_admin()["token"]
 
 
 def _hdr(t: str) -> dict:
@@ -166,13 +161,9 @@ def test_reveal_phone_without_active_booking_403():
     client_token = r0.json()["access_token"]
     client_id = r0.json()["user"]["id"]
 
-    prov_login = requests.post(
-        f"{API}/auth/login",
-        json={"email": "provider1@khedmapro.dz", "password": "password123"},
-        timeout=10,
-    )
-    assert prov_login.status_code == 200
-    prov_id = prov_login.json()["user"]["id"]
+    # Throwaway provider (P6) — the phone-reveal rule applies to any provider.
+    prov = fresh_provider()
+    prov_id = prov["user"]["id"]
 
     r = requests.get(f"{API}/users/{prov_id}/phone", headers=_hdr(client_token), timeout=10)
     assert r.status_code == 403

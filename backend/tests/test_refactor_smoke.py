@@ -1,6 +1,9 @@
 """
 Iteration 10 — targeted smoke checks after backend modularization refactor.
 Confirms endpoint URLs, response shapes, and business logic are preserved.
+
+Since P6 every account used here is created by the suite itself (helpers.
+fresh_provider / helpers.make_admin) — nothing depends on the dev seed.
 """
 import os
 import asyncio
@@ -8,8 +11,16 @@ import pytest
 import requests
 import websockets
 
+from helpers import fresh_provider, make_admin
+
 BASE_URL = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 WS_URL = BASE_URL.replace("https://", "wss://").replace("http://", "ws://")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _own_provider():
+    """This module must never depend on providers created by another test."""
+    fresh_provider()
 
 
 # --- 1. root ---
@@ -43,9 +54,10 @@ def test_wilayas_count():
 
 # --- 4. admin login ---
 def test_admin_login():
+    admin = make_admin()
     r = requests.post(
         f"{BASE_URL}/api/auth/login",
-        json={"email": "admin@khedmapro.dz", "password": "admin123"},
+        json={"email": admin["email"], "password": admin["password"]},
         timeout=10,
     )
     assert r.status_code == 200
@@ -54,11 +66,12 @@ def test_admin_login():
     assert body["user"]["is_admin"] is True
 
 
-# --- 5. provider1 login: trial + days_until_due > 0 ---
+# --- 5. provider login: trial + days_until_due > 0 ---
 def test_provider1_login_trial():
+    prov = fresh_provider()
     r = requests.post(
         f"{BASE_URL}/api/auth/login",
-        json={"email": "provider1@khedmapro.dz", "password": "password123"},
+        json={"email": prov["user"]["email"], "password": prov["password"]},
         timeout=10,
     )
     assert r.status_code == 200
@@ -115,13 +128,7 @@ def test_ws_invalid_token_closes_1008():
 
 
 def test_ws_valid_token_accepted():
-    r = requests.post(
-        f"{BASE_URL}/api/auth/login",
-        json={"email": "provider1@khedmapro.dz", "password": "password123"},
-        timeout=10,
-    )
-    assert r.status_code == 200
-    token = r.json()["access_token"]
+    token = fresh_provider()["access_token"]
 
     async def _run():
         url = f"{WS_URL}/api/ws/chat?token={token}"

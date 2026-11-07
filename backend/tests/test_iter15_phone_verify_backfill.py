@@ -6,7 +6,7 @@ import uuid
 import requests
 from pymongo import MongoClient
 
-from helpers import with_phone_token
+from helpers import with_phone_token, make_admin
 
 API = os.environ.get("API_BASE", "http://localhost:8001/api")
 
@@ -230,12 +230,8 @@ def test_verified_provider_can_confirm_booking():
 # =========================================================================
 
 def _admin_token():
-    r = requests.post(
-        f"{API}/auth/login",
-        json={"email": "admin@khedmapro.dz", "password": "admin123"},
-        timeout=10,
-    )
-    return r.json()["access_token"]
+    # Throwaway admin created by the suite (P6) — no seeded admin@khedmapro.dz.
+    return make_admin()["token"]
 
 
 def test_wilaya_backfill_requires_admin():

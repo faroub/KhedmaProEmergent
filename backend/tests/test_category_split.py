@@ -11,6 +11,8 @@ import pytest
 import requests
 from dotenv import load_dotenv
 
+from helpers import fresh_provider
+
 load_dotenv("/app/frontend/.env")
 load_dotenv("/app/backend/.env")
 
@@ -22,6 +24,14 @@ def api():
     s = requests.Session()
     s.headers.update({"Content-Type": "application/json"})
     return s
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _own_categorized_providers():
+    """This module must not depend on seeded providers: register one
+    admin_consulting and one education provider of its own (P6)."""
+    fresh_provider(category="admin_consulting", full_name="TEST Leila Bensalem")
+    fresh_provider(category="education", full_name="TEST Nassim Bouzid")
 
 
 # ---------- 1. Categories list ----------
@@ -50,7 +60,8 @@ def test_providers_admin_consulting(api):
     for p in providers:
         assert p["category"] == "admin_consulting", p
     names = [p.get("full_name") for p in providers]
-    assert any("Leila Bensalem" in (n or "") for n in names), names
+    # The provider this module registered in admin_consulting (P6).
+    assert any("TEST Leila Bensalem" in (n or "") for n in names), names
 
 
 # ---------- 3. providers?category=education ----------
@@ -62,7 +73,8 @@ def test_providers_education(api):
     for p in providers:
         assert p["category"] == "education", p
     names = [p.get("full_name") for p in providers]
-    assert any("Nassim Bouzid" in (n or "") for n in names), names
+    # The provider this module registered in education (P6).
+    assert any("TEST Nassim Bouzid" in (n or "") for n in names), names
 
 
 # ---------- 4. providers?category=admin_education (legacy, must be empty) ----------

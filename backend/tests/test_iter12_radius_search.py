@@ -13,6 +13,8 @@ import math
 import pytest
 import requests
 
+from helpers import fresh_provider
+
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL") or os.environ.get("EXPO_BACKEND_URL")
 if BASE_URL:
     BASE_URL = BASE_URL.rstrip("/")
@@ -37,20 +39,54 @@ def api():
     return s
 
 
-@pytest.fixture(scope="module")
-def provider1_token(api):
-    r = api.post(f"{BASE_URL}/api/auth/login", json={
-        "email": "provider1@khedmapro.dz", "password": "password123"
-    })
-    assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+def _locate(api, provider, lat, lng):
+    """Pin a provider's public location via the profile API — the suite-side
+    stand-in for the wilaya-centroid coords the dev seed used to provide (P6).
+    `full_name` and `category` are required by the profile endpoint for
+    providers; re-send the registered values so the public profile is
+    unchanged."""
+    r = api.patch(
+        f"{BASE_URL}/api/users/me/profile",
+        headers={"Authorization": f"Bearer {provider['access_token']}"},
+        json={
+            "full_name": provider["user"]["full_name"],
+            "category": provider["user"].get("category") or "plumbing",
+            "location_lat": lat,
+            "location_lng": lng,
+        },
+    )
+    assert r.status_code == 200, r.text
 
 
 @pytest.fixture(scope="module")
-def provider1_id(api, provider1_token):
-    r = api.get(f"{BASE_URL}/api/auth/me", headers={"Authorization": f"Bearer {provider1_token}"})
-    assert r.status_code == 200
-    return r.json()["id"]
+def geo_providers(api):
+    """One Algiers (plumbing) + three Oran providers, registered and geolocated
+    by this module — nothing from the dev seed (P6)."""
+    algiers = fresh_provider(api, category="plumbing", full_name="TEST Algiers Plumber")
+    _locate(api, algiers, *ALGIERS)
+    orans = []
+    for i in range(3):
+        p = fresh_provider(api, wilaya_code="31", full_name=f"TEST Oran Pro {i}")
+        _locate(api, p, *ORAN)
+        orans.append(p)
+    return {"algiers": algiers, "orans": orans}
+
+
+@pytest.fixture(scope="module")
+def cleaning_provider(api):
+    """A cleaning-category provider so the ?category=cleaning regression test is
+    self-sufficient (P6)."""
+    return fresh_provider(api, category="cleaning", full_name="TEST Cleaning Pro")
+
+
+@pytest.fixture(scope="module")
+def provider1_token(geo_providers):
+    return geo_providers["algiers"]["access_token"]
+
+
+@pytest.fixture(scope="module")
+def provider1_id(geo_providers):
+    return geo_providers["algiers"]["user"]["id"]
 
 
 # ---- 1. No coords → no distance_km ----
@@ -67,7 +103,7 @@ class TestProvidersNoRadius:
 
 # ---- 2/5. Radius mode Algiers ----
 class TestRadiusModeAlgiers:
-    def test_radius_15km_algiers(self, api):
+    def test_radius_15km_algiers(self, api, geo_providers):
         lat, lng = ALGIERS
         r = api.get(f"{BASE_URL}/api/providers?lat={lat}&lng={lng}&radius_km=15")
         assert r.status_code == 200
@@ -113,14 +149,14 @@ class TestRadiusPlusCategory:
 
 # ---- 4. Radius mode Oran ----
 class TestRadiusModeOran:
-    def test_radius_15km_oran(self, api):
+    def test_radius_15km_oran(self, api, geo_providers):
         lat, lng = ORAN
         r = api.get(f"{BASE_URL}/api/providers?lat={lat}&lng={lng}&radius_km=15")
         assert r.status_code == 200
         data = r.json()
         names = [p["full_name"] for p in data]
-        # At least 2 of the expected 3 Oran providers should show
-        expected = {"Nassim Bouzid", "Leila Bensalem", "Karim Belkacem"}
+        # At least 2 of this module's 3 Oran providers should show (P6: own data)
+        expected = {p["user"]["full_name"] for p in geo_providers["orans"]}
         matched = expected.intersection(set(names))
         assert len(matched) >= 2, f"expected Oran providers in {names}, matched={matched}"
 
@@ -207,7 +243,7 @@ class TestProfileLocationUpdate:
 
 # ---- 11/12. Regression: legacy query params ----
 class TestRegression:
-    def test_category_filter_unchanged(self, api):
+    def test_category_filter_unchanged(self, api, cleaning_provider):
         r = api.get(f"{BASE_URL}/api/providers?category=cleaning")
         assert r.status_code == 200
         data = r.json()

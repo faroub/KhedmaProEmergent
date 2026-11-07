@@ -15,7 +15,7 @@ import hmac
 import json
 from datetime import datetime, timedelta, timezone
 
-from helpers import skip_if_real_payment_provider
+from helpers import fresh_provider, make_admin, skip_if_real_payment_provider
 from pathlib import Path
 
 import pytest
@@ -49,16 +49,13 @@ def state():
 
 @pytest.fixture(scope="module")
 def provider1_token():
-    r = requests.post(f"{API}/auth/login", json={"email": "provider1@khedmapro.dz", "password": "password123"})
-    assert r.status_code == 200, r.text
-    return r.json()
+    # Throwaway provider registered via the public API (P6).
+    return fresh_provider()
 
 
 @pytest.fixture(scope="module")
 def admin_token():
-    r = requests.post(f"{API}/auth/login", json={"email": "admin@khedmapro.dz", "password": "admin123"})
-    assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    return make_admin()["token"]
 
 
 @pytest.fixture(scope="module")

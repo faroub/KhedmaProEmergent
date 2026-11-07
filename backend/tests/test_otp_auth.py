@@ -10,6 +10,8 @@ import pytest
 import requests
 from pymongo import MongoClient
 
+from helpers import fresh_provider
+
 BASE_URL = (
     os.environ.get("EXPO_PUBLIC_BACKEND_URL")
     or os.environ.get("EXPO_BACKEND_URL")
@@ -24,6 +26,13 @@ _mongo = MongoClient(MONGO_URL)
 _db = _mongo[DB_NAME]
 
 LOG_PATH = "/var/log/supervisor/backend.err.log"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _own_provider():
+    """Guarantee this module has its own provider data — /providers
+    non-emptiness must not come from another test module (P6)."""
+    fresh_provider()
 
 
 def _fresh_national() -> str:
@@ -331,9 +340,11 @@ class TestProfileComplete:
 
 class TestRegression:
     def test_password_login_still_works(self):
+        prov = fresh_provider()
         r = requests.post(
             f"{API}/auth/login",
-            json={"email": "provider1@khedmapro.dz", "password": "password123"},
+            json={"email": prov["user"]["email"], "password": prov["password"]},
+            timeout=10,
         )
         assert r.status_code == 200, r.text
         body = r.json()

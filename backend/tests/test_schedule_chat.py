@@ -7,7 +7,7 @@ import pytest
 import requests
 import websockets  # type: ignore
 
-from helpers import with_phone_token
+from helpers import fresh_provider, with_phone_token
 
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
@@ -25,20 +25,15 @@ def s():
 
 @pytest.fixture(scope="module")
 def provider_ctx(s):
-    r = s.post(f"{API}/auth/login", json={
-        "email": "provider1@khedmapro.dz", "password": "password123",
-    })
-    assert r.status_code == 200, r.text
-    return {"token": r.json()["access_token"], "id": r.json()["user"]["id"]}
+    # Throwaway provider registered via the public API (P6).
+    prov = fresh_provider(s)
+    return {"token": prov["access_token"], "id": prov["user"]["id"]}
 
 
 @pytest.fixture(scope="module")
 def provider_ctx_2(s):
-    r = s.post(f"{API}/auth/login", json={
-        "email": "provider2@khedmapro.dz", "password": "password123",
-    })
-    assert r.status_code == 200
-    return {"token": r.json()["access_token"], "id": r.json()["user"]["id"]}
+    prov = fresh_provider(s)
+    return {"token": prov["access_token"], "id": prov["user"]["id"]}
 
 
 @pytest.fixture(scope="module")
