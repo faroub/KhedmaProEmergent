@@ -22,12 +22,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# config.py (imported by security) requires the app environment; fail with an
-# actionable message rather than a KeyError traceback.
-if not os.environ.get("JWT_SECRET"):
+try:
+    # importing security/schemas triggers config.py, which raises KeyError
+    # when an app environment variable is missing — fail with an actionable
+    # message rather than a traceback.
+    from security import hash_password
+    from schemas import Role
+except KeyError as e:
     sys.exit(
-        "JWT_SECRET is not set — run this script with the same environment as the app "
-        "(e.g. source the backend .env first)."
+        f"Environment variable {e} is not set — run this script with the same "
+        "environment as the app (e.g. source the backend .env first)."
     )
 
 import getpass
@@ -35,8 +39,6 @@ import uuid
 from datetime import datetime, timezone
 
 from pymongo import MongoClient
-from security import hash_password
-from schemas import Role
 
 MIN_PASSWORD_LENGTH = 12
 

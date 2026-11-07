@@ -25,7 +25,8 @@
 #
 # Sample data
 # -----------
-#   curl -X POST http://localhost:8001/api/seed
+#   docker compose exec backend python scripts/seed_dev.py
+#   (equivalently: curl -X POST http://localhost:8001/api/seed)
 
 services:
   mongo:

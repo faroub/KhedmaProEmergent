@@ -56,19 +56,19 @@ payment-receipt assertions skip only when `CHARGILY_SECRET_KEY` is set.
 ## Seed sample data
 
 ```bash
-curl -X POST http://localhost:8001/api/seed
+python scripts/seed_dev.py        # or: curl -X POST http://localhost:8001/api/seed
 ```
 
 This only seeds sample providers — it does **not** create an admin account.
 Admins are provisioned explicitly with `python scripts/create_admin.py`
 (minimum 12-character password, or the script exits with an error).
 
-In production (`ALLOW_DEV_SEED=false`, set by `docker-compose.prod.yml`), the
-seed endpoint requires an admin token instead:
+The seed is development-only. `ALLOW_DEV_SEED` defaults to `true` only when
+`APP_ENV` is `development` or `test`, and `scripts/seed_dev.py` refuses to run
+in production outright. Outside development the endpoint requires an admin
+token and seeded providers get random one-time passwords (returned in the
+response) instead of the documented dev password:
 
 ```bash
 curl -X POST http://localhost:8001/api/seed -H "Authorization: Bearer <ADMIN_JWT>"
 ```
-
-— and seeded provider accounts get random one-time passwords (returned in the
-response) instead of the documented dev password.

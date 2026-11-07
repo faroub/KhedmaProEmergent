@@ -62,9 +62,13 @@ CORS_ORIGINS = [
 ]
 
 # Dev-only helpers. /api/seed is unauthenticated + writes test data with known
-# passwords, so it must stay off in production (admins can still seed there —
-# the endpoint falls back to requiring an admin token when this is false).
-ALLOW_DEV_SEED = os.environ.get("ALLOW_DEV_SEED", "true").lower() == "true"
+# passwords, so it must stay off in production. The flag therefore defaults to
+# true only in development/test; outside development the route requires an
+# admin token regardless (and generates passwords instead of using the known
+# one). scripts/seed_dev.py refuses to run in production outright.
+ALLOW_DEV_SEED = os.environ.get(
+    "ALLOW_DEV_SEED", "true" if APP_ENV in ("development", "test") else "false"
+).lower() == "true"
 
 # Flagging thresholds
 FLAG_CONSECUTIVE_NO_COMPLETE = 3

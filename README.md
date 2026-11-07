@@ -74,7 +74,8 @@ Everything is now at:
 ### Seed sample data
 
 ```bash
-curl -X POST http://localhost:8001/api/seed
+docker compose exec backend python scripts/seed_dev.py
+# or, equivalently: curl -X POST http://localhost:8001/api/seed
 ```
 
 ### Include Metro/Expo too
@@ -246,7 +247,13 @@ You'll see a QR code in the terminal + a web preview URL.
 
 ### Terminal 3 — Seed data (optional but recommended)
 
-The backend auto-seeds an admin account on first startup. For sample providers, use the built-in dev seed endpoint:
+The backend never creates accounts at startup. For sample providers, run the dev seed script (from `backend/`):
+
+```bash
+python scripts/seed_dev.py
+```
+
+or call the built-in dev seed endpoint:
 
 ```bash
 curl -X POST http://localhost:8001/api/seed
@@ -342,7 +349,7 @@ Use the in-repo screenshot script or Playwright:
 | `JWT_EXPIRE_MINUTES` | ❌ | Default `1440` (24h) |
 | `EMERGENT_PUSH_KEY` | ❌ | Managed push relay key — leave as `placeholder` locally; auto-filled at deploy |
 | `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset for mock-mode payments |
-| `ALLOW_DEV_SEED` | ❌ | Default `true` (local dev). In production (`docker-compose.prod.yml` sets it to `false`), `POST /api/seed` requires an admin token and seeds random passwords instead of the known dev ones |
+| `ALLOW_DEV_SEED` | ❌ | Defaults `true` only when `APP_ENV` is `development`/`test`. Outside development the seed endpoint requires an admin token and `scripts/seed_dev.py` refuses to run |
 | `CORS_ORIGINS` | ❌ | Comma-separated browser origins allowed to call the API with credentials. Default covers the Expo web preview (`http://localhost:8081,http://localhost:8001`) |
 
 **`frontend/.env`**
