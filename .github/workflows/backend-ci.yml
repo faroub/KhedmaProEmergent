@@ -25,6 +25,9 @@ jobs:
       RATE_LIMIT_LOGIN_IP: "10000"
       RATE_LIMIT_OTP_IP: "10000"
       RATE_LIMIT_GUEST_BOOKING_IP: "10000"
+      # Shared by the server and the pytest process; signs the Chargily
+      # webhook payloads in tests/test_webhooks_idempotent.py (P19).
+      CHARGILY_WEBHOOK_SECRET: "ci-webhook-signing-only"
       EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
 
     services:

@@ -35,6 +35,15 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("migrate")
 
 
+async def _ensure_unique_event_id_index(dry_run: bool) -> dict:
+    """Webhook idempotency (P19): chargily_events.event_id must be unique so a
+    concurrent delivery of the same event loses the insert and is skipped."""
+    if dry_run:
+        return {"unique_indexes": ["chargily_events.event_id"]}
+    await db.chargily_events.create_index("event_id", unique=True)
+    return {"unique_indexes": ["chargily_events.event_id"]}
+
+
 async def _migrate_location_backfill(dry_run: bool) -> dict:
     """Backfill approximate wilaya-centroid coordinates for providers that
     don't have location_lat/lng yet (with a tiny per-provider offset so they
@@ -82,6 +91,7 @@ async def _migrate_category_rename(dry_run: bool) -> dict:
 
 
 MIGRATIONS = [
+    ("unique_event_id_index", _ensure_unique_event_id_index),
     ("location_backfill", _migrate_location_backfill),
     ("category_rename", _migrate_category_rename),
 ]

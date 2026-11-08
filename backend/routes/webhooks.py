@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
+from pymongo.errors import DuplicateKeyError
 
 from config import (
     ALLOW_MOCK_PAYMENTS,
@@ -77,7 +78,14 @@ async def create_checkout(provider_id: str, provider_email: str, provider_name: 
 
 @router.post("/webhooks/chargily")
 async def chargily_webhook(request: Request):
-    """HMAC-verified idempotent webhook. Only `checkout.paid` activates the subscription."""
+    """HMAC-verified idempotent webhook. Only `checkout.paid` activates the subscription.
+
+    Idempotency (P19): the event is inserted FIRST under the unique index on
+    chargily_events.event_id (created by scripts/migrate.py), so a concurrent
+    or repeated delivery loses the insert and is answered without
+    reprocessing. Events that fail after the insert are marked "failed" and
+    a later delivery claims and retries them.
+    """
     raw = await request.body()
     signature = request.headers.get("signature") or request.headers.get("Signature")
     eff = await get_effective_settings()
@@ -96,43 +104,62 @@ async def chargily_webhook(request: Request):
     except (ValueError, KeyError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid event")
 
-    # Idempotency
-    if await db.chargily_events.find_one({"event_id": event_id}):
-        return {"ok": True}
-    await db.chargily_events.insert_one({
-        "event_id": event_id,
-        "received_at": datetime.now(timezone.utc).isoformat(),
-    })
-
-    payment = await db.subscription_payments.find_one({"provider_checkout_id": checkout_id}, {"_id": 0})
-    if not payment:
-        raise HTTPException(status_code=400, detail="Unknown checkout")
-
-    # Server-controlled invariants — reject unexpected amounts.
-    expected_amount = int(eff["subscription_price_dzd"])
-    if checkout.get("amount") != expected_amount or checkout.get("currency") != "dzd":
-        raise HTTPException(status_code=400, detail="Unexpected amount/currency")
-
-    event_type = event.get("type")
     now_iso = datetime.now(timezone.utc).isoformat()
-    if event_type == "checkout.paid" and checkout.get("status") == "paid":
-        await db.subscription_payments.update_one(
-            {"provider_checkout_id": checkout_id},
-            {"$set": {"status": "paid", "paid_at": now_iso}},
+    try:
+        await db.chargily_events.insert_one({
+            "event_id": event_id,
+            "received_at": now_iso,
+            "status": "received",
+        })
+    except DuplicateKeyError:
+        # Already seen. A "failed" event is claimable for a retry; anything
+        # else (received/processed) is a plain duplicate delivery.
+        claim = await db.chargily_events.find_one_and_update(
+            {"event_id": event_id, "status": "failed"},
+            {"$set": {"status": "received", "received_at": now_iso}},
         )
-        await db.users.update_one(
-            {"id": payment["provider_id"]},
-            {"$set": {
-                "last_paid_at": now_iso,
-                "is_manually_deactivated": False,
-                "manually_deactivated_at": None,
-            }},
+        if claim is None:
+            return {"ok": True}
+
+    try:
+        payment = await db.subscription_payments.find_one({"provider_checkout_id": checkout_id}, {"_id": 0})
+        if not payment:
+            raise HTTPException(status_code=400, detail="Unknown checkout")
+
+        # Server-controlled invariants — reject unexpected amounts.
+        expected_amount = int(eff["subscription_price_dzd"])
+        if checkout.get("amount") != expected_amount or checkout.get("currency") != "dzd":
+            raise HTTPException(status_code=400, detail="Unexpected amount/currency")
+
+        event_type = event.get("type")
+        if event_type == "checkout.paid" and checkout.get("status") == "paid":
+            await db.subscription_payments.update_one(
+                {"provider_checkout_id": checkout_id},
+                {"$set": {"status": "paid", "paid_at": now_iso}},
+            )
+            await db.users.update_one(
+                {"id": payment["provider_id"]},
+                {"$set": {
+                    "last_paid_at": now_iso,
+                    "is_manually_deactivated": False,
+                    "manually_deactivated_at": None,
+                }},
+            )
+        elif event_type in ("checkout.failed", "checkout.canceled"):
+            await db.subscription_payments.update_one(
+                {"provider_checkout_id": checkout_id},
+                {"$set": {"status": event_type.split(".")[1]}},
+            )
+    except Exception:
+        # Processing failed after the insert: mark the event so a retry can
+        # claim it above, then surface the error to the payment provider.
+        await db.chargily_events.update_one(
+            {"event_id": event_id, "status": "received"}, {"$set": {"status": "failed"}}
         )
-    elif event_type in ("checkout.failed", "checkout.canceled"):
-        await db.subscription_payments.update_one(
-            {"provider_checkout_id": checkout_id},
-            {"$set": {"status": event_type.split(".")[1]}},
-        )
+        raise
+    await db.chargily_events.update_one(
+        {"event_id": event_id, "status": "received"}, {"$set": {"status": "processed"}}
+    )
     return {"ok": True}
 
 
