@@ -63,7 +63,11 @@ app.add_api_websocket_route("/api/ws/chat", ws_chat)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    # Bearer tokens only — no cookies are set or read anywhere in the app, so
+    # credentials are never echoed. This keeps `Access-Control-Allow-Credentials`
+    # out of responses and prevents credentialed cross-origin requests from
+    # origins the operator did not list.
+    allow_credentials=False,
     allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],

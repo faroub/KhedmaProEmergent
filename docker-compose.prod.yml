@@ -37,6 +37,10 @@ services:
       # memory per worker — set WEB_CONCURRENCY to 1 until a Redis pub/sub
       # layer is added, or chats can miss messages across workers.
       ALLOW_DEV_SEED: "false"
+      # CORS: production must list the browser origins allowed to call the API
+      # (e.g. the web client's domain). Credentials are never sent cross-origin
+      # (the app uses Bearer tokens), so only the origin list matters:
+      #   CORS_ORIGINS: "https://app.khedmapro.dz"
     # Read-only rootfs + writable /tmp for defense-in-depth.
     read_only: true
     tmpfs:
