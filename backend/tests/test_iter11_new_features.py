@@ -8,11 +8,7 @@
 Cleans up all seeded documents in the fixture teardown.
 """
 import os
-import time
 import uuid
-import hashlib
-import hmac
-import json
 from datetime import datetime, timedelta, timezone
 
 from helpers import fresh_provider, make_admin, skip_if_real_payment_provider

@@ -1,7 +1,7 @@
 """Provider listing + detail + provider reviews list."""
 import math
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
