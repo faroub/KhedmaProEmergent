@@ -2,15 +2,17 @@
 
 `get_effective_settings()` is the single read entry-point used by:
 - subscription.py  → subscription_price_dzd, trial_days, payments_enabled
-- webhooks.py       → chargily_mode + chargily_secret_key_override + chargily_webhook_secret_override
+- webhooks.py       → chargily_mode + the env-only Chargily secrets
 
 DB layer:
   db.platform_settings.findOne({id: "global"}) — may be missing on fresh installs.
 
-Env fallbacks come from `config.py`. If a DB override is empty/null the env
-value wins. This keeps the "real" secret key primarily in .env for security,
-while still allowing the admin UI to override for emergencies / dev.
+Non-secret defaults come from `config.py`. Secrets — Chargily secret key,
+webhook secret, Twilio auth token, SMS gateway headers — are environment-only
+(H8): they are never stored in or read from the database, so a settings dump
+cannot leak them. The admin UI only sees masked status hints.
 """
+import os
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
@@ -44,11 +46,11 @@ async def get_effective_settings() -> dict:
     doc = await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}
 
     mode = (doc.get("chargily_mode") or ENV_CHARGILY_MODE or "test").lower()
-    secret_override = (doc.get("chargily_secret_key_override") or "").strip()
-    webhook_override = (doc.get("chargily_webhook_secret_override") or "").strip()
 
-    effective_secret = secret_override or ENV_CHARGILY_SECRET_KEY
-    effective_webhook = webhook_override or ENV_CHARGILY_WEBHOOK_SECRET or effective_secret
+    # H8: Chargily secrets are environment-only — the database never holds or
+    # overrides them (settings.py reads env directly; webhooks use these).
+    effective_secret = ENV_CHARGILY_SECRET_KEY
+    effective_webhook = ENV_CHARGILY_WEBHOOK_SECRET or effective_secret
 
     # SMS subsystem status (imported lazily to avoid a circular import).
     from sms import get_provider_status  # noqa: WPS433
@@ -67,26 +69,26 @@ async def get_effective_settings() -> dict:
         "payments_enabled": bool(doc.get("payments_enabled", True)),
         "chargily_mode": mode,
         "chargily_base_url": _base_url_for(mode),
-        "chargily_secret_key_source": "db" if secret_override else ("env" if ENV_CHARGILY_SECRET_KEY else "none"),
-        "chargily_webhook_secret_source": "db" if webhook_override else ("env" if ENV_CHARGILY_WEBHOOK_SECRET else "none"),
+        "chargily_secret_key_source": "env" if ENV_CHARGILY_SECRET_KEY else "none",
+        "chargily_webhook_secret_source": "env" if ENV_CHARGILY_WEBHOOK_SECRET else "none",
         # Never return the raw secret; only return a masked hint.
         "chargily_secret_key_masked": _mask(effective_secret),
         "_secret_key": effective_secret,          # used internally by webhooks / checkout
         "_webhook_secret": effective_webhook,     # ditto
-        # SMS block — safe subset only; auth tokens are NEVER returned.
+        # SMS block — safe subset only; credentials are env-only (H8) and are
+        # never returned. The resolved provider status carries the masked SID.
         "sms": {
             **sms_status,
             "message_template": sms_doc.get("message_template") or "",
             # Twilio public fields
             "twilio_from": sms_doc.get("twilio_from") or "",
-            "twilio_account_sid_masked": _mask(sms_doc.get("twilio_account_sid") or ""),
             # HTTP public fields
             "http_url": sms_doc.get("http_url") or "",
             "http_method": sms_doc.get("http_method") or "POST",
             "http_body_template": sms_doc.get("http_body_template") or "",
             "http_content_type": sms_doc.get("http_content_type") or "application/json",
-            # Header keys only (values redacted so we don't leak API keys).
-            "http_header_keys": list((sms_doc.get("http_headers") or {}).keys()),
+            # Header presence only — their values live in the environment.
+            "http_headers_configured": bool(os.getenv("SMS_HTTP_HEADERS", "").strip()),
         },
         "social": {
             "facebook_url": social_doc.get("facebook_url") or "",
@@ -164,11 +166,9 @@ def _mask(v: str) -> str:
 class SmsConfigPatch(BaseModel):
     provider: Optional[str] = Field(default=None, pattern="^(mock|twilio|http)$")
     twilio_account_sid: Optional[str] = None
-    twilio_auth_token: Optional[str] = None
     twilio_from: Optional[str] = None
     http_url: Optional[str] = None
     http_method: Optional[str] = Field(default=None, pattern="^(GET|POST|PUT)$")
-    http_headers: Optional[dict] = None
     http_body_template: Optional[str] = None
     http_content_type: Optional[str] = None
     message_template: Optional[str] = None
@@ -242,8 +242,6 @@ class SettingsPatch(BaseModel):
     trial_days: Optional[int] = Field(default=None, ge=0, le=365)
     payments_enabled: Optional[bool] = None
     chargily_mode: Optional[str] = Field(default=None, pattern="^(test|live)$")
-    chargily_secret_key_override: Optional[str] = None      # empty string clears
-    chargily_webhook_secret_override: Optional[str] = None  # empty string clears
     sms: Optional[SmsConfigPatch] = None
     social: Optional[SocialConfigPatch] = None
     site: Optional[SiteConfigPatch] = None
@@ -277,8 +275,9 @@ async def admin_update_settings(
     body: SettingsPatch,
     user: Annotated[dict, Depends(current_user)],
 ):
-    """Update platform settings. An explicit empty string clears an override
-    (falls back to env). Secret-key overrides trigger an audit log entry."""
+    """Update platform settings. Only non-secret fields are accepted —
+    Chargily/Twilio/gateway credentials are configured via environment
+    variables (H8) and cannot be written through this endpoint."""
     require_admin(user)
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -297,12 +296,6 @@ async def admin_update_settings(
     if body.chargily_mode is not None:
         updates["chargily_mode"] = body.chargily_mode
         audit_changes.append(f"mode={body.chargily_mode}")
-    if body.chargily_secret_key_override is not None:
-        updates["chargily_secret_key_override"] = body.chargily_secret_key_override.strip()
-        audit_changes.append("secret_key_override_changed")
-    if body.chargily_webhook_secret_override is not None:
-        updates["chargily_webhook_secret_override"] = body.chargily_webhook_secret_override.strip()
-        audit_changes.append("webhook_secret_override_changed")
 
     if body.sms is not None:
         # Merge SMS block over the existing one so callers can PATCH one key.

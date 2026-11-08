@@ -363,6 +363,10 @@ Use the in-repo screenshot script or Playwright:
 | `JWT_EXPIRE_MINUTES` | ❌ | Default `720` (12h); shortened from 24h in P13 (combined with token_version revocation) |
 | `EMERGENT_PUSH_KEY` | ❌ | Managed push relay key — leave as `placeholder` locally; auto-filled at deploy |
 | `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset to use the mock-mode payments |
+| `CHARGILY_WEBHOOK_SECRET` | ❌ | Chargily webhook signature secret (defaults to `CHARGILY_SECRET_KEY`) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ❌ | Twilio SMS credentials (the auth token is **environment-only** — it is never stored in or read from the database, H8) |
+| `SMS_HTTP_HEADERS` | ❌ | JSON object of SMS gateway headers (API keys), e.g. `{"Authorization": "Bearer ..."}` — environment-only (H8) |
+| `S3_*` (`S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) | ❌ | Uploaded-file storage (verification documents, portfolio). Without it, files stay on the local filesystem under `FILE_STORAGE_DIR` |
 | `ALLOW_MOCK_PAYMENTS` | ❌ | Mock payment fallback (no Chargily key). Default `false`; `true` is honored only when `APP_ENV` is `development`/`test` — `docker-compose.yml` sets it `true` for local dev, and without it `/subscription/pay` returns 503 |
 | `ALLOW_DEV_SEED` | ❌ | Defaults `true` only when `APP_ENV` is `development`/`test`. Outside development the seed endpoint requires an admin token and `scripts/seed_dev.py` refuses to run |
 | `CORS_ORIGINS` | ❌ | Comma-separated browser origins allowed to call the API with credentials. Default covers the Expo web preview (`http://localhost:8081,http://localhost:8001`) |

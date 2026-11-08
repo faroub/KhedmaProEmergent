@@ -9,9 +9,10 @@ Providers implemented:
              configures a URL + JSON body template with `{phone}` and `{message}`
              placeholders and optional headers (for API-key auth).
 
-Provider selection + credentials live in the platform_settings document and are
-read via `get_effective_settings()` in `routes/settings.py`. Env variables are
-used as fallbacks so a fresh install with just a .env still works.
+Provider selection and non-secret configuration (URL, body template, sender…)
+live in the platform_settings document and are read via `get_effective_settings()`
+in `routes/settings.py`. Credentials — Twilio auth token and SMS gateway
+headers — are environment-only (H8): secrets never enter the database.
 
 Public entry-point: `await send_sms_otp(phone_e164, code)`.
 It NEVER raises externally — a delivery failure is logged and the caller can
@@ -36,6 +37,9 @@ from config import APP_ENV, SMS_PROVIDER as ENV_SMS_PROVIDER
 ENV_TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 ENV_TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 ENV_TWILIO_FROM = os.getenv("TWILIO_FROM_NUMBER", "")
+# SMS_HTTP_HEADERS: JSON object of gateway headers (often API keys) — H8 keeps
+# these out of the database entirely.
+ENV_SMS_HTTP_HEADERS = os.getenv("SMS_HTTP_HEADERS", "")
 
 DEFAULT_MESSAGE_TEMPLATE = "khedmaPro: your verification code is {code}. Valid 5 minutes."
 
@@ -53,23 +57,35 @@ def _mask(v: str) -> str:
 
 
 async def _resolve_config() -> dict[str, Any]:
-    """Merge env + DB settings for SMS config only. Imported lazily to avoid
-    a circular import with `routes/settings.py`."""
+    """Merge env + DB settings for SMS config only. Credentials (Twilio token,
+    gateway headers) are environment-only — never read from the database (H8).
+    Imported lazily to avoid a circular import with `routes/settings.py`."""
     # Late import to avoid circular
     from database import db  # noqa: WPS433
 
     doc = await db.platform_settings.find_one({"id": "global"}, {"_id": 0}) or {}
     sms = doc.get("sms") or {}
 
+    headers: dict = {}
+    if ENV_SMS_HTTP_HEADERS.strip():
+        try:
+            parsed = json.loads(ENV_SMS_HTTP_HEADERS)
+            if isinstance(parsed, dict):
+                headers = {str(k): str(v) for k, v in parsed.items()}
+            else:
+                logger.warning("SMS_HTTP_HEADERS must be a JSON object; ignoring it")
+        except json.JSONDecodeError:
+            logger.warning("SMS_HTTP_HEADERS is not valid JSON; ignoring it")
+
     return {
         "provider": (sms.get("provider") or ENV_SMS_PROVIDER or "mock").lower(),
         "twilio_account_sid": sms.get("twilio_account_sid") or ENV_TWILIO_ACCOUNT_SID,
-        "twilio_auth_token": sms.get("twilio_auth_token") or ENV_TWILIO_AUTH_TOKEN,
+        "twilio_auth_token": ENV_TWILIO_AUTH_TOKEN,
         "twilio_from": sms.get("twilio_from") or ENV_TWILIO_FROM,
         # Generic HTTP provider (for local gateways)
         "http_url": sms.get("http_url") or "",
         "http_method": (sms.get("http_method") or "POST").upper(),
-        "http_headers": sms.get("http_headers") or {},
+        "http_headers": headers,
         "http_body_template": sms.get("http_body_template") or "",
         "http_content_type": sms.get("http_content_type") or "application/json",
         # Message template. {code} and {phone} are the supported placeholders.

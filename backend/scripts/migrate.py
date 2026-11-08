@@ -191,12 +191,46 @@ async def _migrate_inline_files(dry_run: bool) -> dict:
     return counts
 
 
+async def _strip_platform_secrets(dry_run: bool) -> dict:
+    """Remove legacy plaintext secrets from platform_settings (H8/P25).
+
+    Chargily key overrides, webhook overrides, the Twilio auth token and SMS
+    gateway headers were previously editable from the admin UI and stored in
+    plaintext. Credentials are environment-only now, so this migration deletes
+    the stored values (they no longer take effect regardless). Back up the
+    collection before running it in production, and rotate any key that was
+    ever shown in the admin UI or logs."""
+    fields = {
+        "chargily_secret_key_override": "",
+        "chargily_webhook_secret_override": "",
+        "sms.twilio_auth_token": "",
+        "sms.http_headers": "",
+    }
+    if dry_run:
+        coll = db.platform_settings
+        count = 0
+        async for doc in coll.find({}, {"_id": 1, **{f: 1 for f in fields}}):
+            present = [
+                f for f in fields
+                if f.split(".", 1)[0] in doc and (
+                    "." not in f or f.split(".", 1)[1] in doc.get(f.split(".", 1)[0], {})
+                )
+            ]
+            count += len(present)
+        return {"secret_fields_found": count}
+    result = await db.platform_settings.update_many(
+        {}, {"$unset": dict.fromkeys(fields, "")}
+    )
+    return {"matched": result.matched_count, "modified": result.modified_count}
+
+
 MIGRATIONS = [
     ("unique_event_id_index", _ensure_unique_event_id_index),
     ("unique_report_window_index", _ensure_unique_report_window_index),
     ("location_backfill", _migrate_location_backfill),
     ("category_rename", _migrate_category_rename),
     ("inline_files", _migrate_inline_files),
+    ("strip_platform_secrets", _strip_platform_secrets),
 ]
 
 

@@ -30,7 +30,7 @@ type SmsSection = {
   http_method: "GET" | "POST" | "PUT";
   http_body_template: string;
   http_content_type: string;
-  http_header_keys: string[];
+  http_headers_configured: boolean;
 };
 
 type Settings = {
@@ -39,8 +39,8 @@ type Settings = {
   payments_enabled: boolean;
   chargily_mode: "test" | "live";
   chargily_base_url: string;
-  chargily_secret_key_source: "env" | "db" | "none";
-  chargily_webhook_secret_source: "env" | "db" | "none";
+  chargily_secret_key_source: "env" | "none";
+  chargily_webhook_secret_source: "env" | "none";
   chargily_secret_key_masked: string;
   sms?: SmsSection;
   social?: {
@@ -78,20 +78,16 @@ export default function AdminSettings() {
   const [trial, setTrial] = useState("90");
   const [mode, setMode] = useState<"test" | "live">("test");
   const [payEnabled, setPayEnabled] = useState(true);
-  const [secretOverride, setSecretOverride] = useState("");
-  const [showSecret, setShowSecret] = useState(false);
 
-  // SMS local state
+  // SMS local state — credentials (Twilio token, gateway headers) are
+  // environment-only and are never edited here (H8).
   const [smsProvider, setSmsProvider] = useState<"mock" | "twilio" | "http">("mock");
   const [twilioSid, setTwilioSid] = useState("");
-  const [twilioToken, setTwilioToken] = useState("");
   const [twilioFrom, setTwilioFrom] = useState("");
-  const [showTwilioToken, setShowTwilioToken] = useState(false);
   const [httpUrl, setHttpUrl] = useState("");
   const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT">("POST");
   const [httpContentType, setHttpContentType] = useState("application/json");
   const [httpBodyTpl, setHttpBodyTpl] = useState("");
-  const [httpHeadersRaw, setHttpHeadersRaw] = useState("");
   const [msgTemplate, setMsgTemplate] = useState("");
   const [smsTestPhone, setSmsTestPhone] = useState("");
   const [smsTestBusy, setSmsTestBusy] = useState(false);
@@ -170,7 +166,6 @@ export default function AdminSettings() {
         setSmsProvider(s.sms.provider || "mock");
         setTwilioFrom(s.sms.twilio_from || "");
         setTwilioSid(""); // never returned by backend — user must re-enter to change
-        setTwilioToken("");
         setHttpUrl(s.sms.http_url || "");
         setHttpMethod((s.sms.http_method as any) || "POST");
         setHttpContentType(s.sms.http_content_type || "application/json");
@@ -263,30 +258,15 @@ export default function AdminSettings() {
         chargily_mode: mode,
         payments_enabled: payEnabled,
       };
-      // Only send secret override if the field is not empty and not the placeholder mask.
-      if (secretOverride.trim().length > 0) {
-        patch.chargily_secret_key_override = secretOverride.trim();
-      }
-      // SMS block. Empty strings clear a stored value on the server; unchanged
-      // secret fields (Twilio SID / token) are only sent when the admin actually
-      // typed something so we don't accidentally overwrite existing keys with blanks.
+      // SMS block. Credentials (Twilio token, gateway headers) are
+      // environment-only — they are never sent through this endpoint (H8).
       const smsPatch: any = { provider: smsProvider, message_template: msgTemplate };
       if (twilioSid.trim().length > 0) smsPatch.twilio_account_sid = twilioSid.trim();
-      if (twilioToken.trim().length > 0) smsPatch.twilio_auth_token = twilioToken.trim();
       smsPatch.twilio_from = twilioFrom.trim();
       smsPatch.http_url = httpUrl.trim();
       smsPatch.http_method = httpMethod;
       smsPatch.http_content_type = httpContentType.trim() || "application/json";
       smsPatch.http_body_template = httpBodyTpl;
-      // Parse "Header-Name: value" lines into an object.
-      if (httpHeadersRaw.trim().length > 0) {
-        const obj: Record<string, string> = {};
-        httpHeadersRaw.split(/\n+/).forEach((line) => {
-          const m = line.match(/^([^:]+):\s*(.+)$/);
-          if (m) obj[m[1].trim()] = m[2].trim();
-        });
-        smsPatch.http_headers = obj;
-      }
       patch.sms = smsPatch;
 
       // Social media links block
@@ -368,10 +348,7 @@ export default function AdminSettings() {
 
       const updated: any = await api.adminUpdateSettings(patch);
       setSettings(updated);
-      setSecretOverride("");
       setTwilioSid("");
-      setTwilioToken("");
-      setHttpHeadersRaw("");
       Alert.alert("✓", "Settings saved");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to save");
@@ -398,32 +375,6 @@ export default function AdminSettings() {
     } finally {
       setSmsTestBusy(false);
     }
-  };
-
-  const clearSecretOverride = () => {
-    Alert.alert(
-      "Clear DB secret override?",
-      "The Chargily secret key will fall back to the value stored in the server .env file.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: async () => {
-            setBusy(true);
-            try {
-              await api.adminUpdateSettings({ chargily_secret_key_override: "" });
-              await load();
-              Alert.alert("✓", "Override cleared. Using .env key.");
-            } catch (e: any) {
-              Alert.alert("Error", e?.message || "Failed");
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ]
-    );
   };
 
   const runHealth = async () => {
@@ -486,8 +437,8 @@ export default function AdminSettings() {
             <View style={styles.field}>
               <View style={styles.rowBetween}>
                 <Text style={styles.label}>Secret key</Text>
-                <View style={[styles.sourcePill, { backgroundColor: (settings?.chargily_secret_key_source === "env" ? theme.colors.success : settings?.chargily_secret_key_source === "db" ? theme.colors.warning : theme.colors.error) + "22" }]}>
-                  <Text style={[styles.sourcePillText, { color: settings?.chargily_secret_key_source === "env" ? theme.colors.success : settings?.chargily_secret_key_source === "db" ? theme.colors.warning : theme.colors.error }]}>
+                <View style={[styles.sourcePill, { backgroundColor: (settings?.chargily_secret_key_source === "env" ? theme.colors.success : theme.colors.error) + "22" }]}>
+                  <Text style={[styles.sourcePillText, { color: settings?.chargily_secret_key_source === "env" ? theme.colors.success : theme.colors.error }]}>
                     from {settings?.chargily_secret_key_source}
                   </Text>
                 </View>
@@ -500,32 +451,9 @@ export default function AdminSettings() {
               <View style={styles.warnCard}>
                 <Ionicons name="warning" size={14} color={theme.colors.warning} />
                 <Text style={styles.warnText}>
-                  For security, the Chargily secret key should live in the server <Text style={{ fontWeight: "800" }}>.env</Text> file. Overriding it here stores it in the database — only do this if you fully understand the risks.
+                  Payment secrets are configured from the server <Text style={{ fontWeight: "800" }}>environment</Text> (CHARGILY_SECRET_KEY, CHARGILY_WEBHOOK_SECRET) — they are never stored in the database and cannot be edited here.
                 </Text>
               </View>
-
-              <View style={styles.secretInputRow}>
-                <TextInput
-                  value={secretOverride}
-                  onChangeText={setSecretOverride}
-                  placeholder="Paste secret key to override .env (optional)"
-                  placeholderTextColor={theme.colors.muted}
-                  secureTextEntry={!showSecret}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={styles.input}
-                />
-                <Pressable onPress={() => setShowSecret((s) => !s)} hitSlop={8} style={styles.eyeBtn}>
-                  <Ionicons name={showSecret ? "eye-off" : "eye"} size={18} color={theme.colors.muted} />
-                </Pressable>
-              </View>
-
-              {settings?.chargily_secret_key_source === "db" && (
-                <Pressable onPress={clearSecretOverride} style={styles.linkBtn}>
-                  <Ionicons name="trash" size={12} color={theme.colors.error} />
-                  <Text style={[styles.linkBtnText, { color: theme.colors.error }]}>Clear DB override (revert to .env)</Text>
-                </Pressable>
-              )}
             </View>
 
             <Pressable onPress={runHealth} disabled={health_busy} style={styles.healthBtn}>
@@ -660,29 +588,9 @@ export default function AdminSettings() {
                 </View>
                 <View style={styles.field}>
                   <Text style={styles.label}>Twilio Auth Token</Text>
-                  <View style={styles.secretInputRow}>
-                    <TextInput
-                      testID="sms-twilio-token"
-                      value={twilioToken}
-                      onChangeText={setTwilioToken}
-                      placeholder={settings?.sms?.twilio_account_sid_masked ? "Leave blank to keep" : "your-auth-token"}
-                      placeholderTextColor={theme.colors.muted}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      secureTextEntry={!showTwilioToken}
-                      style={styles.input}
-                    />
-                    <Pressable
-                      onPress={() => setShowTwilioToken((s) => !s)}
-                      hitSlop={8}
-                      style={styles.eyeBtn}
-                    >
-                      <Ionicons
-                        name={showTwilioToken ? "eye-off" : "eye"}
-                        size={18}
-                        color={theme.colors.muted}
-                      />
-                    </Pressable>
+                  <View style={styles.maskedRow}>
+                    <Ionicons name="key" size={14} color={theme.colors.muted} />
+                    <Text style={styles.masked}>configured via the TWILIO_AUTH_TOKEN environment variable</Text>
                   </View>
                 </View>
                 <View style={styles.field}>
@@ -767,24 +675,13 @@ export default function AdminSettings() {
                   </Text>
                 </View>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Extra headers (one per line, `Name: value`)</Text>
-                  {settings?.sms?.http_header_keys && settings.sms.http_header_keys.length > 0 && (
-                    <Text style={styles.help}>
-                      Currently stored: {settings.sms.http_header_keys.join(", ")} (values hidden)
-                    </Text>
+                  <Text style={styles.label}>Extra headers</Text>
+                  {settings?.sms?.http_headers_configured && (
+                    <Text style={styles.help}>Currently set via the SMS_HTTP_HEADERS environment variable.</Text>
                   )}
-                  <TextInput
-                    testID="sms-http-headers"
-                    value={httpHeadersRaw}
-                    onChangeText={setHttpHeadersRaw}
-                    multiline
-                    numberOfLines={3}
-                    placeholder={"Authorization: Bearer XXX\nX-API-Key: XXX"}
-                    placeholderTextColor={theme.colors.muted}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={[styles.input, { height: 72, textAlignVertical: "top" }]}
-                  />
+                  <Text style={styles.help}>
+                    Gateway headers (API keys) are configured from the server environment as JSON, never through the database.
+                  </Text>
                 </View>
               </>
             )}
@@ -1387,9 +1284,6 @@ const styles = StyleSheet.create({
 
   secretInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   eyeBtn: { padding: 8 },
-
-  linkBtn: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 4 },
-  linkBtnText: { fontSize: 12, fontWeight: "700" },
 
   healthBtn: {
     flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center",
