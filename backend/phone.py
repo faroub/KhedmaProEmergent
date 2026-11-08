@@ -27,11 +27,19 @@ def normalize_dz_phone(raw: str) -> str:
 async def send_otp_code(phone_e164: str, code: str) -> None:
     """Delegate to the pluggable SMS dispatcher.
 
-    We deliberately don't raise on delivery failure — the code is already
-    persisted (hashed) server-side, so callers can retry `POST /auth/otp/request`
-    to trigger a resend without invalidating the challenge state.
+    Delivery failures are not swallowed: a user who just requested a code must
+    learn it could not be sent, so this raises 503 with a generic message.
+    Provider details (gateway response, credentials state) stay in the server
+    log and never reach the client.
     """
     result = await send_sms_otp(phone_e164, code)
     if not result.get("ok"):
-        # Escalate to warning so it's visible in dev logs but non-fatal.
-        logger.warning("send_otp_code: delivery failed via %s — %s", result.get("provider"), result.get("error"))
+        logger.warning(
+            "send_otp_code: delivery failed via %s — %s",
+            result.get("provider"),
+            result.get("error"),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="SMS delivery failed — please try again later",
+        )

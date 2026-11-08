@@ -1,7 +1,9 @@
 """Pluggable SMS delivery layer.
 
 Providers implemented:
-- `mock`   : Logs the code to the server console. Default when nothing configured.
+- `mock`   : Logs the code to the server console. Default when nothing
+             configured. Dev/test only — refused in production (an OTP code
+             must never reach a production log).
 - `twilio` : Uses Twilio Programmable SMS via the official Python SDK.
 - `http`   : Generic HTTP POST — good for local Algerian SMS gateways. The admin
              configures a URL + JSON body template with `{phone}` and `{message}`
@@ -30,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Env fallbacks. Admin DB overrides always win when present.
 # SMS_PROVIDER lives in config.py so startup validation (server.py) sees the
 # same value without importing this module's httpx client.
-from config import SMS_PROVIDER as ENV_SMS_PROVIDER
+from config import APP_ENV, SMS_PROVIDER as ENV_SMS_PROVIDER
 ENV_TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 ENV_TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 ENV_TWILIO_FROM = os.getenv("TWILIO_FROM_NUMBER", "")
@@ -87,7 +89,11 @@ def build_message(code: str, phone: str, template: Optional[str] = None) -> str:
 
 
 def _send_mock(phone: str, message: str) -> dict:
-    """Dev-only: prints the code to the server log."""
+    """Dev/test-only: logs the code to the server log. Refused in production —
+    an OTP code must never reach a production log, and a logged code is not
+    a delivery."""
+    if APP_ENV == "production":
+        raise SMSSendError("mock SMS provider is not allowed in APP_ENV=production")
     logger.warning("[MOCK SMS] to=%s msg=%r", phone, message)
     return {"ok": True, "provider": "mock", "sid": None}
 
@@ -194,6 +200,12 @@ async def get_provider_status() -> dict:
     cfg = await _resolve_config()
     provider = cfg["provider"]
     if provider == "mock":
+        if APP_ENV == "production":
+            return {
+                "provider": "mock",
+                "healthy": False,
+                "detail": "Dev mock — refused in production; configure a real SMS provider",
+            }
         return {"provider": "mock", "healthy": True, "detail": "Dev mock — codes are logged only"}
     if provider == "twilio":
         ok = bool(cfg.get("twilio_account_sid") and cfg.get("twilio_auth_token") and cfg.get("twilio_from"))
