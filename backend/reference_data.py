@@ -18,6 +18,23 @@ CATEGORIES = [
     {"id": "moving", "name": "Moving", "icon": "cube"},
 ]
 
+# Tri-language names for the category documents, sourced from language.tsx
+# keys ("cat.<id>"). Seeding (server.on_startup) reads them from here so the
+# translations live with the rest of the reference data (P33).
+CATEGORY_NAMES = {
+    "plumbing":         {"en": "Plumbing",                     "fr": "Plomberie",         "ar": "سباكة"},
+    "electrical":       {"en": "Electrical",                   "fr": "Électricité",        "ar": "كهرباء"},
+    "cleaning":         {"en": "Cleaning",                     "fr": "Nettoyage",         "ar": "تنظيف"},
+    "carpentry":        {"en": "Carpentry",                    "fr": "Menuiserie",        "ar": "نجارة"},
+    "painting":         {"en": "Painting",                     "fr": "Peinture",          "ar": "دهان"},
+    "landscaping":      {"en": "Landscaping",                  "fr": "Jardinage",         "ar": "بستنة"},
+    "it_support":       {"en": "IT Support",                   "fr": "Support IT",        "ar": "دعم تقني"},
+    "admin_consulting": {"en": "Administrative Consultants",   "fr": "Aide administrative","ar": "استشارات إدارية"},
+    "education":        {"en": "Education (Private Tutoring)", "fr": "Éducation (tutorat)","ar": "تعليم (دروس خصوصية)"},
+    "photography":      {"en": "Photography",                  "fr": "Photographie",      "ar": "تصوير"},
+    "moving":           {"en": "Moving",                       "fr": "Déménagement",      "ar": "نقل الأثاث"},
+}
+
 # 58 Algerian wilayas (province code → English / French / Arabic name)
 WILAYAS = [
     {"code": "01", "en": "Adrar", "fr": "Adrar", "ar": "أدرار"},

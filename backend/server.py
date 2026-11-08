@@ -110,28 +110,14 @@ async def on_startup():
     # Seed the categories collection from the static list on first boot.
     # Idempotent: only inserts categories whose id isn't already in the DB.
     try:
-        from reference_data import CATEGORIES
+        from reference_data import CATEGORIES, CATEGORY_NAMES
 
-        # Tri-language names sourced from language.tsx keys ("cat.<id>").
-        _NAMES = {
-            "plumbing":      {"en": "Plumbing",                    "fr": "Plomberie",        "ar": "سباكة"},
-            "electrical":    {"en": "Electrical",                  "fr": "Électricité",       "ar": "كهرباء"},
-            "cleaning":      {"en": "Cleaning",                    "fr": "Nettoyage",        "ar": "تنظيف"},
-            "carpentry":     {"en": "Carpentry",                   "fr": "Menuiserie",       "ar": "نجارة"},
-            "painting":      {"en": "Painting",                    "fr": "Peinture",         "ar": "دهان"},
-            "landscaping":   {"en": "Landscaping",                 "fr": "Jardinage",        "ar": "بستنة"},
-            "it_support":    {"en": "IT Support",                  "fr": "Support IT",       "ar": "دعم تقني"},
-            "admin_consulting": {"en": "Administrative Consultants","fr": "Aide administrative","ar": "استشارات إدارية"},
-            "education":     {"en": "Education (Private Tutoring)","fr": "Éducation (tutorat)","ar": "تعليم (دروس خصوصية)"},
-            "photography":   {"en": "Photography",                 "fr": "Photographie",     "ar": "تصوير"},
-            "moving":        {"en": "Moving",                      "fr": "Déménagement",     "ar": "نقل الأثاث"},
-        }
         now_iso = datetime.now(timezone.utc).isoformat()
         for idx, c in enumerate(CATEGORIES):
             existing = await db.categories.find_one({"id": c["id"]}, {"_id": 0, "id": 1})
             if existing:
                 continue
-            names = _NAMES.get(c["id"], {})
+            names = CATEGORY_NAMES.get(c["id"], {})
             await db.categories.insert_one({
                 "id": c["id"],
                 "icon": c["icon"],
