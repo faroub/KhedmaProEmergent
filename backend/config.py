@@ -86,6 +86,13 @@ RATE_LIMIT_MESSAGE_USER = int(os.environ.get("RATE_LIMIT_MESSAGE_USER", "60"))
 RATE_LIMIT_PUSH_USER = int(os.environ.get("RATE_LIMIT_PUSH_USER", "30"))
 RATE_LIMIT_REPORT_USER = int(os.environ.get("RATE_LIMIT_REPORT_USER", "10"))
 
+# Reports: one report per (reporter, provider) per window, backed by a unique
+# index on (reporter_id, provider_id, window) — see scripts/migrate.py.
+REPORT_WINDOW_DAYS = int(os.environ.get("REPORT_WINDOW_DAYS", "30"))
+# A report from this many distinct reporters within the window is marked
+# auto_flagged for admin review. Account action still stays with the admin.
+REPORTS_AUTO_FLAG_THRESHOLD = int(os.environ.get("REPORTS_AUTO_FLAG_THRESHOLD", "3"))
+
 # Flagging thresholds
 FLAG_CONSECUTIVE_NO_COMPLETE = 3
 FLAG_CONFIRMED_WINDOW_DAYS = 14

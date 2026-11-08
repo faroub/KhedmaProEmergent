@@ -44,6 +44,24 @@ async def _ensure_unique_event_id_index(dry_run: bool) -> dict:
     return {"unique_indexes": ["chargily_events.event_id"]}
 
 
+async def _ensure_unique_report_window_index(dry_run: bool) -> dict:
+    """Report dedup (P23): one report per (reporter, provider) per 30-day
+    window — the application pre-checks, and this unique index closes the
+    concurrent-insert race. Partial on window existence so legacy documents
+    written before the field existed are not re-constrained."""
+    keys = [("reporter_id", 1), ("provider_id", 1), ("window", 1)]
+    name = "unique_report_window_index"
+    if dry_run:
+        return {"unique_indexes": [name]}
+    await db.reports.create_index(
+        keys,
+        unique=True,
+        name=name,
+        partialFilterExpression={"window": {"$exists": True}},
+    )
+    return {"unique_indexes": [name]}
+
+
 async def _migrate_location_backfill(dry_run: bool) -> dict:
     """Backfill approximate wilaya-centroid coordinates for providers that
     don't have location_lat/lng yet (with a tiny per-provider offset so they
@@ -92,6 +110,7 @@ async def _migrate_category_rename(dry_run: bool) -> dict:
 
 MIGRATIONS = [
     ("unique_event_id_index", _ensure_unique_event_id_index),
+    ("unique_report_window_index", _ensure_unique_report_window_index),
     ("location_backfill", _migrate_location_backfill),
     ("category_rename", _migrate_category_rename),
 ]

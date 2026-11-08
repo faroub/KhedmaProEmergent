@@ -95,6 +95,10 @@ class TestMigrations:
         legacy = coll.users.find_one({"id": lid})
         assert legacy.get("category") == "admin_consulting"
 
+        # P23: the report-window unique index exists (partial on `window`).
+        idx = coll.reports.index_information().get("unique_report_window_index")
+        assert idx is not None and idx["unique"] is True
+
         # Second run changes nothing.
         results2 = _run_migrations(monkeypatch)
         assert results2["location_backfill"]["updated"] == 0
