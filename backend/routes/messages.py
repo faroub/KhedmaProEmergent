@@ -4,9 +4,12 @@ The WebSocket handler is exported as a plain async function so `server.py`
 can register it against the FastAPI app directly (WS routes cannot live on
 an `APIRouter` with a prefix in the same way HTTP routes can).
 """
+import asyncio
+import json
+import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -107,19 +110,112 @@ async def send_message(
 
 
 # ---- WebSocket ----
-async def ws_chat(websocket: WebSocket, token: str):
-    """Authenticated chat WebSocket. Client connects with `?token=<JWT>`."""
+WS_AUTH_TIMEOUT = 5.0  # seconds the client has to send the auth message
+WS_REVALIDATE_INTERVAL = 60.0  # seconds between session rechecks on idle sockets
+
+logger = logging.getLogger(__name__)
+
+
+async def _read_auth_message(websocket: WebSocket) -> Optional[dict]:
+    """Read the first {"type":"auth","token":...} message and decode the token.
+    Closes the socket with 1008 on any failure and returns None."""
     try:
-        payload = decode_token(token)
-        user_id = payload["sub"]
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=WS_AUTH_TIMEOUT)
+        data = json.loads(raw)
+    except (asyncio.TimeoutError, json.JSONDecodeError, TypeError, ValueError):
+        await websocket.close(code=1008)
+        return None
+    if (
+        not isinstance(data, dict)
+        or data.get("type") != "auth"
+        or not isinstance(data.get("token"), str)
+    ):
+        await websocket.close(code=1008)
+        return None
+    try:
+        return decode_token(data["token"])
     except jwt.InvalidTokenError:
+        await websocket.close(code=1008)
+        return None
+
+
+async def _ws_session_payload(websocket: WebSocket, token: Optional[str]) -> Optional[dict]:
+    """Decode the session payload from the first-message auth protocol, or from
+    the query-string token (deprecated, kept for one release). Returns None
+    (socket already closed with 1008) when authentication fails."""
+    if token:
+        try:
+            payload = decode_token(token)
+        except jwt.InvalidTokenError:
+            payload = None
+        else:
+            logger.warning(
+                "WS chat: connected via deprecated query-string token; "
+                'send {"type":"auth","token":...} as the first message instead'
+            )
+        if payload is None:
+            await websocket.close(code=1008)
+            return None
+    else:
+        payload = await _read_auth_message(websocket)
+        if payload is None:
+            return None
+    # Tokens minted for a specific purpose (e.g. phone verification) are not
+    # session tokens.
+    if not payload.get("sub") or payload.get("purpose") is not None:
+        await websocket.close(code=1008)
+        return None
+    return payload
+
+
+async def _ws_session_valid(user_id: str, token_version: int) -> bool:
+    """The socket stays open only while the account still exists, is neither
+    deleted nor deactivated, and its token_version still matches the token."""
+    user = await db.users.find_one({"id": user_id}, {"password_hash": 0})
+    if not user or user.get("is_deleted") or user.get("is_manually_deactivated"):
+        return False
+    return (user.get("token_version") or 0) == token_version
+
+
+async def ws_chat(websocket: WebSocket, token: Optional[str] = None):
+    """Authenticated chat WebSocket.
+
+    Preferred auth: the client sends {"type":"auth","token":"<JWT>"} as the
+    first message within 5s of connect, which keeps tokens out of URLs and
+    proxy logs. The ?token=... query string still works for one release but is
+    deprecated. Sessions are rechecked on every inbound message and at least
+    once per WS_REVALIDATE_INTERVAL; deactivated, deleted, or revoked
+    accounts are dropped with close code 1008.
+    """
+    await websocket.accept()
+    payload = await _ws_session_payload(websocket, token)
+    if payload is None:
+        return
+    user_id = payload["sub"]
+    token_version = payload.get("ver", 0) or 0
+    if not await _ws_session_valid(user_id, token_version):
         await websocket.close(code=1008)
         return
     await ws_manager.connect(user_id, websocket)
     try:
         while True:
-            await websocket.receive_text()
+            try:
+                await asyncio.wait_for(
+                    websocket.receive_text(), timeout=WS_REVALIDATE_INTERVAL
+                )
+            except asyncio.TimeoutError:
+                pass  # idle socket: revalidate below instead of idling forever
+            if not await _ws_session_valid(user_id, token_version):
+                logger.info(
+                    "WS chat: closing socket for %s — account deleted, "
+                    "deactivated, or session revoked",
+                    user_id,
+                )
+                await websocket.close(code=1008)
+                break
     except WebSocketDisconnect:
-        ws_manager.disconnect(user_id, websocket)
+        pass
     except Exception:
+        logger.debug("WS chat: connection for %s ended", user_id, exc_info=True)
+    finally:
         ws_manager.disconnect(user_id, websocket)

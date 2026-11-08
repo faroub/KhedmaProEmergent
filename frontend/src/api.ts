@@ -302,9 +302,11 @@ export const api = {
   seed: () => request("/seed", { method: "POST", auth: false }),
 };
 
-export const WS_URL = (token: string) => {
+export const WS_URL = () => {
   const base = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/^http/, "ws");
-  return `${base}/api/ws/chat?token=${encodeURIComponent(token)}`;
+  // The socket is authenticated by sending {"type":"auth","token":...} as the
+  // first message (P15) — tokens must not appear in URLs/proxy logs.
+  return `${base}/api/ws/chat`;
 };
 
 export async function bootstrapAuth(): Promise<any | null> {

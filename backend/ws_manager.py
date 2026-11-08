@@ -9,7 +9,8 @@ class WSManager:
         self.sockets: dict[str, list[WebSocket]] = {}
 
     async def connect(self, user_id: str, ws: WebSocket):
-        await ws.accept()
+        # The ws_chat handler accepts the socket before authentication so it
+        # can exchange the auth message and close with 1008 on failure.
         self.sockets.setdefault(user_id, []).append(ws)
 
     def disconnect(self, user_id: str, ws: WebSocket):

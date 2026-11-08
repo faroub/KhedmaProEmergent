@@ -26,7 +26,7 @@ type Msg = {
 export default function ChatScreen() {
   const params = useLocalSearchParams<{ otherId: string; name?: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useT();
   const otherId = params.otherId as string;
   const otherName = (params.name as string) || "";
@@ -53,7 +53,21 @@ export default function ChatScreen() {
       const token = await readToken();
       if (!token) return;
       try {
-        const ws = new WebSocket(WS_URL(token));
+        const ws = new WebSocket(WS_URL());
+        ws.onopen = () => {
+          // First-message auth (P15): the server closes with 1008 when the
+          // token is missing, invalid, or the session is revoked.
+          ws.send(JSON.stringify({ type: "auth", token }));
+        };
+        ws.onclose = (ev) => {
+          // 1008 = the server rejected or revoked the session (deactivated or
+          // deleted account, logged-out elsewhere). Clear local auth so the
+          // user is sent back to sign in.
+          if (ev?.code === 1008) {
+            logout();
+            router.replace("/(auth)/login");
+          }
+        };
         ws.onmessage = (ev) => {
           try {
             const data = JSON.parse(ev.data);
