@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from config import MAX_DOC_BYTES, MAX_IMAGE_BYTES, VERIFICATION_URL_TTL
 from database import db
 from deps import current_user, require_admin, require_role
-from routes.push import send_push
+from routes.push import fire_and_forget, send_push
 from schemas import Role, VerificationRejectIn, VerificationSubmitIn
 from storage import (
     StorageError,
@@ -182,20 +182,16 @@ async def admin_verify_approve(
         raise HTTPException(status_code=404, detail="Provider not found")
     updated = await db.users.find_one({"id": provider_id}, {"_id": 0})
 
-    # Notify the provider that they're verified (non-blocking).
-    try:
-        await send_push(
-            recipients=[provider_id],
-            data={
-                "title": "Account verified ✓",
-                "message": "You're now a verified provider on khedmaPro.",
-                "action_url": "/(provider)/profile",
-            },
-            idempotency_key=f"verify-approve:{provider_id}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    # Notify the provider that they're verified — scheduled, never awaited (P26).
+    fire_and_forget(send_push(
+        recipients=[provider_id],
+        data={
+            "title": "Account verified ✓",
+            "message": "You're now a verified provider on khedmaPro.",
+            "action_url": "/(provider)/profile",
+        },
+        idempotency_key=f"verify-approve:{provider_id}",
+    ))
 
     return serialize_user(updated)
 
@@ -221,19 +217,15 @@ async def admin_verify_reject(
         raise HTTPException(status_code=404, detail="Provider not found")
     updated = await db.users.find_one({"id": provider_id}, {"_id": 0})
 
-    # Notify provider of rejection (non-blocking).
-    try:
-        await send_push(
-            recipients=[provider_id],
-            data={
-                "title": "Verification update",
-                "message": (body.reason or "Your verification needs attention.")[:120],
-                "action_url": "/(provider)/verification",
-            },
-            idempotency_key=f"verify-reject:{provider_id}:{now_iso}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    # Notify provider of rejection — scheduled, never awaited (P26).
+    fire_and_forget(send_push(
+        recipients=[provider_id],
+        data={
+            "title": "Verification update",
+            "message": (body.reason or "Your verification needs attention.")[:120],
+            "action_url": "/(provider)/verification",
+        },
+        idempotency_key=f"verify-reject:{provider_id}:{now_iso}",
+    ))
 
     return serialize_user(updated)

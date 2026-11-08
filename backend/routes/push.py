@@ -8,6 +8,7 @@ DO NOT swap this out for a different provider without going through the
 integration_playbook_expert_v2. The relay endpoint + header contract is
 fixed.
 """
+import asyncio
 import logging
 from typing import Annotated, Optional
 
@@ -127,3 +128,29 @@ async def send_push(
             logger.warning(
                 "send_push non-2xx %s: %s", resp.status_code, resp.text[:200]
             )
+
+
+# Tracks in-flight push deliveries so they are never garbage-collected
+# mid-task and their failures are always logged (P26).
+_pending_push_tasks: set = set()
+
+
+def fire_and_forget(coro) -> None:
+    """Schedule a push delivery without making the request wait for the relay.
+
+    Request handlers call this instead of awaiting `send_push`: the response
+    returns immediately and delivery failures surface in the server log, never
+    as a business error. Guest-skip and chunking behave identically (they live
+    inside `send_push`)."""
+    task = asyncio.create_task(coro)
+    _pending_push_tasks.add(task)
+    task.add_done_callback(_push_task_done)
+
+
+def _push_task_done(task) -> None:
+    _pending_push_tasks.discard(task)
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("push delivery task failed: %s", exc)

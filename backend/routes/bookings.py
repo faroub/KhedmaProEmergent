@@ -17,7 +17,7 @@ from database import db
 from deps import current_user, optional_current_user
 from phone import normalize_dz_phone
 from ratelimit import client_ip, consume
-from routes.push import send_push
+from routes.push import fire_and_forget, send_push
 from schemas import BookingCreate, BookingEtaIn, BookingStatus, BookingStatusUpdate, Role
 from subscription import compute_subscription, enforce_lifecycle
 from ws_manager import thread_id, ws_manager
@@ -104,20 +104,16 @@ async def create_booking(
     await db.bookings.insert_one(doc)
     doc.pop("_id", None)
 
-    # Notify the provider about the new booking (non-blocking).
-    try:
-        await send_push(
-            recipients=[body.provider_id],
-            data={
-                "title": "New booking request",
-                "message": f"{client_name} requested: {body.task_description[:80]}",
-                "action_url": "/(provider)/bookings",
-            },
-            idempotency_key=f"booking-new:{booking_id}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    # Notify the provider about the new booking — scheduled, never awaited (P26).
+    fire_and_forget(send_push(
+        recipients=[body.provider_id],
+        data={
+            "title": "New booking request",
+            "message": f"{client_name} requested: {body.task_description[:80]}",
+            "action_url": "/(provider)/bookings",
+        },
+        idempotency_key=f"booking-new:{booking_id}",
+    ))
 
     return doc
 
@@ -202,19 +198,15 @@ async def send_booking_eta(
         f"🚗 I'm on my way! I should arrive in about {body.minutes} minutes.",
         now.isoformat(),
     )
-    try:
-        await send_push(
-            recipients=[booking["client_id"]],
-            data={
-                "title": "Provider on the way",
-                "message": f"{user['full_name']} will arrive in about {body.minutes} minutes.",
-                "action_url": "/(client)/bookings",
-            },
-            idempotency_key=f"booking-eta:{booking_id}:{now.isoformat()}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    fire_and_forget(send_push(
+        recipients=[booking["client_id"]],
+        data={
+            "title": "Provider on the way",
+            "message": f"{user['full_name']} will arrive in about {body.minutes} minutes.",
+            "action_url": "/(client)/bookings",
+        },
+        idempotency_key=f"booking-eta:{booking_id}:{now.isoformat()}",
+    ))
     return booking
 
 
@@ -317,37 +309,33 @@ async def update_booking_status(
             pass
 
     # Notify the counterpart about the status change (non-blocking).
-    try:
-        _messages = {
-            BookingStatus.confirmed.value: ("Booking confirmed", "Your provider confirmed the booking."),
-            BookingStatus.in_progress.value: ("Provider arrived", "Your provider has arrived and started the job."),
-            BookingStatus.awaiting_confirmation.value: ("Work marked done", "Please confirm the work is complete."),
-            BookingStatus.completed.value: ("Booking completed", "The booking has been marked completed."),
-            BookingStatus.cancelled.value: ("Booking cancelled", "The booking was cancelled."),
-        }
-        title_msg = _messages.get(new_status)
-        if title_msg:
-            # Recipient is the OTHER party.
-            recipient_id = (
-                booking["client_id"]
-                if user["role"] == Role.service_provider.value
-                else booking["provider_id"]
-            )
-            await send_push(
-                recipients=[recipient_id],
-                data={
-                    "title": title_msg[0],
-                    "message": title_msg[1],
-                    "action_url": (
-                        "/(client)/bookings" if user["role"] == Role.service_provider.value
-                        else "/(provider)/bookings"
-                    ),
-                },
-                idempotency_key=f"booking-status:{booking_id}:{new_status}",
-            )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    _messages = {
+        BookingStatus.confirmed.value: ("Booking confirmed", "Your provider confirmed the booking."),
+        BookingStatus.in_progress.value: ("Provider arrived", "Your provider has arrived and started the job."),
+        BookingStatus.awaiting_confirmation.value: ("Work marked done", "Please confirm the work is complete."),
+        BookingStatus.completed.value: ("Booking completed", "The booking has been marked completed."),
+        BookingStatus.cancelled.value: ("Booking cancelled", "The booking was cancelled."),
+    }
+    title_msg = _messages.get(new_status)
+    if title_msg:
+        # Recipient is the OTHER party; push is scheduled, never awaited (P26).
+        recipient_id = (
+            booking["client_id"]
+            if user["role"] == Role.service_provider.value
+            else booking["provider_id"]
+        )
+        fire_and_forget(send_push(
+            recipients=[recipient_id],
+            data={
+                "title": title_msg[0],
+                "message": title_msg[1],
+                "action_url": (
+                    "/(client)/bookings" if user["role"] == Role.service_provider.value
+                    else "/(provider)/bookings"
+                ),
+            },
+            idempotency_key=f"booking-status:{booking_id}:{new_status}",
+        ))
 
     # Arrival check-in: also drop an instant chat message in the client's thread.
     if new_status == BookingStatus.in_progress.value:

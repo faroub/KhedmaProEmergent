@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from database import db
 from deps import current_user, require_admin
-from routes.push import send_push
+from routes.push import fire_and_forget, send_push
 from schemas import Role
 from security import increment_token_version
 from subscription import compute_subscription, serialize_user
@@ -381,15 +381,13 @@ async def admin_broadcast(
     data = {"title": body.title, "message": body.message}
     if body.action_url:
         data["action_url"] = body.action_url
-    try:
-        await send_push(
-            recipients=ids,
-            data=data,
-            idempotency_key=f"broadcast:{user['id']}:{datetime.now(timezone.utc).timestamp()}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Broadcast push error (non-fatal): %s", e)
+    # Broadcast is scheduled, never awaited (P26) — the response reports the
+    # recipient count, delivery failures surface in the server log.
+    fire_and_forget(send_push(
+        recipients=ids,
+        data=data,
+        idempotency_key=f"broadcast:{user['id']}:{datetime.now(timezone.utc).timestamp()}",
+    ))
     return {"sent": len(ids), "recipients": len(ids)}
 
 
@@ -616,19 +614,17 @@ async def admin_remind_due(
     if not due_ids:
         return {"sent": 0, "recipients": 0}
 
-    try:
-        await send_push(
-            recipients=due_ids,
-            data={
-                "title": body.title,
-                "message": body.message,
-                "action_url": "/(provider)/dashboard",
-            },
-            idempotency_key=f"remind_due:{user['id']}:{datetime.now(timezone.utc).timestamp()}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Reminder push error (non-fatal): %s", e)
+    # Scheduled, never awaited (P26) — the response reports the recipient
+    # count, delivery failures surface in the server log.
+    fire_and_forget(send_push(
+        recipients=due_ids,
+        data={
+            "title": body.title,
+            "message": body.message,
+            "action_url": "/(provider)/dashboard",
+        },
+        idempotency_key=f"remind_due:{user['id']}:{datetime.now(timezone.utc).timestamp()}",
+    ))
     return {"sent": len(due_ids), "recipients": len(due_ids)}
 
 

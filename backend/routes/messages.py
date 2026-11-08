@@ -18,7 +18,7 @@ from config import RATE_LIMIT_MESSAGE_USER
 from database import db
 from deps import current_user
 from ratelimit import consume
-from routes.push import send_push
+from routes.push import fire_and_forget, send_push
 from schemas import ChatMessageIn, Role
 from security import decode_token
 from ws_manager import thread_id, ws_manager
@@ -122,21 +122,17 @@ async def send_message(
     await ws_manager.send_to(other_id, {"type": "message", "message": msg})
     await ws_manager.send_to(user["id"], {"type": "message", "message": msg})
 
-    # Push notification to the recipient (non-blocking).
-    try:
-        preview = body.text[:120] if body.text else ""
-        await send_push(
-            recipients=[other_id],
-            data={
-                "title": user["full_name"],
-                "message": preview,
-                "action_url": f"/chat/{user['id']}",
-            },
-            idempotency_key=f"msg:{msg['id']}",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Push failed (non-blocking): %s", e)
+    # Push notification to the recipient — scheduled, never awaited (P26).
+    preview = body.text[:120] if body.text else ""
+    fire_and_forget(send_push(
+        recipients=[other_id],
+        data={
+            "title": user["full_name"],
+            "message": preview,
+            "action_url": f"/chat/{user['id']}",
+        },
+        idempotency_key=f"msg:{msg['id']}",
+    ))
     return msg
 
 

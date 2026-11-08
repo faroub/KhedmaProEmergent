@@ -100,6 +100,16 @@ async def _validate_startup_config() -> None:
 async def on_startup():
     """Validate startup config, create indexes, migrate data."""
     await _validate_startup_config()
+    # Push relay: refuse the placeholder loudly in every environment (P26) —
+    # production already fails to start via _validate_startup_config (P5);
+    # elsewhere this is the first thing to check when pushes don't arrive.
+    import config as _config
+
+    if _config.EMERGENT_PUSH_KEY == "placeholder":
+        logger.error(
+            "EMERGENT_PUSH_KEY is unset or 'placeholder' — push notifications "
+            "will fail (register-push returns 500 and no delivery leaves the app)"
+        )
     await db.users.create_index("email", unique=True)
     await db.users.create_index("role")
     await db.users.create_index("category")
