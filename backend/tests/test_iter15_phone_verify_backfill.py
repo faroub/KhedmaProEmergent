@@ -1,4 +1,7 @@
-"""Iteration 15 — phone_verified best-effort gate + wilaya backfill endpoint."""
+"""Iteration 15 — phone_verified best-effort gate.
+
+(The wilaya backfill moved from an admin endpoint to scripts/migrate.py —
+see test_migrations.py — when P35 removed dev-only/one-shot admin routes.)"""
 import os
 import random
 import uuid
@@ -6,7 +9,7 @@ import uuid
 import requests
 from pymongo import MongoClient
 
-from helpers import with_phone_token, make_admin
+from helpers import with_phone_token
 
 API = os.environ.get("API_BASE", "http://localhost:8001/api")
 
@@ -224,111 +227,3 @@ def test_verified_provider_can_confirm_booking():
     _cleanup(reg_c["user"]["id"])
     _db.bookings.delete_one({"id": booking_id})
 
-
-# =========================================================================
-# Wilaya backfill admin endpoint
-# =========================================================================
-
-def _admin_token():
-    # Throwaway admin created by the suite (P6) — no seeded admin@khedmapro.dz.
-    return make_admin()["token"]
-
-
-def test_wilaya_backfill_requires_admin():
-    reg_c = _fresh_client()
-    r = requests.post(
-        f"{API}/admin/backfill/wilaya",
-        json={},
-        headers=_hdr(reg_c["access_token"]),
-        timeout=10,
-    )
-    assert r.status_code == 403
-    _cleanup(reg_c["user"]["id"])
-
-
-def test_wilaya_backfill_dry_run_no_write():
-    token = _admin_token()
-    # Insert a provider missing wilaya_code
-    tag = uuid.uuid4().hex[:8]
-    tail = "".join(str(random.randint(0, 9)) for _ in range(8))
-    _db.users.insert_one({
-        "id": f"iter15-bf-{tag}",
-        "email": f"iter15_bf_{tag}@x.dz",
-        "phone_e164": f"+2135{tail}",
-        "phone": f"+2135{tail}",
-        "password_hash": "x",
-        "full_name": "BF Provider",
-        "role": "service_provider",
-        "category": "plumbing",
-        "rating": 0.0,
-        "reviews_count": 0,
-        "created_at": "2026-01-01T00:00:00+00:00",
-        "last_paid_at": None,
-    })
-    r = requests.post(
-        f"{API}/admin/backfill/wilaya",
-        json={"dry_run": True},
-        headers=_hdr(token),
-        timeout=10,
-    )
-    assert r.status_code == 200
-    data = r.json()
-    assert data["dry_run"] is True
-    assert data["would_update"] >= 1
-    # Confirm nothing changed
-    doc = _db.users.find_one({"id": f"iter15-bf-{tag}"})
-    assert doc.get("wilaya_code") is None
-    _cleanup(f"iter15-bf-{tag}")
-
-
-def test_wilaya_backfill_writes():
-    token = _admin_token()
-    tag = uuid.uuid4().hex[:8]
-    tail = "".join(str(random.randint(0, 9)) for _ in range(8))
-    uid = f"iter15-bfw-{tag}"
-    _db.users.insert_one({
-        "id": uid,
-        "email": f"iter15_bfw_{tag}@x.dz",
-        "phone_e164": f"+2135{tail}",
-        "phone": f"+2135{tail}",
-        "password_hash": "x",
-        "full_name": "BFW Provider",
-        "role": "service_provider",
-        "category": "plumbing",
-        "rating": 0.0,
-        "reviews_count": 0,
-        "created_at": "2026-01-01T00:00:00+00:00",
-        "last_paid_at": None,
-    })
-    r = requests.post(
-        f"{API}/admin/backfill/wilaya",
-        json={"default_wilaya": "16"},
-        headers=_hdr(token),
-        timeout=10,
-    )
-    assert r.status_code == 200
-    assert r.json()["updated"] >= 1
-    doc = _db.users.find_one({"id": uid})
-    assert doc["wilaya_code"] == "16"
-    _cleanup(uid)
-
-
-def test_wilaya_backfill_rejects_bad_code():
-    token = _admin_token()
-    r = requests.post(
-        f"{API}/admin/backfill/wilaya",
-        json={"default_wilaya": "99"},
-        headers=_hdr(token),
-        timeout=10,
-    )
-    assert r.status_code == 400
-
-
-def test_wilaya_backfill_idempotent():
-    token = _admin_token()
-    # Call twice; second call should update 0 records.
-    r1 = requests.post(f"{API}/admin/backfill/wilaya", json={}, headers=_hdr(token), timeout=10)
-    assert r1.status_code == 200
-    r2 = requests.post(f"{API}/admin/backfill/wilaya", json={}, headers=_hdr(token), timeout=10)
-    assert r2.status_code == 200
-    assert r2.json()["updated"] == 0

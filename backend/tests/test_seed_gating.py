@@ -1,8 +1,10 @@
-"""P8 — dev seed gating + deterministic review counts.
+"""P8/P35 — dev seed gating + deterministic review counts.
 
 Outside development the /api/seed route must require an admin token and must
 never create accounts with known passwords — even when ALLOW_DEV_SEED=true is
-set explicitly. Repeated seeding produces identical review counts per provider
+set explicitly. P35 tightens this further: in production the route does not
+exist at all (404 for admins too; scripts/seed_dev.py likewise refuses).
+Repeated seeding produces identical review counts per provider
 (the old hash() was salted per process).
 """
 import asyncio
@@ -56,21 +58,27 @@ def test_open_in_development_with_default_flag(monkeypatch, rec):
     assert rec.calls == [True]
 
 
-def test_requires_admin_token_in_production(monkeypatch, rec):
+def test_unavailable_in_production_even_for_admin(monkeypatch, rec):
     _set_env(monkeypatch, "production", False)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(seed_route.seed_data(admin=None))
-    assert exc.value.status_code == 401
+    assert exc.value.status_code == 404
+    # P35: even an admin token cannot reach the route in production.
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(seed_route.seed_data(admin={"id": "u1", "is_admin": True}))
+    assert exc.value.status_code == 404
+    assert rec.calls == []
 
 
 def test_explicit_flag_cannot_reopen_route_in_production(monkeypatch, rec):
     _set_env(monkeypatch, "production", True)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(seed_route.seed_data(admin=None))
-    assert exc.value.status_code == 401
-    # An admin may still seed — but always with random, one-time passwords.
-    asyncio.run(seed_route.seed_data(admin={"id": "u1", "is_admin": True}))
-    assert rec.calls == [False]
+    assert exc.value.status_code == 404
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(seed_route.seed_data(admin={"id": "u1", "is_admin": True}))
+    assert exc.value.status_code == 404
+    assert rec.calls == []
 
 
 def test_flag_off_in_development_requires_admin(monkeypatch, rec):
@@ -82,8 +90,10 @@ def test_flag_off_in_development_requires_admin(monkeypatch, rec):
     assert rec.calls == [False]
 
 
-def test_non_admin_is_forbidden_in_production(monkeypatch, rec):
-    _set_env(monkeypatch, "production", False)
+def test_non_admin_is_forbidden_outside_open_dev_mode(monkeypatch, rec):
+    # In production the route 404s outright; the admin check itself is only
+    # reachable in non-production modes where dev seeding is disabled.
+    _set_env(monkeypatch, "test", False)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(seed_route.seed_data(admin={"id": "u1", "is_admin": False}))
     assert exc.value.status_code == 403

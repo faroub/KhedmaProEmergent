@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -224,9 +225,45 @@ async def _strip_platform_secrets(dry_run: bool) -> dict:
     return {"matched": result.matched_count, "modified": result.modified_count}
 
 
+async def _migrate_wilaya_backfill(dry_run: bool) -> dict:
+    """Assign a default wilaya ("16" = Alger) to providers missing one.
+
+    One-shot data repair for legacy accounts, kept here (P35) instead of a
+    always-on admin endpoint: idempotent, so repeat runs are no-ops.
+    """
+    from reference_data import WILAYAS
+
+    default_wilaya = "16"
+    assert default_wilaya in {w["code"] for w in WILAYAS}
+
+    q = {
+        "role": "service_provider",
+        "$or": [
+            {"wilaya_code": {"$exists": False}},
+            {"wilaya_code": None},
+            {"wilaya_code": ""},
+        ],
+    }
+    count = await db.users.count_documents(q)
+    if dry_run:
+        return {"would_update": count, "default_wilaya": default_wilaya}
+    if count == 0:
+        return {"updated": 0, "default_wilaya": default_wilaya}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.users.update_many(
+        q,
+        {"$set": {
+            "wilaya_code": default_wilaya,
+            "wilaya_backfilled_at": now_iso,
+        }},
+    )
+    return {"updated": res.modified_count, "default_wilaya": default_wilaya}
+
+
 MIGRATIONS = [
     ("unique_event_id_index", _ensure_unique_event_id_index),
     ("unique_report_window_index", _ensure_unique_report_window_index),
+    ("wilaya_backfill", _migrate_wilaya_backfill),
     ("location_backfill", _migrate_location_backfill),
     ("category_rename", _migrate_category_rename),
     ("inline_files", _migrate_inline_files),

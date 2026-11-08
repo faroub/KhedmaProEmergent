@@ -155,7 +155,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 ```bash
 cd backend
-python -m scripts.migrate            # idempotent: location backfill + category renames + inline-file move (--dry-run supported)
+python -m scripts.migrate            # idempotent: wilaya backfill + location backfill + category renames + inline-file move (--dry-run supported)
 python -m scripts.lifecycle_job      # optional: soft-delete providers unpaid past the deactivation deadline
 python -m scripts.retention_job      # optional: delete verification documents past their retention window
 python scripts/create_admin.py       # only when no admin exists yet (prompts for the password)

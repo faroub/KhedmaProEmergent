@@ -116,3 +116,48 @@ class TestMigrations:
         assert prov.get("location_lat") is None
         legacy = coll.users.find_one({"id": lid})
         assert legacy.get("category") == "admin_education"
+
+
+class TestWilayaBackfillMigration:
+    """P35 — the wilaya backfill lives in scripts/migrate.py. It was an admin
+    endpoint (/api/admin/backfill/wilaya) before dev-only routes were pulled
+    out of the production surface."""
+
+    def _insert_provider_without_wilaya(self) -> str:
+        import uuid
+
+        coll = MongoClient(MONGO_URL)[DB_NAME]
+        uid = f"p35-{uuid.uuid4().hex[:8]}"
+        coll.users.insert_one({
+            "id": uid,
+            "role": "service_provider",
+            "full_name": "P35 Legacy Provider",
+            "email": f"{uid}@example.com",  # the email index is unique
+            "category": "plumbing",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return uid
+
+    def test_wilaya_backfill_assigns_default_and_is_idempotent(self, monkeypatch):
+        uid = self._insert_provider_without_wilaya()
+        coll = MongoClient(MONGO_URL)[DB_NAME]
+
+        results = _run_migrations(monkeypatch)
+        assert results["wilaya_backfill"]["updated"] >= 1
+        doc = coll.users.find_one({"id": uid})
+        assert doc["wilaya_code"] == "16"
+        assert doc.get("wilaya_backfilled_at")
+
+        # Second run finds nothing left to fix.
+        results2 = _run_migrations(monkeypatch)
+        assert results2["wilaya_backfill"]["updated"] == 0
+
+    def test_wilaya_backfill_dry_run_writes_nothing(self, monkeypatch):
+        uid = self._insert_provider_without_wilaya()
+        coll = MongoClient(MONGO_URL)[DB_NAME]
+
+        results = _run_migrations(monkeypatch, dry_run=True)
+        assert results["wilaya_backfill"]["would_update"] >= 1
+        doc = coll.users.find_one({"id": uid})
+        assert doc.get("wilaya_code") is None
+        assert "wilaya_backfilled_at" not in doc

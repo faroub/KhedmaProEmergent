@@ -26,7 +26,7 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 
 | Script | Purpose |
 |--------|---------|
-| `python -m scripts.migrate` | Idempotent data migrations (location backfill, category renames, moving inline base64 files into storage). Run once per deploy **before** starting workers. `--dry-run` supported |
+| `python -m scripts.migrate` | Idempotent data migrations (wilaya backfill for legacy providers, location backfill, category renames, moving inline base64 files into storage). Run once per deploy **before** starting workers. `--dry-run` supported |
 | `python -m scripts.lifecycle_job` | Soft-deletes providers unpaid past the deactivation deadline. Meant to run daily from cron; `--dry-run` supported |
 | `python -m scripts.retention_job` | Deletes verification documents once their review closed more than `VERIFICATION_DOCS_RETENTION_DAYS` (default 90) ago — the files **and** the records. Run daily/weekly from cron; `--dry-run` supported |
 | `python scripts/create_admin.py` | Provisions an admin account (no admin is ever auto-created) |
