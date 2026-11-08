@@ -5,12 +5,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pymongo import ReturnDocument
 
+from config import RATE_LIMIT_OTP_IP
 from database import db
 from deps import current_user
 from phone import normalize_dz_phone, send_otp_code
+from ratelimit import client_ip, consume
 from schemas import (
     OtpRequestIn,
     OtpVerifyIn,
@@ -41,7 +43,8 @@ async def _fail_challenge(phone_e164: str) -> None:
 
 
 @router.post("/auth/otp/request")
-async def request_otp(body: OtpRequestIn):
+async def request_otp(body: OtpRequestIn, request: Request):
+    await consume(f"otp_ip:{client_ip(request)}", RATE_LIMIT_OTP_IP, 900)
     phone = normalize_dz_phone(body.phone)
     now = datetime.now(timezone.utc)
     one_hour_ago = now - timedelta(hours=1)
@@ -104,7 +107,8 @@ async def request_otp(body: OtpRequestIn):
 
 
 @router.post("/auth/otp/verify")
-async def verify_otp(body: OtpVerifyIn):
+async def verify_otp(body: OtpVerifyIn, request: Request):
+    await consume(f"otp_ip:{client_ip(request)}", RATE_LIMIT_OTP_IP, 900)
     phone = normalize_dz_phone(body.phone)
     now = datetime.now(timezone.utc)
     challenge = await db.otp_challenges.find_one({"phone_e164": phone}, {"_id": 0})
@@ -233,14 +237,16 @@ async def verify_my_phone(
 
 
 @router.post("/auth/otp/verify-for-registration")
-async def verify_otp_for_registration(body: OtpVerifyForRegistrationIn):
+async def verify_otp_for_registration(body: OtpVerifyForRegistrationIn, request: Request):
     """Public OTP verify used by the multi-step provider registration flow.
+    Rate limited per IP so an address cannot enumerate/burn challenges.
 
     Does NOT create a user. Instead, on success it returns a short-lived
     (`15m`) signed `phone_verification_token` that MUST be POSTed to
     `/auth/register` for a provider account. This lets us block registration
     until the phone is proven owned, without polluting the users collection.
     """
+    await consume(f"otp_ip:{client_ip(request)}", RATE_LIMIT_OTP_IP, 900)
     phone = normalize_dz_phone(body.phone)
     now = datetime.now(timezone.utc)
 

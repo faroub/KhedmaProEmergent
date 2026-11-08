@@ -116,6 +116,8 @@ async def on_startup():
     await db.otp_challenges.create_index("expires_at", expireAfterSeconds=0)
     await db.users.create_index("wilaya_code")
     await db.reports.create_index("provider_id")
+    # TTL index: expired rate-limit buckets delete themselves.
+    await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.users.create_index("verification_status")
     await db.users.create_index([("location_lat", 1), ("location_lng", 1)])
     await db.categories.create_index("id", unique=True)

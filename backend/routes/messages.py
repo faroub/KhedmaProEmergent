@@ -11,8 +11,10 @@ from typing import Annotated
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
+from config import RATE_LIMIT_MESSAGE_USER
 from database import db
 from deps import current_user
+from ratelimit import consume
 from routes.push import send_push
 from schemas import ChatMessageIn
 from security import decode_token
@@ -67,6 +69,8 @@ async def send_message(
     body: ChatMessageIn,
     user: Annotated[dict, Depends(current_user)],
 ):
+    # Per-user cap: a single account must not be able to flood threads.
+    await consume(f"msg:{user['id']}", RATE_LIMIT_MESSAGE_USER, 60)
     other = await db.users.find_one({"id": other_id}, {"_id": 0})
     if not other:
         raise HTTPException(status_code=404, detail="Recipient not found")

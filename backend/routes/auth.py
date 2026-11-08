@@ -4,11 +4,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from config import RATE_LIMIT_LOGIN_IP
 from database import db
 from deps import current_user
 from phone import normalize_dz_phone
+from ratelimit import client_ip, consume
 from reference_data import WILAYAS
 from schemas import LoginIn, RegisterIn, Role, TokenOut
 from security import (
@@ -156,8 +158,11 @@ async def register(body: RegisterIn):
 
 
 @router.post("/auth/login", response_model=TokenOut)
-async def login(body: LoginIn):
+async def login(body: LoginIn, request: Request):
     email = body.email.lower()
+    # Per-IP guard on top of the per-email one: one address must not be able
+    # to spray credentials across many accounts.
+    await consume(f"login_ip:{client_ip(request)}", RATE_LIMIT_LOGIN_IP, 900)
     await _check_login_rate_limit(email)
     user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):

@@ -77,6 +77,15 @@ ALLOW_DEV_SEED = os.environ.get(
     "ALLOW_DEV_SEED", "true" if APP_ENV in ("development", "test") else "false"
 ).lower() == "true"
 
+# Rate limits (max actions per window; windows are set at the call sites).
+# Env-overridable so CI / load tests can raise them without touching code.
+RATE_LIMIT_LOGIN_IP = int(os.environ.get("RATE_LIMIT_LOGIN_IP", "60"))
+RATE_LIMIT_OTP_IP = int(os.environ.get("RATE_LIMIT_OTP_IP", "60"))
+RATE_LIMIT_GUEST_BOOKING_IP = int(os.environ.get("RATE_LIMIT_GUEST_BOOKING_IP", "20"))
+RATE_LIMIT_MESSAGE_USER = int(os.environ.get("RATE_LIMIT_MESSAGE_USER", "60"))
+RATE_LIMIT_PUSH_USER = int(os.environ.get("RATE_LIMIT_PUSH_USER", "30"))
+RATE_LIMIT_REPORT_USER = int(os.environ.get("RATE_LIMIT_REPORT_USER", "10"))
+
 # Flagging thresholds
 FLAG_CONSECUTIVE_NO_COMPLETE = 3
 FLAG_CONFIRMED_WINDOW_DAYS = 14

@@ -4,16 +4,18 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from config import (
     FLAG_CONFIRMED_WINDOW_DAYS,
     FLAG_CONSECUTIVE_NO_COMPLETE,
     FLAG_MIN_COMPLETION_RATE,
     FLAG_RATE_WINDOW,
+    RATE_LIMIT_GUEST_BOOKING_IP,
 )
 from database import db
 from deps import current_user, optional_current_user
+from ratelimit import client_ip, consume
 from routes.push import send_push
 from schemas import BookingCreate, BookingEtaIn, BookingStatus, BookingStatusUpdate, Role
 from subscription import compute_subscription, enforce_lifecycle
@@ -25,8 +27,12 @@ router = APIRouter(tags=["bookings"])
 @router.post("/bookings", status_code=201)
 async def create_booking(
     body: BookingCreate,
+    request: Request,
     user: Annotated[Optional[dict], Depends(optional_current_user)],
 ):
+    # Unauthenticated guest bookings are the open front door — limit per IP.
+    if user is None:
+        await consume(f"guest_booking_ip:{client_ip(request)}", RATE_LIMIT_GUEST_BOOKING_IP, 3600)
     provider = await db.users.find_one(
         {"id": body.provider_id, "role": Role.service_provider.value}, {"_id": 0}
     )

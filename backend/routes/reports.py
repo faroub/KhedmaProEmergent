@@ -5,8 +5,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from config import RATE_LIMIT_REPORT_USER
 from database import db
 from deps import current_user
+from ratelimit import consume
 from schemas import ReportIn, Role
 
 router = APIRouter(tags=["reports"])
@@ -17,6 +19,8 @@ async def report_provider(
     body: ReportIn,
     user: Annotated[dict, Depends(current_user)],
 ):
+    # Per-user cap: reports are a moderation write path, not a chat channel.
+    await consume(f"report:{user['id']}", RATE_LIMIT_REPORT_USER, 3600)
     provider = await db.users.find_one(
         {"id": body.provider_id, "role": Role.service_provider.value}, {"_id": 0}
     )

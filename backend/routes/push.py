@@ -15,8 +15,9 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from config import EMERGENT_PUSH_KEY
+from config import EMERGENT_PUSH_KEY, RATE_LIMIT_PUSH_USER
 from deps import current_user
+from ratelimit import consume
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ async def register_push(
     otherwise anyone could subscribe to another user's push notifications
     (booking details, chat previews, verification decisions).
     """
+    # Per-user cap: token churn should not be an unbounded write path.
+    await consume(f"push:{user['id']}", RATE_LIMIT_PUSH_USER, 60)
     if body.user_id != user["id"]:
         raise HTTPException(status_code=403, detail="You can only register push for your own account")
     try:
