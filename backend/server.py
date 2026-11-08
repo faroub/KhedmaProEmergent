@@ -16,7 +16,7 @@ Feature code has moved to focused modules:
 - `subscription.py`   — subscription math + `serialize_user`
 - `deps.py`           — FastAPI auth dependencies (current_user, admin gate…)
 - `phone.py`          — DZ phone normalization + mock OTP sender
-- `ws_manager.py`     — in-memory WebSocket registry
+- `ws_manager.py`     — WebSocket registry (in-process, optional Redis fan-out)
 - `routes/*.py`       — one file per feature area
 """
 import logging
@@ -31,6 +31,7 @@ from database import client, db
 from routes import build_api_router
 from routes.messages import ws_chat
 from security import verify_password
+from ws_manager import ws_manager
 
 from config import CORS_ORIGINS
 from sms import get_provider_status
@@ -100,6 +101,8 @@ async def _validate_startup_config() -> None:
 async def on_startup():
     """Validate startup config, create indexes, migrate data."""
     await _validate_startup_config()
+    # Attach the Redis fan-out bus when REDIS_URL is set; no-op otherwise.
+    await ws_manager.start()
     # Push relay: refuse the placeholder loudly in every environment (P26) —
     # production already fails to start via _validate_startup_config (P5);
     # elsewhere this is the first thing to check when pushes don't arrive.
@@ -196,4 +199,5 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    await ws_manager.stop()
     client.close()

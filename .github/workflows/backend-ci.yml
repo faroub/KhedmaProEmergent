@@ -28,6 +28,9 @@ jobs:
       # Shared by the server and the pytest process; signs the Chargily
       # webhook payloads in tests/test_webhooks_idempotent.py (P19).
       CHARGILY_WEBHOOK_SECRET: "ci-webhook-signing-only"
+      # Redis bus for the WebSocket fan-out test (P27): the second uvicorn
+      # worker spawned by tests/test_ws_fanout.py inherits this URL.
+      REDIS_URL: redis://localhost:6379
       EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
 
     services:
@@ -37,6 +40,16 @@ jobs:
           - 27017:27017
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10

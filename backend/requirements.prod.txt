@@ -16,6 +16,7 @@ pydantic==2.13.4
 PyJWT==2.13.0                # session tokens + phone-verification tokens
 pymongo==4.6.3               # used by ws_manager-adjacent helpers + TTL indexes
 python-dotenv==1.2.2         # .env loading in non-compose deployments
+redis==8.1.0                 # pub/sub fan-out for /api/ws/chat across gunicorn workers
 python-multipart==0.0.32     # FastAPI form support (tiny safety net)
 starlette==0.37.2            # pinned alongside fastapi as in requirements.txt
 twilio==9.10.9               # SMS provider (lazy import; needed when configured)
