@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Optional, Union
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
+from urls import DataOrHttpsText
 
 
 class Role(str, Enum):
@@ -123,15 +124,19 @@ class ProfileCompleteIn(BaseModel):
 
 class PortfolioItemIn(BaseModel):
     """One entry in a provider's portfolio gallery."""
-    url: str = Field(min_length=1)  # data URI or http(s) URL
+    # Inline data URIs are decoded into object storage (P24); external
+    # references must be https (N9) — never javascript: or another scheme.
+    url: DataOrHttpsText = Field(min_length=1)
     caption: Optional[str] = Field(default=None, max_length=140)
     tags: List[str] = Field(default_factory=list, max_length=6)
     is_cover: bool = False
 
 
 class PortfolioUpdateIn(BaseModel):
-    # Accept either legacy string list (base64/URLs) or rich objects.
-    portfolio_images: List[Union[str, PortfolioItemIn]] = Field(default_factory=list, max_length=20)
+    # Accept either legacy string list (base64/data/https URLs) or rich objects.
+    portfolio_images: List[Union[DataOrHttpsText, PortfolioItemIn]] = Field(
+        default_factory=list, max_length=20
+    )
 
 
 # ---------- Bookings / reviews ----------

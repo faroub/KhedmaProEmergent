@@ -18,7 +18,7 @@ from typing import Annotated, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from config import (
     CHARGILY_SECRET_KEY as ENV_CHARGILY_SECRET_KEY,
@@ -29,6 +29,7 @@ from config import (
 )
 from database import db
 from deps import current_user, require_admin
+from urls import is_http_url
 
 router = APIRouter(tags=["admin-settings"])
 
@@ -173,11 +174,26 @@ class SmsConfigPatch(BaseModel):
     http_content_type: Optional[str] = None
     message_template: Optional[str] = None
 
+    @field_validator("http_url")
+    @classmethod
+    def _http_scheme(cls, v):
+        # Internal SMS gateways may legitimately be plain http.
+        if v and not is_http_url(v):
+            raise ValueError("http_url must be an http(s) URL")
+        return v
+
 
 class SocialConfigPatch(BaseModel):
     facebook_url: Optional[str] = None
     instagram_url: Optional[str] = None
     tiktok_url: Optional[str] = None
+
+    @field_validator("facebook_url", "instagram_url", "tiktok_url")
+    @classmethod
+    def _http_scheme(cls, v):
+        if v and not is_http_url(v):
+            raise ValueError("social links must be http(s) URLs")
+        return v
 
 
 class SiteConfigPatch(BaseModel):
@@ -189,7 +205,16 @@ class SiteConfigPatch(BaseModel):
     hero_sub_ar: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    # Rendered raw into an <a href> on the marketing site (i18n.js) — the
+    # scheme guard keeps javascript:/data: links out (N9).
     contact_whatsapp: Optional[str] = None
+
+    @field_validator("contact_whatsapp")
+    @classmethod
+    def _http_scheme(cls, v):
+        if v and not is_http_url(v):
+            raise ValueError("contact_whatsapp must be an http(s) URL")
+        return v
     # Section-visibility toggles (default True everywhere).
     show_features: Optional[bool] = None
     show_stats: Optional[bool] = None

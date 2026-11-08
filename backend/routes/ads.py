@@ -10,7 +10,7 @@ Stored doc:
   id: str,             # uuid
   title: str,
   subtitle: str | None,
-  image_url: str,      # http(s) URL or data:image/... (base64)
+  image_url: str,      # https URL (N9: no data: URIs or other schemes)
   link_url: str | None,
   active: bool,
   order: int,
@@ -29,10 +29,11 @@ from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from database import db
 from deps import current_user, require_admin
+from urls import is_https_url
 
 router = APIRouter(tags=["ads"])
 
@@ -64,6 +65,13 @@ class AdIn(BaseModel):
     subtitle: Optional[str] = Field(default=None, max_length=140)
     image_url: str = Field(min_length=1)
     link_url: Optional[str] = None
+
+    @field_validator("image_url", "link_url")
+    @classmethod
+    def _https_scheme(cls, v):
+        if v and not is_https_url(v):
+            raise ValueError("ad URLs must use https://")
+        return v
     order: Optional[int] = None
     active: bool = True
     start_at: Optional[str] = None  # iso timestamp
@@ -76,6 +84,13 @@ class AdPatch(BaseModel):
     subtitle: Optional[str] = Field(default=None, max_length=140)
     image_url: Optional[str] = None
     link_url: Optional[str] = None
+
+    @field_validator("image_url", "link_url")
+    @classmethod
+    def _https_scheme(cls, v):
+        if v and not is_https_url(v):
+            raise ValueError("ad URLs must use https://")
+        return v
     order: Optional[int] = None
     active: Optional[bool] = None
     start_at: Optional[str] = None
