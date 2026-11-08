@@ -23,6 +23,12 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _distance_band(km: float, step_km: float = 5.0) -> float:
+    """Coarse upper-bound band (multiple of `step_km`) so the exact position
+    cannot be recovered from the distance (M16)."""
+    return step_km * max(1, math.ceil(km / step_km))
+
+
 def _recency_bonus(last_activity_at: Optional[str], window_days: int = 30, max_bonus: float = 0.20) -> float:
     """Tiny bonus (0.0–max_bonus) for providers with recent activity, decaying
     linearly across `window_days`. Keeps active pros from being buried under
@@ -121,13 +127,17 @@ async def list_providers(
         if max_price is not None and (hr is None or hr > max_price):
             continue
         if radius_mode:
-            plat, plng = s.get("location_lat"), s.get("location_lng")
+            # Distances come from the provider's REAL pinned location (the raw
+            # doc — the public serialization below carries only the wilaya
+            # centroid), and the response exposes only a coarse band so the
+            # exact position cannot be recovered (M16).
+            plat, plng = d.get("location_lat"), d.get("location_lng")
             if plat is None or plng is None:
                 continue
             dist = _haversine_km(lat, lng, plat, plng)
             if dist > radius_km:
                 continue
-            s["distance_km"] = round(dist, 2)
+            s["distance_km"] = _distance_band(dist)
         result.append(s)
         penalties.append(bool(d.get("search_penalty")))
 

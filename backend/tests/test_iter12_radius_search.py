@@ -109,30 +109,27 @@ class TestRadiusModeAlgiers:
         assert r.status_code == 200
         data = r.json()
         assert isinstance(data, list) and len(data) > 0, "expected providers within 15km of Algiers"
-        distances = []
         for p in data:
             assert "distance_km" in p and p["distance_km"] is not None
-            assert 0 <= p["distance_km"] <= 15
-            # verify server distance matches recomputed haversine
-            plat, plng = p["location_lat"], p["location_lng"]
-            assert plat is not None and plng is not None
-            recomputed = _haversine(lat, lng, plat, plng)
-            assert abs(recomputed - p["distance_km"]) < 0.05, f"distance mismatch on {p['id']}"
-            distances.append(p["distance_km"])
+            assert 0 < p["distance_km"] <= 15
+            # M16: only a coarse 5 km band is published — the exact position
+            # (and hence an exact distance the client could recompute) must
+            # not be recoverable from the response.
+            assert p["distance_km"] % 5 == 0, p["distance_km"]
         # sort asc (ignoring penalty)
         non_penalized = [p["distance_km"] for p in data if not p.get("search_penalty")]
         assert non_penalized == sorted(non_penalized), "must be ascending by distance for non-penalized"
 
     def test_radius_1km_algiers_returns_some(self, api):
-        # jitter ±1km — a few providers should be inside 1 km
+        # jitter ±1km — a few providers should be inside 1 km (selection still
+        # uses the server-side real distance); the only band inside 1 km is 5.
         lat, lng = ALGIERS
         r = api.get(f"{BASE_URL}/api/providers?lat={lat}&lng={lng}&radius_km=1")
         assert r.status_code == 200
         data = r.json()
-        # not strictly required — but with 6+ Algiers providers, at least 1 should fall within jitter
         assert isinstance(data, list)
         for p in data:
-            assert p["distance_km"] <= 1
+            assert p["distance_km"] == 5, p["distance_km"]
 
 
 # ---- 3. Radius + category ----

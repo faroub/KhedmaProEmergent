@@ -12,6 +12,7 @@ from typing import Optional
 
 from config import TRIAL_MONTHS, DEACTIVATION_MONTHS
 from schemas import Role
+from wilaya_geo import WILAYA_CENTROIDS
 
 
 # In-process cache for the DB-backed trial-days override (see
@@ -205,6 +206,13 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
     sub = compute_subscription(doc)
     rating = doc.get("rating", 0.0) or 0.0
     reviews_count = doc.get("reviews_count", 0) or 0
+    # Public responses never carry the provider's pinned coordinates — only
+    # the wilaya-level point (M16). The exact location stays visible to the
+    # account itself and to admins (private branch below).
+    wilaya = doc.get("wilaya_code")
+    centroid = WILAYA_CENTROIDS.get(wilaya) if wilaya else None
+    public_lat = centroid[0] if centroid else None
+    public_lng = centroid[1] if centroid else None
     out = {
         "id": doc["id"],
         "full_name": doc["full_name"],
@@ -230,8 +238,8 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "wilaya_code": doc.get("wilaya_code"),
         "baladiya": doc.get("baladiya"),
         "cross_wilaya": doc.get("cross_wilaya", False),
-        "location_lat": doc.get("location_lat"),
-        "location_lng": doc.get("location_lng"),
+        "location_lat": public_lat,
+        "location_lng": public_lng,
         "portfolio_images": [
             (
                 {"url": p, "caption": None, "tags": [], "is_cover": i == 0}
@@ -256,6 +264,10 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "phone_verified": bool(doc.get("phone_verified")),
     }
     if not public:
+        # The account itself (and admins, via non-public endpoints) sees the
+        # real pinned service area, not the public centroid.
+        out["location_lat"] = doc.get("location_lat")
+        out["location_lng"] = doc.get("location_lng")
         out["email"] = doc["email"]
         out["phone"] = doc.get("phone")
         out["verification_documents"] = doc.get("verification_documents", [])
