@@ -4,6 +4,7 @@ import bcrypt
 import jwt
 
 from config import JWT_SECRET, JWT_EXPIRE_MINUTES
+from database import db
 
 
 def hash_password(pw: str) -> str:
@@ -17,15 +18,27 @@ def verify_password(pw: str, hashed: str) -> bool:
         return False
 
 
-def make_token(user_id: str, role: str) -> str:
+def make_token(user_id: str, role: str, token_version: int = 0) -> str:
+    """Session token. `token_version` is the user's current version —
+    increments (logout, deactivation, deletion) invalidate every token
+    minted before them (see deps.current_user)."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": user_id,
         "role": role,
+        "ver": token_version,
         "iat": now,
         "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+
+async def increment_token_version(user_id: str) -> None:
+    """Bump the user's token_version — every token issued before the bump is
+    rejected on the next authenticated request. Called on logout, admin
+    deactivation/deletion, self-service deletion and subscription auto
+    soft-delete."""
+    await db.users.update_one({"id": user_id}, {"$inc": {"token_version": 1}})
 
 
 def decode_token(token: str) -> dict:

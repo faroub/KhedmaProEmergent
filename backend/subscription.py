@@ -157,7 +157,10 @@ async def enforce_lifecycle(user: dict) -> dict:
         now = datetime.now(timezone.utc).isoformat()
         await db.users.update_one(
             {"id": user["id"]},
-            {"$set": {"is_deleted": True, "deleted_at": now, "deleted_reason": "auto_unpaid_12mo"}},
+            {
+                "$set": {"is_deleted": True, "deleted_at": now, "deleted_reason": "auto_unpaid_12mo"},
+                "$inc": {"token_version": 1},
+            },
         )
         user["is_deleted"] = True
         user["deleted_at"] = now

@@ -8,6 +8,7 @@ from config import MAX_IMAGE_BYTES
 from database import db
 from deps import current_user, require_role
 from schemas import PortfolioUpdateIn, ProfileCompleteIn, Role
+from security import increment_token_version
 from subscription import serialize_user
 from wilaya_geo import approx_coords_for
 
@@ -126,4 +127,7 @@ async def delete_account(user: Annotated[dict, Depends(current_user)]):
             "is_manually_deactivated": True,
         }},
     )
+    # Revoke the account's other sessions (defense in depth: deleted accounts
+    # are already rejected by the lifecycle check).
+    await increment_token_version(user["id"])
     return {"success": True, "id": user["id"], "deleted_at": now_iso}

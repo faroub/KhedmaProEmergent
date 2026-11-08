@@ -38,7 +38,7 @@ Requires MongoDB running on `mongodb://localhost:27017` (or set `MONGO_URL` in `
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=khedmapro
 JWT_SECRET=change-me
-JWT_EXPIRE_MINUTES=1440
+JWT_EXPIRE_MINUTES=720
 EMERGENT_PUSH_KEY=placeholder
 # CHARGILY_SECRET_KEY=live_...   # optional
 ```

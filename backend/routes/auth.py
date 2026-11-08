@@ -15,6 +15,7 @@ from reference_data import WILAYAS
 from schemas import LoginIn, RegisterIn, Role, TokenOut
 from security import (
     hash_password,
+    increment_token_version,
     make_token,
     verify_password,
     decode_phone_verification_token,
@@ -128,6 +129,7 @@ async def register(body: RegisterIn):
         "id": user_id,
         "email": email,
         "password_hash": hash_password(body.password),
+        "token_version": 0,  # revocation counter (P13); tokens carry the value they were minted with
         "full_name": body.full_name,
         "role": body.role.value,
         "phone": normalized_phone or body.phone,
@@ -153,7 +155,7 @@ async def register(body: RegisterIn):
     if normalized_phone:
         doc["phone_e164"] = normalized_phone
     await db.users.insert_one(doc)
-    token = make_token(user_id, body.role.value)
+    token = make_token(user_id, body.role.value, doc["token_version"])
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(doc)}
 
 
@@ -172,8 +174,16 @@ async def login(body: LoginIn, request: Request):
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
         raise HTTPException(status_code=410, detail="This account has been deleted")
-    token = make_token(user["id"], user["role"])
+    token = make_token(user["id"], user["role"], user.get("token_version") or 0)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
+
+
+@router.post("/auth/logout")
+async def logout(user: Annotated[dict, Depends(current_user)]):
+    """Invalidate every token issued before this call (token_version bump),
+    so logging out actually ends the session server-side — not just locally."""
+    await increment_token_version(user["id"])
+    return {"message": "Logged out"}
 
 
 @router.get("/auth/me")

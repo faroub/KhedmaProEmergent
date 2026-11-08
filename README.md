@@ -180,7 +180,7 @@ Create `backend/.env` (or copy from any teammate) with at minimum:
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=khedmapro
 JWT_SECRET=change-me-to-a-32+-char-random-string
-JWT_EXPIRE_MINUTES=1440
+JWT_EXPIRE_MINUTES=720
 EMERGENT_PUSH_KEY=placeholder
 # CHARGILY_SECRET_KEY=live_...     # optional — leave unset to use the mock
 # ALLOW_MOCK_PAYMENTS=true         # dev-only fallback when Chargily is unset
@@ -348,7 +348,7 @@ Use the in-repo screenshot script or Playwright:
 | `MONGO_URL` | ✅ | MongoDB connection string |
 | `DB_NAME` | ✅ | Database name (e.g., `khedmapro`) |
 | `JWT_SECRET` | ✅ | 32+ char random string for signing tokens |
-| `JWT_EXPIRE_MINUTES` | ❌ | Default `1440` (24h) |
+| `JWT_EXPIRE_MINUTES` | ❌ | Default `720` (12h); shortened from 24h in P13 (combined with token_version revocation) |
 | `EMERGENT_PUSH_KEY` | ❌ | Managed push relay key — leave as `placeholder` locally; auto-filled at deploy |
 | `CHARGILY_SECRET_KEY` | ❌ | Real Chargily payment key. Leave unset to use the mock-mode payments |
 | `ALLOW_MOCK_PAYMENTS` | ❌ | Mock payment fallback (no Chargily key). Default `false`; `true` is honored only when `APP_ENV` is `development`/`test` — `docker-compose.yml` sets it `true` for local dev, and without it `/subscription/pay` returns 503 |

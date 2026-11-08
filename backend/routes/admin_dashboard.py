@@ -15,6 +15,7 @@ from database import db
 from deps import current_user, require_admin
 from routes.push import send_push
 from schemas import Role
+from security import increment_token_version
 from subscription import compute_subscription, serialize_user
 
 router = APIRouter(tags=["admin-dashboard"])
@@ -199,6 +200,8 @@ async def admin_deactivate_user(
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+    # Revoke the account's sessions — an admin deactivation is a moderation act.
+    await increment_token_version(user_id)
     return {"success": True}
 
 
@@ -265,6 +268,7 @@ async def admin_delete_user(
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+    await increment_token_version(user_id)
     return {"success": True}
 
 

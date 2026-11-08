@@ -60,6 +60,13 @@ export const api = {
   },
   me: () => request("/auth/me"),
   logout: async () => {
+    // Best-effort server-side logout (bumps token_version so other sessions
+    // die too); the local token is cleared regardless of the outcome.
+    try {
+      await request("/auth/logout", { method: "POST" });
+    } catch {
+      // already logged out or offline — local clear is enough
+    }
     await clearToken();
   },
 

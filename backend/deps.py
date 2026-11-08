@@ -33,6 +33,10 @@ async def current_user(token: Annotated[Optional[str], Depends(oauth2_scheme)]) 
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
         raise HTTPException(status_code=410, detail="Account has been deleted")
+    # Session revocation (P13): tokens minted before a token_version bump
+    # (logout, deactivation, deletion) are no longer valid.
+    if payload.get("ver", 0) != (user.get("token_version") or 0):
+        raise HTTPException(status_code=401, detail="Session revoked — please log in again")
     return user
 
 
@@ -53,6 +57,8 @@ async def optional_current_user(token: Annotated[Optional[str], Depends(oauth2_s
         return None
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
+        return None
+    if payload.get("ver", 0) != (user.get("token_version") or 0):
         return None
     return user
 

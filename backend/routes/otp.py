@@ -172,7 +172,7 @@ async def verify_otp(body: OtpVerifyIn, request: Request):
             )
             user["phone_verified"] = True
 
-    token = make_token(user["id"], user["role"])
+    token = make_token(user["id"], user["role"], user.get("token_version") or 0)
     return {
         "access_token": token,
         "token_type": "bearer",
