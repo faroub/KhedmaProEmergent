@@ -1,15 +1,16 @@
 """Subscription / lifecycle / serialization helpers.
 
-`compute_subscription` is pure (no I/O). `enforce_lifecycle` writes back to
-Mongo when a provider crosses the auto-delete threshold. `serialize_user`
-produces the public/private user dict returned from every user-facing endpoint.
+`compute_subscription` is pure (no I/O). `enforce_lifecycle` is the read-only
+access gate: it marks overdue accounts as deleted in memory (access denied)
+without writing — the persisted soft-delete belongs to
+scripts/lifecycle_job.py. `serialize_user` produces the public/private user
+dict returned from every user-facing endpoint.
 """
 from datetime import datetime, timedelta, timezone
 import time
 from typing import Optional
 
 from config import TRIAL_MONTHS, DEACTIVATION_MONTHS
-from database import db
 from schemas import Role
 
 
@@ -150,21 +151,23 @@ def compute_subscription(user: dict, trial_days: Optional[int] = None) -> dict:
 
 
 async def enforce_lifecycle(user: dict) -> dict:
-    """Persist auto soft-delete when subscription says so. Safe to call on every fetch."""
+    """Read-only access gate for the account lifecycle.
+
+    Computes whether the account should be soft-deleted (unpaid past the
+    deactivation deadline) and denies access by marking the in-memory dict —
+    without writing. The persisted soft-delete (deleted_at, deleted_reason,
+    token_version bump) belongs to scripts/lifecycle_job.py, which runs daily;
+    delaying that job never restores access because this gate stays read-only.
+
+    Also refreshes the trial-days override cache (TTL-guarded, see
+    refresh_trial_days_cache).
+    """
     await refresh_trial_days_cache()
     sub = compute_subscription(user)
     if sub.get("should_soft_delete") and not user.get("is_deleted"):
-        now = datetime.now(timezone.utc).isoformat()
-        await db.users.update_one(
-            {"id": user["id"]},
-            {
-                "$set": {"is_deleted": True, "deleted_at": now, "deleted_reason": "auto_unpaid_12mo"},
-                "$inc": {"token_version": 1},
-            },
-        )
         user["is_deleted"] = True
-        user["deleted_at"] = now
-        user["deleted_reason"] = "auto_unpaid_12mo"
+        user["deleted_at"] = None
+        user["deleted_reason"] = "auto_unpaid_12mo_pending"
     return user
 
 
