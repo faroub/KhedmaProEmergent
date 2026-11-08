@@ -19,7 +19,7 @@ from database import db
 from deps import current_user
 from ratelimit import consume
 from routes.push import send_push
-from schemas import ChatMessageIn
+from schemas import ChatMessageIn, Role
 from security import decode_token
 from ws_manager import thread_id, ws_manager
 
@@ -77,6 +77,37 @@ async def send_message(
     other = await db.users.find_one({"id": other_id}, {"_id": 0})
     if not other:
         raise HTTPException(status_code=404, detail="Recipient not found")
+    if other.get("is_deleted") or other.get("is_manually_deactivated"):
+        raise HTTPException(status_code=410, detail="This account is no longer available")
+    # Relationship gate (P21): no cold outreach except the app's
+    # client→provider contact flow (the Message button on a provider
+    # profile). A message is allowed when the pair shares a booking (any
+    # status, either side), when the counterpart already started the thread
+    # (providers can always reply), or when a client contacts a provider
+    # for the first time. Everything else — provider→client cold starts,
+    # client→client, provider→provider — is denied.
+    shared_booking = await db.bookings.find_one(
+        {
+            "$or": [
+                {"client_id": user["id"], "provider_id": other_id},
+                {"provider_id": user["id"], "client_id": other_id},
+            ]
+        },
+        {"_id": 0, "id": 1},
+    )
+    counterpart_started = await db.messages.find_one(
+        {"from_id": other_id, "to_id": user["id"]}, {"_id": 0, "id": 1}
+    )
+    client_to_provider = (
+        user.get("role") == Role.client.value
+        and other.get("role") == Role.service_provider.value
+    )
+    if not (shared_booking or counterpart_started or client_to_provider):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only message providers you have a booking with, "
+            "or users who have already messaged you",
+        )
     msg = {
         "id": str(uuid.uuid4()),
         "thread_id": thread_id(user["id"], other_id),

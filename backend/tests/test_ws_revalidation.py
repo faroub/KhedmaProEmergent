@@ -14,7 +14,7 @@ import uuid
 import requests
 import websockets  # type: ignore
 
-from helpers import make_admin
+from helpers import fresh_provider, make_admin
 
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
@@ -38,6 +38,12 @@ def _register_client() -> dict:
     return {"id": body["user"]["id"], "token": body["access_token"]}
 
 
+def _register_provider() -> dict:
+    """Same shape as _register_client, but a (phone-verified) provider."""
+    p = fresh_provider()
+    return {"id": p["user"]["id"], "token": p["access_token"]}
+
+
 def _bearer(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
@@ -48,7 +54,9 @@ def _connect():
 
 class TestWsAuthMessage:
     def test_auth_message_opens_the_socket_and_delivers(self):
-        me = _register_client()
+        # The receiver is a provider: the client's cold contact message is
+        # allowed by the P21 relationship gate; client→client is not.
+        me = _register_provider()
         other = _register_client()
 
         async def go():
