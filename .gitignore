@@ -86,3 +86,6 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# P24: local-filesystem file storage backend (dev/test only)
+backend/.khedmapro_files/

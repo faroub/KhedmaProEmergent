@@ -4,15 +4,19 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from config import MAX_IMAGE_BYTES
+from config import MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES
 from database import db
 from deps import current_user, require_role
 from schemas import PortfolioUpdateIn, ProfileCompleteIn, Role
 from security import increment_token_version
+from storage import StorageError, decode_data_uri, put_bytes
 from subscription import serialize_user
 from wilaya_geo import approx_coords_for
 
 router = APIRouter(tags=["users"])
+
+# Portfolio uploads are public gallery images (P24).
+_PORTFOLIO_ALLOWED = ("image/jpeg", "image/png", "image/webp", "image/gif")
 
 
 @router.patch("/users/me/profile")
@@ -68,17 +72,31 @@ async def set_portfolio(
     for idx, img in enumerate(body.portfolio_images):
         if isinstance(img, str):
             url = img
-            item = {"url": url, "caption": None, "tags": [], "is_cover": False}
+            item: dict = {"caption": None, "tags": [], "is_cover": False}
         else:
             url = img.url
             item = {
-                "url": img.url,
                 "caption": img.caption,
                 "tags": img.tags or [],
                 "is_cover": bool(img.is_cover),
             }
         if len(url) > MAX_IMAGE_BYTES:
             raise HTTPException(status_code=413, detail="Image too large, please compress further")
+        if url.startswith("data:"):
+            # Inline images are decoded into object storage — only the
+            # (random, unguessable) key lives in the user document (P24).
+            try:
+                item["key"] = await put_bytes(
+                    decode_data_uri(url),
+                    kind="portfolio",
+                    allow=_PORTFOLIO_ALLOWED,
+                    max_bytes=MAX_PORTFOLIO_BYTES,
+                )
+            except StorageError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        else:
+            # External URLs (e.g. a CDN the operator trusts) stay as-is.
+            item["url"] = url
         if item["is_cover"] and cover_index is None:
             cover_index = idx
         normalized.append(item)
@@ -90,7 +108,9 @@ async def set_portfolio(
 
     await db.users.update_one({"id": user["id"]}, {"$set": {"portfolio_images": normalized}})
     updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    return {"portfolio_images": updated.get("portfolio_images", [])}
+    # Serialized shape (url synthesized from the storage key — P24) so the
+    # response keeps the same contract as /auth/me and /providers/{id}.
+    return {"portfolio_images": serialize_user(updated)["portfolio_images"]}
 
 
 # ---- Manual account lifecycle (both roles) ----

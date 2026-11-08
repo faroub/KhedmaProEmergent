@@ -26,12 +26,27 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 
 | Script | Purpose |
 |--------|---------|
-| `python -m scripts.migrate` | Idempotent data migrations (location backfill, category renames). Run once per deploy **before** starting workers. `--dry-run` supported |
+| `python -m scripts.migrate` | Idempotent data migrations (location backfill, category renames, moving inline base64 files into storage). Run once per deploy **before** starting workers. `--dry-run` supported |
 | `python -m scripts.lifecycle_job` | Soft-deletes providers unpaid past the deactivation deadline. Meant to run daily from cron; `--dry-run` supported |
+| `python -m scripts.retention_job` | Deletes verification documents once their review closed more than `VERIFICATION_DOCS_RETENTION_DAYS` (default 90) ago — the files **and** the records. Run daily/weekly from cron; `--dry-run` supported |
 | `python scripts/create_admin.py` | Provisions an admin account (no admin is ever auto-created) |
 | `python -m scripts.seed_dev` | Dev-only demo seed. Refused when `APP_ENV=production` |
 
 Startup itself only does idempotent work (index creation, category seed, config checks) — data migrations and lifecycle writes are the scripts' job.
+
+## Uploaded files
+
+Portfolio images and verification documents (ID scans) are stored as objects
+under random keys — never as base64 inside user documents. Configure an
+S3-compatible backend with `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
+`S3_SECRET_ACCESS_KEY` (region via `S3_REGION`; public CDN prefix via
+`S3_PUBLIC_BASE`). boto3 is only imported when S3 is configured, so
+deployments that leave these unset — including local dev and the test suite —
+use the local filesystem under `FILE_STORAGE_DIR` instead. Portfolio items
+are served at public URLs; verification documents are private and can only be
+downloaded through the admin endpoint
+`GET /api/admin/verification/{provider_id}/documents/{doc_id}/url`, which
+issues a short-lived signed URL (TTL `VERIFICATION_URL_TTL`, default 300s).
 
 Requires MongoDB running on `mongodb://localhost:27017` (or set `MONGO_URL` in `.env`).
 

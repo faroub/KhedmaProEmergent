@@ -19,6 +19,10 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 API = f"{BASE_URL}/api"
 
+# A real 1x1 PNG (magic bytes validated server-side, P24): the only accepted
+# way to attach a verification document is an inline image upload.
+PNG_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
 
 # ------------------------------- fixtures -------------------------------
 @pytest.fixture(scope="session")
@@ -167,9 +171,9 @@ class TestVerification:
 
     def test_submit_creates_pending(self, s, provider_token):
         docs = [
-            {"type": "id_recto", "url": "https://example.com/id_recto.jpg", "note": "front"},
-            {"type": "id_verso", "url": "https://example.com/id_verso.jpg"},
-            {"type": "certification", "url": "https://example.com/cert.pdf"},
+            {"type": "id_recto", "url": PNG_DATA_URI, "note": "front"},
+            {"type": "id_verso", "url": PNG_DATA_URI},
+            {"type": "certification", "url": PNG_DATA_URI},
         ]
         r = s.post(f"{API}/verification/submit", headers=self._h(provider_token), json={"documents": docs})
         assert r.status_code == 200, r.text
@@ -240,8 +244,8 @@ class TestVerification:
     def test_admin_approve_sets_verified(self, s, admin_token, provider_id, provider_token):
         # Re-submit to move back to pending → approve
         docs = [
-            {"type": "id_recto", "url": "https://example.com/id_recto.jpg"},
-            {"type": "id_verso", "url": "https://example.com/id_verso.jpg"},
+            {"type": "id_recto", "url": PNG_DATA_URI},
+            {"type": "id_verso", "url": PNG_DATA_URI},
         ]
         r = s.post(f"{API}/verification/submit", headers=self._h(provider_token), json={"documents": docs})
         assert r.status_code == 200

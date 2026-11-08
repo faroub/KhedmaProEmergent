@@ -108,11 +108,95 @@ async def _migrate_category_rename(dry_run: bool) -> dict:
     return {"matched": result.matched_count, "modified": result.modified_count}
 
 
+async def _migrate_inline_files(dry_run: bool) -> dict:
+    """Move base64 portfolio/verification files out of user documents (P24).
+
+    Decode the inline data URI → store it in object storage under a random
+    key → verify the upload round-trips → then replace the inline copy with
+    the key. A second run finds no data: URIs, so it is idempotent."""
+    from config import MAX_DOC_BYTES, MAX_PORTFOLIO_BYTES
+    from storage import StorageError, decode_data_uri, get_bytes, put_bytes
+
+    allow_images = ("image/jpeg", "image/png", "image/webp", "image/gif")
+    allow_docs = allow_images + ("application/pdf",)
+    counts = {"portfolio_files": 0, "verification_files": 0, "users_updated": 0}
+
+    async def _store(uri: str, kind: str, allow: tuple, max_bytes: int):
+        try:
+            data = decode_data_uri(uri)
+            key = await put_bytes(data, kind=kind, allow=allow, max_bytes=max_bytes)
+            if await get_bytes(key) is None:  # verify before deleting inline
+                logger.error("stored object not readable: %s", key)
+                return None
+            return key
+        except StorageError as e:
+            logger.warning("skipping inline file (%s)", e)
+            return None
+
+    cursor = db.users.find(
+        {
+            "$or": [
+                {"portfolio_images": {"$regex": "^data:"}},
+                {"verification_documents.url": {"$regex": "^data:"}},
+            ]
+        },
+        {"_id": 0, "id": 1, "portfolio_images": 1, "verification_documents": 1},
+    )
+    async for doc in cursor:
+        changed = False
+        portfolio = doc.get("portfolio_images") or []
+        has_cover = any(
+            isinstance(p, dict) and p.get("is_cover") for p in portfolio
+        )
+        new_portfolio = []
+        for i, p in enumerate(portfolio):
+            if isinstance(p, str) and p.startswith("data:"):
+                key = None if dry_run else await _store(p, "portfolio", allow_images, MAX_PORTFOLIO_BYTES)
+                if dry_run or key:
+                    counts["portfolio_files"] += 1
+                    changed = True
+                    new_portfolio.append({
+                        "key": key or "dry-run",
+                        "caption": None,
+                        "tags": [],
+                        "is_cover": i == 0 and not has_cover,
+                    })
+                    continue
+            elif isinstance(p, dict) and str(p.get("url") or "").startswith("data:"):
+                key = None if dry_run else await _store(p["url"], "portfolio", allow_images, MAX_PORTFOLIO_BYTES)
+                if dry_run or key:
+                    counts["portfolio_files"] += 1
+                    changed = True
+                    p = {k: v for k, v in p.items() if k != "url"}
+                    p["key"] = key or "dry-run"
+            new_portfolio.append(p)
+        docs = doc.get("verification_documents") or []
+        new_docs = []
+        for d in docs:
+            if str(d.get("url") or "").startswith("data:"):
+                key = None if dry_run else await _store(d["url"], "verification", allow_docs, MAX_DOC_BYTES)
+                if dry_run or key:
+                    counts["verification_files"] += 1
+                    changed = True
+                    d = {k: v for k, v in d.items() if k != "url"}
+                    d["key"] = key or "dry-run"
+            new_docs.append(d)
+        if not changed or dry_run:
+            continue
+        await db.users.update_one(
+            {"id": doc["id"]},
+            {"$set": {"portfolio_images": new_portfolio, "verification_documents": new_docs}},
+        )
+        counts["users_updated"] += 1
+    return counts
+
+
 MIGRATIONS = [
     ("unique_event_id_index", _ensure_unique_event_id_index),
     ("unique_report_window_index", _ensure_unique_report_window_index),
     ("location_backfill", _migrate_location_backfill),
     ("category_rename", _migrate_category_rename),
+    ("inline_files", _migrate_inline_files),
 ]
 
 

@@ -38,6 +38,17 @@ SUBSCRIPTION_FEE_DZD = 1000
 # Payload guardrails
 MAX_IMAGE_BYTES = 900_000  # ~900 KB per base64 image string
 
+# File storage (P24): uploads are decoded into object storage — MongoDB keeps
+# only the (random, unguessable) key. S3-compatible when S3_* is set (boto3 is
+# imported lazily), otherwise the local filesystem under FILE_STORAGE_DIR.
+# Decoded-byte caps and allowed types are enforced by storage.py (magic bytes).
+MAX_PORTFOLIO_BYTES = int(os.environ.get("MAX_PORTFOLIO_BYTES", "2000000"))
+MAX_DOC_BYTES = int(os.environ.get("MAX_DOC_BYTES", "10000000"))
+# TTL of a signed verification-document URL issued to an admin (seconds) and
+# how long reviewed documents are kept before the retention job deletes them.
+VERIFICATION_URL_TTL = int(os.environ.get("VERIFICATION_URL_TTL", "300"))
+VERIFICATION_DOCS_RETENTION_DAYS = int(os.environ.get("VERIFICATION_DOCS_RETENTION_DAYS", "90"))
+
 # Chargily Pay (all optional). When it is not configured, /subscription/pay
 # falls back to a MOCK receipt — that fallback is dev-only: it is enabled only
 # when APP_ENV is development/test AND the variable is explicitly "true".

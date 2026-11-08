@@ -12,6 +12,7 @@ from typing import Optional
 
 from config import TRIAL_MONTHS, DEACTIVATION_MONTHS
 from schemas import Role
+from storage import public_url
 from wilaya_geo import WILAYA_CENTROIDS
 
 
@@ -242,13 +243,26 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "location_lng": public_lng,
         "portfolio_images": [
             (
-                {"url": p, "caption": None, "tags": [], "is_cover": i == 0}
-                if isinstance(p, str)
-                else {
-                    "url": p.get("url"),
+                {
+                    "url": (
+                        # Inline uploads are stored under a random key; the URL
+                        # is synthesized at read time (P24) — it never lives in
+                        # the user document. A pre-migration inline item yields
+                        # no URL rather than echoing the bytes.
+                        public_url(p["key"]) if p.get("key") else (
+                            p.get("url") if not str(p.get("url") or "").startswith("data:") else None
+                        )
+                    ),
                     "caption": p.get("caption"),
                     "tags": p.get("tags", []) or [],
                     "is_cover": bool(p.get("is_cover")),
+                }
+                if not isinstance(p, str)
+                else {
+                    "url": None if p.startswith("data:") else p,
+                    "caption": None,
+                    "tags": [],
+                    "is_cover": i == 0,
                 }
             )
             for i, p in enumerate(doc.get("portfolio_images", []) or [])
@@ -270,7 +284,11 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         out["location_lng"] = doc.get("location_lng")
         out["email"] = doc["email"]
         out["phone"] = doc.get("phone")
-        out["verification_documents"] = doc.get("verification_documents", [])
+        # Metadata only — verification file keys never leave the server (P24).
+        out["verification_documents"] = [
+            {k: v for k, v in d.items() if k != "key"}
+            for d in doc.get("verification_documents", [])
+        ]
         out["verification_reject_reason"] = doc.get("verification_reject_reason")
         out["verification_submitted_at"] = doc.get("verification_submitted_at")
         out["verification_reviewed_at"] = doc.get("verification_reviewed_at")

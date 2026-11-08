@@ -5,21 +5,36 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from config import MAX_IMAGE_BYTES
+from config import MAX_DOC_BYTES, MAX_IMAGE_BYTES, VERIFICATION_URL_TTL
 from database import db
 from deps import current_user, require_admin, require_role
 from routes.push import send_push
 from schemas import Role, VerificationRejectIn, VerificationSubmitIn
+from storage import (
+    StorageError,
+    decode_data_uri,
+    delete_object,
+    presigned_url,
+    put_bytes,
+)
 from subscription import serialize_user
 
 router = APIRouter(tags=["verification"])
+
+# Verification uploads are always private: admin review only (P24/N8).
+_DOC_ALLOWED = ("application/pdf", "image/jpeg", "image/png", "image/webp")
 
 
 @router.get("/verification/status")
 async def verification_status(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
     return {
         "status": user.get("verification_status", "unverified"),
-        "documents": user.get("verification_documents", []),
+        # Metadata only — file bytes live in object storage behind signed URLs
+        # (P24); the storage key never leaves the server.
+        "documents": [
+            {k: v for k, v in d.items() if k != "key"}
+            for d in (user.get("verification_documents") or [])
+        ],
         "reject_reason": user.get("verification_reject_reason"),
         "submitted_at": user.get("verification_submitted_at"),
         "reviewed_at": user.get("verification_reviewed_at"),
@@ -38,13 +53,29 @@ async def verification_submit(
     for d in body.documents:
         if len(d.url) > MAX_IMAGE_BYTES:
             raise HTTPException(status_code=413, detail="Document too large, please compress further")
+        if not d.url.startswith("data:"):
+            raise HTTPException(
+                status_code=400,
+                detail="Documents must be uploaded directly — external links are not accepted",
+            )
+        try:
+            data = decode_data_uri(d.url)
+            key = await put_bytes(
+                data, kind="verification", allow=_DOC_ALLOWED, max_bytes=MAX_DOC_BYTES
+            )
+        except StorageError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         docs.append({
             "id": str(uuid.uuid4()),
             "type": d.type.value,
-            "url": d.url,
+            "key": key,
             "note": d.note,
             "uploaded_at": now_iso,
         })
+    # Remove previously submitted documents' files — replaced, not duplicated.
+    for old in user.get("verification_documents") or []:
+        if old.get("key"):
+            await delete_object(old["key"])
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {
@@ -68,8 +99,11 @@ async def verification_remove_doc(
     if status == "verified":
         raise HTTPException(status_code=409, detail="Cannot modify documents on a verified account")
     docs = [d for d in (user.get("verification_documents") or []) if d.get("id") != doc_id]
+    removed = next((d for d in (user.get("verification_documents") or []) if d.get("id") == doc_id), None)
+    if removed and removed.get("key"):
+        await delete_object(removed["key"])
     await db.users.update_one({"id": user["id"]}, {"$set": {"verification_documents": docs}})
-    return {"success": True, "documents": docs}
+    return {"success": True, "documents": [{k: v for k, v in d.items() if k != "key"} for d in docs]}
 
 
 # ---- Admin review endpoints ----
@@ -96,6 +130,36 @@ async def admin_get_provider_verification(
     if not doc:
         raise HTTPException(status_code=404, detail="Provider not found")
     return serialize_user(doc)
+
+
+@router.get("/admin/verification/{provider_id}/documents/{doc_id}/url")
+async def admin_get_document_url(
+    provider_id: str,
+    doc_id: str,
+    user: Annotated[dict, Depends(current_user)],
+):
+    """Issue a short-lived signed URL for one verification document (P24).
+
+    ID scans are private: the storage key never appears in any API response —
+    only admins can mint a URL, and it expires after VERIFICATION_URL_TTL.
+    """
+    require_admin(user)
+    provider = await db.users.find_one(
+        {"id": provider_id, "role": Role.service_provider.value},
+        {"verification_documents": 1},
+    )
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    doc = next(
+        (d for d in (provider.get("verification_documents") or []) if d.get("id") == doc_id),
+        None,
+    )
+    if not doc or not doc.get("key"):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "url": presigned_url(doc["key"], VERIFICATION_URL_TTL),
+        "expires_in": VERIFICATION_URL_TTL,
+    }
 
 
 @router.post("/admin/verification/{provider_id}/approve")
