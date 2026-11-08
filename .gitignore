@@ -83,6 +83,8 @@ android-sdk/
 .env
 .env.*
 *.env
+# The example files are documentation and must be committed.
+!.env.example
 credentials.json
 *.key
 .credentials
