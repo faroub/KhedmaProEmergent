@@ -22,6 +22,17 @@ pip install -r requirements.txt
 uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 ```
 
+## Operational scripts
+
+| Script | Purpose |
+|--------|---------|
+| `python -m scripts.migrate` | Idempotent data migrations (location backfill, category renames). Run once per deploy **before** starting workers. `--dry-run` supported |
+| `python -m scripts.lifecycle_job` | Soft-deletes providers unpaid past the deactivation deadline. Meant to run daily from cron; `--dry-run` supported |
+| `python scripts/create_admin.py` | Provisions an admin account (no admin is ever auto-created) |
+| `python -m scripts.seed_dev` | Dev-only demo seed. Refused when `APP_ENV=production` |
+
+Startup itself only does idempotent work (index creation, category seed, config checks) — data migrations and lifecycle writes are the scripts' job.
+
 Requires MongoDB running on `mongodb://localhost:27017` (or set `MONGO_URL` in `.env`).
 
 ## URLs (once running)

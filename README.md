@@ -152,6 +152,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 **Env vars** — the prod overlay reads `./backend/.env` via `env_file`. Make sure it contains real secrets (`JWT_SECRET`, `EMERGENT_PUSH_KEY`, `CHARGILY_SECRET_KEY`, etc.) — never commit these.
 
+**Deploy order** — data migrations run once per deploy, not once per worker (H10):
+
+```bash
+cd backend
+python -m scripts.migrate            # idempotent: location backfill + category renames (--dry-run supported)
+python -m scripts.lifecycle_job      # optional: soft-delete providers unpaid past the deactivation deadline
+python scripts/create_admin.py       # only when no admin exists yet (prompts for the password)
+# then start the workers (docker compose up, gunicorn, uvicorn...)
+```
+
+Startup only does idempotent work (index creation, static category seed, read-only config checks); the location backfill and the category rename moved to `scripts/migrate.py`. The lifecycle job is meant to run daily from cron or the platform scheduler.
+
 ---
 
 ## 🖥 Native setup

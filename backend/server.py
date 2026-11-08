@@ -30,9 +30,7 @@ from starlette.staticfiles import StaticFiles
 from database import client, db
 from routes import build_api_router
 from routes.messages import ws_chat
-from schemas import Role
 from security import verify_password
-from wilaya_geo import approx_coords_for
 
 from config import CORS_ORIGINS
 from sms import get_provider_status
@@ -167,48 +165,10 @@ async def on_startup():
     except Exception as e:
         logger.warning("Category seed skipped: %s", e)
 
-    # One-shot: backfill approximate location coordinates for existing providers
-    # from their wilaya's centroid (nudged with a tiny per-provider offset so
-    # they don't all collapse onto a single map pin). Runs only for providers
-    # who don't yet have `location_lat`/`location_lng` set. Providers created
-    # after startup get the same treatment from `routes/users.py`.
-    try:
-        from wilaya_geo import approx_coords_for
-
-        missing = db.users.find(
-            {
-                "role": Role.service_provider.value,
-                "wilaya_code": {"$exists": True, "$ne": None},
-                "$or": [{"location_lat": None}, {"location_lat": {"$exists": False}}],
-            },
-            {"_id": 0, "id": 1, "wilaya_code": 1},
-        )
-        async for doc in missing:
-            coords = approx_coords_for(doc["id"], doc.get("wilaya_code"))
-            if not coords:
-                continue
-            await db.users.update_one(
-                {"id": doc["id"]},
-                {"$set": {
-                    "location_lat": coords[0],
-                    "location_lng": coords[1],
-                    "location_source": "wilaya_centroid",
-                }},
-            )
-    except Exception as e:
-        logger.warning("Location backfill skipped: %s", e)
-    try:
-        migrated = await db.users.update_many(
-            {"category": "admin_education"},
-            {"$set": {"category": "admin_consulting"}},
-        )
-        if migrated.modified_count:
-            logger.info(
-                "Migrated %d providers from admin_education → admin_consulting",
-                migrated.modified_count,
-            )
-    except Exception as e:
-        logger.warning("Category migration skipped: %s", e)
+    # One-shot data migrations (location backfill, category renames) live in
+    # scripts/migrate.py — run once per deploy before starting the workers,
+    # not once per worker on every boot. Startup keeps only idempotent,
+    # cheap work: indexes, the static category seed, and read-only checks.
 
     # Warn (never block) if an admin account still uses the historical default
     # password "admin123" from the removed startup seed. Operators should
