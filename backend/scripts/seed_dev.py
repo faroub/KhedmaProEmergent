@@ -11,8 +11,8 @@ stay in sync; outside development the route additionally requires an admin
 token (the CLI just refuses).
 
 When ALLOW_DEV_SEED is true (its default in development/test) the seeded
-providers get the well-known password123 documented in the README; otherwise
-each provider gets a random password that is printed once.
+providers get the well-known dev password `password123` documented in the
+script; otherwise each provider gets a random password that is printed once.
 """
 import asyncio
 import hashlib
@@ -85,8 +85,9 @@ async def perform_seed(dev_passwords: bool, db=None) -> dict:
 
     `db` defaults to the application's database; a caller may pass its own
     Motor database handle. With `dev_passwords=True` providers get the
-    documented password123; otherwise each gets a random password returned
-    once in the response so it can be handed out.
+    well-known dev password `password123` (development mode only); otherwise
+    each gets a random password returned once in the response so it can be
+    handed out.
     """
     if db is None:
         from database import db as _db

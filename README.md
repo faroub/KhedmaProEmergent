@@ -28,7 +28,7 @@ Optional but nice: **VS Code**, **mongosh** (CLI for MongoDB).
 │   ├── server.py            # entry point
 │   ├── routes/*.py          # one file per feature area
 │   ├── site/                # static marketing website (HTML + CSS)
-│   ├── tests/               # pytest suite (212 tests)
+│   ├── tests/               # pytest suite (370 tests)
 │   ├── requirements.txt
 │   └── .env                 # local secrets (see below)
 ├── frontend/                # Expo (React Native) app
@@ -75,7 +75,6 @@ Everything is now at:
 
 ```bash
 docker compose exec backend python scripts/seed_dev.py
-# or, equivalently: curl -X POST http://localhost:8001/api/seed
 ```
 
 ### Include Metro/Expo too
@@ -156,13 +155,14 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 ```bash
 cd backend
-python -m scripts.migrate            # idempotent: location backfill + category renames (--dry-run supported)
+python -m scripts.migrate            # idempotent: location backfill + category renames + inline-file move (--dry-run supported)
 python -m scripts.lifecycle_job      # optional: soft-delete providers unpaid past the deactivation deadline
+python -m scripts.retention_job      # optional: delete verification documents past their retention window
 python scripts/create_admin.py       # only when no admin exists yet (prompts for the password)
 # then start the workers (docker compose up, gunicorn, uvicorn...)
 ```
 
-Startup only does idempotent work (index creation, static category seed, read-only config checks); the location backfill and the category rename moved to `scripts/migrate.py`. The lifecycle job is meant to run daily from cron or the platform scheduler.
+Startup only does idempotent work (index creation, static category seed, read-only config checks); the location backfill and the category rename moved to `scripts/migrate.py`. The lifecycle and retention jobs are meant to run daily from cron or the platform scheduler.
 
 ---
 
@@ -191,7 +191,7 @@ Create `backend/.env` (or copy from any teammate) with at minimum:
 ```ini
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=khedmapro
-JWT_SECRET=change-me-to-a-32+-char-random-string
+JWT_SECRET=<32+ random characters — production (APP_ENV=production) refuses to start on a weak secret>
 JWT_EXPIRE_MINUTES=720
 EMERGENT_PUSH_KEY=placeholder
 # CHARGILY_SECRET_KEY=live_...     # optional — leave unset to use the mock
@@ -267,18 +267,15 @@ The backend never creates accounts at startup. For sample providers, run the dev
 python scripts/seed_dev.py
 ```
 
-or call the built-in dev seed endpoint:
+It creates demo providers with demo credentials plus fake reviews, and is
+development-only (it refuses to run when `APP_ENV=production`). In
+development mode the demo providers share a well-known dev password,
+documented in `scripts/seed_dev.py`; with `ALLOW_DEV_SEED=false` each
+provider gets a random one-time password printed once by the script.
 
-```bash
-curl -X POST http://localhost:8001/api/seed
-```
-
-Default accounts (after seed):
-
-| Role | Email | Password |
-|------|-------|----------|
-| Provider | `provider1@khedmapro.dz` | `password123` |
-| OTP mock code | any phone number | `910428` |
+| Demo login | Value |
+|------------|-------|
+| OTP mock code (dev only) | any phone number → `910428` |
 
 The seed does **not** create an admin. Admins are provisioned explicitly (see below).
 
@@ -329,7 +326,7 @@ pytest -n 2 --dist loadscope         # parallel (default in CI)
 pytest tests/test_iter14_*.py -v     # single file
 ```
 
-Current suite: **212 tests passing** (serial `-n 0`, fresh database).
+Current suite: **370 tests passing** (serial `-n 0`, fresh database).
 Two tests skip only when `CHARGILY_SECRET_KEY` is set (payment-receipt assertions).
 
 ### Frontend (lint)
@@ -408,7 +405,6 @@ For details on the deployment prerequisites (Firebase `google-services.json`, AP
 ## 📚 More reading
 
 - `/app/test_result.md` — Iteration-by-iteration change log with test results.
-- `/app/memory/test_credentials.md` — Every test account and default password.
 - `/app/backend/tests/` — Living examples of every API contract.
 
 Happy hacking! 🇩🇿

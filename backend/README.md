@@ -63,7 +63,7 @@ Requires MongoDB running on `mongodb://localhost:27017` (or set `MONGO_URL` in `
 ```ini
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=khedmapro
-JWT_SECRET=change-me
+JWT_SECRET=<32+ random characters — production (APP_ENV=production) refuses to start on a weak secret>
 JWT_EXPIRE_MINUTES=720
 EMERGENT_PUSH_KEY=placeholder
 # CHARGILY_SECRET_KEY=live_...   # optional
@@ -76,25 +76,23 @@ pytest -n 0                     # serial (recommended)
 pytest tests/test_iter15_*.py   # single file
 ```
 
-Current suite: **212 tests passing** (serial `-n 0`, fresh database). The two
+Current suite: **370 tests passing** (serial `-n 0`, fresh database). The two
 payment-receipt assertions skip only when `CHARGILY_SECRET_KEY` is set.
 
 ## Seed sample data
 
 ```bash
-python scripts/seed_dev.py        # or: curl -X POST http://localhost:8001/api/seed
+python -m scripts.seed_dev
 ```
 
 This only seeds sample providers — it does **not** create an admin account.
 Admins are provisioned explicitly with `python scripts/create_admin.py`
 (minimum 12-character password, or the script exits with an error).
 
-The seed is development-only. `ALLOW_DEV_SEED` defaults to `true` only when
-`APP_ENV` is `development` or `test`, and `scripts/seed_dev.py` refuses to run
-in production outright. Outside development the endpoint requires an admin
-token and seeded providers get random one-time passwords (returned in the
-response) instead of the documented dev password:
-
-```bash
-curl -X POST http://localhost:8001/api/seed -H "Authorization: Bearer <ADMIN_JWT>"
-```
+The seed is development-only: `ALLOW_DEV_SEED` defaults to `true` only when
+`APP_ENV` is `development` or `test`, and `scripts/seed_dev.py` refuses to
+run in production outright. In development mode the demo providers share
+the well-known dev password documented in the script itself; with
+`ALLOW_DEV_SEED=false` — or when seeding outside development through the
+admin-gated `/api/seed` route — every provider gets a random one-time
+password returned in the response instead.
