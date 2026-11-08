@@ -1,5 +1,7 @@
 """Password hashing and JWT helpers."""
+import uuid
 from datetime import datetime, timedelta, timezone
+
 import bcrypt
 import jwt
 
@@ -48,14 +50,17 @@ def decode_token(token: str) -> dict:
 
 
 # ---------------------------------------------------------------- OTP tokens
-def make_phone_verification_token(phone_e164: str, ttl_minutes: int = 15) -> str:
+def make_phone_verification_token(phone_e164: str, ttl_minutes: int = 15, jti: str | None = None) -> str:
     """Signed short-lived token proving `phone_e164` was OTP-verified.
     Used by the pre-registration flow so a caller can't register a phone
-    they haven't actually verified in the last few minutes."""
+    they haven't actually verified in the last few minutes. The `jti` makes
+    the token single-use: /auth/register records each id in MongoDB and
+    rejects replays."""
     now = datetime.now(timezone.utc)
     payload = {
         "purpose": "phone_verify",
         "phone_e164": phone_e164,
+        "jti": jti if jti is not None else uuid.uuid4().hex,
         "iat": now,
         "exp": now + timedelta(minutes=ttl_minutes),
     }

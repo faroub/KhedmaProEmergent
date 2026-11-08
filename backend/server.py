@@ -118,6 +118,9 @@ async def on_startup():
     await db.reports.create_index("provider_id")
     # TTL index: expired rate-limit buckets delete themselves.
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+    # TTL index: consumed phone-verification jtis expire after the token's own
+    # lifetime (15 min) plus grace — single-use tokens (P14) self-clean.
+    await db.used_phone_tokens.create_index("created_at", expireAfterSeconds=1200)
     await db.users.create_index("verification_status")
     await db.users.create_index([("location_lat", 1), ("location_lng", 1)])
     await db.categories.create_index("id", unique=True)

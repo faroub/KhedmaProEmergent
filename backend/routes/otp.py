@@ -264,10 +264,9 @@ async def verify_otp_for_registration(body: OtpVerifyForRegistrationIn, request:
         await _fail_challenge(phone)
         raise HTTPException(status_code=401, detail="Invalid or expired verification code")
 
-    # If the number already belongs to an account, block registration here so
-    # the caller doesn't waste time filling the rest of the form.
-    if await db.users.find_one({"phone_e164": phone}):
-        raise HTTPException(status_code=409, detail="This phone number is already registered")
+    # If the number already belongs to an account, the duplicate check in
+    # /auth/register rejects the registration with 409 — returning it here
+    # leaks which numbers are registered (and diverges from the success shape).
 
     # Single-use — burn the challenge.
     deleted = await db.otp_challenges.delete_one({"phone_e164": phone})
