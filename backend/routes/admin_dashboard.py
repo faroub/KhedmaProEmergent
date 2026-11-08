@@ -2,6 +2,7 @@
 revenue view, push broadcast, and CSV exports.
 """
 import csv
+from csv_safe import safe_csv_cell
 import io
 import re
 from datetime import datetime, timezone, timedelta
@@ -439,7 +440,7 @@ async def admin_export(
         writer.writerow(["month", "revenue_dzd", "payments_count", "unique_providers"])
         for r in rows:
             writer.writerow([
-                r["_id"],
+                safe_csv_cell(r["_id"]),
                 int(r.get("revenue_dzd", 0)),
                 int(r.get("payments", 0)),
                 len(r.get("unique_providers", [])),
@@ -465,7 +466,7 @@ async def admin_export(
     writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     async for row in cursor:
-        writer.writerow({k: row.get(k, "") for k in fieldnames})
+        writer.writerow({k: safe_csv_cell(row.get(k, "")) for k in fieldnames})
     buf.seek(0)
     fname = f"khedmapro_{kind}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     return StreamingResponse(
