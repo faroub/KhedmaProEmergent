@@ -138,14 +138,14 @@ class PortfolioUpdateIn(BaseModel):
 class BookingCreate(BaseModel):
     provider_id: str
     scheduled_date: str  # ISO format
-    task_description: str
-    address: str
+    task_description: str = Field(max_length=2000)
+    address: str = Field(max_length=300)
     rate_type: str = "hourly"  # hourly or task
     estimated_hours: Optional[float] = None
     # Guest booking fields
-    guest_name: Optional[str] = None
+    guest_name: Optional[str] = Field(default=None, max_length=100)
     guest_phone: Optional[str] = None
-    guest_email: Optional[str] = None
+    guest_email: Optional[EmailStr] = None
     booking_type: str = "instant"  # 'instant' or 'quote'
     location_lat: Optional[float] = None
     location_lng: Optional[float] = None

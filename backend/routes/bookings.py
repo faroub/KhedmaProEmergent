@@ -15,6 +15,7 @@ from config import (
 )
 from database import db
 from deps import current_user, optional_current_user
+from phone import normalize_dz_phone
 from ratelimit import client_ip, consume
 from routes.push import send_push
 from schemas import BookingCreate, BookingEtaIn, BookingStatus, BookingStatusUpdate, Role
@@ -59,7 +60,9 @@ async def create_booking(
             raise HTTPException(status_code=400, detail="Guest name and phone are required")
         client_id = f"guest:{uuid.uuid4()}"
         client_name = body.guest_name
-        client_phone = body.guest_phone
+        # Normalize (and validate) the guest phone: unvalidated free text here
+        # used to make the provider's callback unreachable (M14).
+        client_phone = normalize_dz_phone(body.guest_phone)
         client_email = body.guest_email
         is_guest = True
 
