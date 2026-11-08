@@ -1,24 +1,23 @@
 # Production dependencies for khedmaPro — a trimmed subset of requirements.txt.
 #
-# requirements.txt (used by the dev image and the local venv) carries the full
-# platform toolchain (pandas, numpy, boto3, LLM SDKs, …) which the application
-# never imports. Shipping them in the production image only bloats the layer
-# and widens the supply-chain surface. Keep both files in sync: when a runtime
-# dependency is added here, mirror the pin in requirements.txt.
+# requirements.txt (used by the dev image and the local venv) carries the
+# runtime set plus optional tooling; dev-only packages live in
+# requirements-dev.txt. Keep both files in sync: when a runtime dependency is
+# added here, mirror the pin in requirements.txt.
 
 bcrypt==4.1.3                # password hashing
 email-validator==2.3.0       # pydantic EmailStr (auth payloads)
-fastapi==0.110.1
+fastapi==0.162.2
 gunicorn==26.0.0             # prod process manager (Dockerfile.prod CMD)
 httpx==0.28.1                # Chargily checkout + SMS HTTP provider
-motor==3.3.1                 # async MongoDB driver
+motor==3.7.1                 # async MongoDB driver (pairs with the pinned pymongo)
 pydantic==2.13.4
-PyJWT==2.13.0                # session tokens + phone-verification tokens
-pymongo==4.6.3               # used by ws_manager-adjacent helpers + TTL indexes
+PyJWT==2.15.1                # session tokens + phone-verification tokens
+pymongo==4.19.0
 python-dotenv==1.2.2         # .env loading in non-compose deployments
 redis==8.1.0                 # pub/sub fan-out for /api/ws/chat across gunicorn workers
 python-multipart==0.0.32     # FastAPI form support (tiny safety net)
-starlette==0.37.2            # pinned alongside fastapi as in requirements.txt
+starlette==1.10.0            # pinned alongside fastapi as in requirements.txt
 twilio==9.10.9               # SMS provider (lazy import; needed when configured)
 uvicorn==0.25.0              # gunicorn worker class
 websockets==16.1.1           # required by uvicorn to serve /api/ws/chat (mirrors requirements.txt)

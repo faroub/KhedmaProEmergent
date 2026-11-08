@@ -71,7 +71,7 @@ async def list_providers(
     # Client-driven ordering. Falls back to legacy behavior (distance in radius mode,
     # rating otherwise) when omitted or set to "auto".
     sort: Optional[str] = Query(
-        default=None, regex="^(auto|rating|distance|price_asc|price_desc|newest)$"
+        default=None, pattern="^(auto|rating|distance|price_asc|price_desc|newest)$"
     ),
 ):
     query = {

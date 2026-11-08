@@ -1,0 +1,17 @@
+# Development tooling on top of the runtime requirements.
+#
+# The dev image and CI install this file (it pulls in requirements.txt); the
+# production image installs requirements.prod.txt only (Dockerfile.prod).
+# Versions match the pins that lived in requirements.txt before the P30 split.
+
+-r requirements.txt
+
+black==26.5.1          # formatter
+flake8==7.3.0          # lint (CI: --select=E9,F63,F7,F82 — real errors only)
+isort==8.0.1           # import ordering
+mccabe==0.7.0          # flake8 complexity plugin
+mypy==2.3.0            # type checking
+pycodestyle==2.14.0    # flake8 style backend
+pyflakes==3.4.0        # unused/undefined names (F-class)
+pytest==9.1.1          # test runner (pytest.ini requires pytest-xdist)
+pytest-xdist==3.8.0    # parallel/serial test execution

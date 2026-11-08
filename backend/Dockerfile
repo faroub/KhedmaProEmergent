@@ -9,10 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Cache the pip layer as long as requirements.txt doesn't change.
-COPY requirements.txt ./
+# Cache the pip layer as long as requirements-dev.txt doesn't change.
+# requirements-dev.txt pulls in requirements.txt plus the dev tooling
+# (pytest, formatters, linters) — a dev image must be able to run the suite.
+COPY requirements-dev.txt requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements-dev.txt
 
 # Copy source. In docker-compose.yml this gets shadowed by the bind mount
 # so hot-reload works, but this baseline is here for standalone `docker run`.
