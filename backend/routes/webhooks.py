@@ -145,11 +145,32 @@ async def chargily_webhook(request: Request):
                     "manually_deactivated_at": None,
                 }},
             )
+            await db.payment_audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "event_id": event_id,
+                "event_type": event_type,
+                "checkout_id": checkout_id,
+                "provider_id": payment["provider_id"],
+                "previous_status": payment.get("status"),
+                "new_status": "paid",
+                "timestamp": now_iso,
+            })
         elif event_type in ("checkout.failed", "checkout.canceled"):
+            new_status = event_type.split(".")[1]
             await db.subscription_payments.update_one(
                 {"provider_checkout_id": checkout_id},
-                {"$set": {"status": event_type.split(".")[1]}},
+                {"$set": {"status": new_status}},
             )
+            await db.payment_audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "event_id": event_id,
+                "event_type": event_type,
+                "checkout_id": checkout_id,
+                "provider_id": payment["provider_id"],
+                "previous_status": payment.get("status"),
+                "new_status": new_status,
+                "timestamp": now_iso,
+            })
     except Exception:
         # Processing failed after the insert: mark the event so a retry can
         # claim it above, then surface the error to the payment provider.
@@ -163,5 +184,45 @@ async def chargily_webhook(request: Request):
     return {"ok": True}
 
 
+async def reconcile_provider_payments(provider_id: str | None = None) -> dict:
+    """Reconcile payment records with provider subscription status.
+
+    Scans `subscription_payments` documents marked 'paid' and ensures the
+    corresponding provider user document has `last_paid_at` aligned.
+    """
+    query = {"status": "paid"}
+    if provider_id:
+        query["provider_id"] = provider_id
+
+    reconciled_count = 0
+    cursor = db.subscription_payments.find(query)
+    async for payment in cursor:
+        pid = payment.get("provider_id")
+        paid_at = payment.get("paid_at")
+        if not pid or not paid_at:
+            continue
+        user = await db.users.find_one({"id": pid}, {"_id": 0, "last_paid_at": 1})
+        if not user:
+            continue
+        current_last_paid = user.get("last_paid_at")
+        if not current_last_paid or current_last_paid < paid_at:
+            await db.users.update_one(
+                {"id": pid},
+                {"$set": {
+                    "last_paid_at": paid_at,
+                    "is_manually_deactivated": False,
+                    "manually_deactivated_at": None,
+                }},
+            )
+            reconciled_count += 1
+    return {"reconciled_count": reconciled_count}
+
+
 # Re-export for the /subscription/pay route
-__all__ = ["router", "is_chargily_enabled", "create_checkout", "ALLOW_MOCK_PAYMENTS"]
+__all__ = [
+    "router",
+    "is_chargily_enabled",
+    "create_checkout",
+    "ALLOW_MOCK_PAYMENTS",
+    "reconcile_provider_payments",
+]
