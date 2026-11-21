@@ -16,9 +16,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import requests
+import pytest
 from bson import encode as bson_encode
 from pymongo import MongoClient
 
+import storage
 from helpers import API, fresh_provider, make_admin
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
@@ -327,3 +329,37 @@ class TestMigrationAndRetention:
         # Untouched.
         assert _db().users.find_one({"id": pending_uid})["verification_documents"]
         assert _db().users.find_one({"id": fresh_uid})["verification_documents"]
+
+
+class TestStorageConfigValidation:
+    def test_complete_s3_config_passes(self, monkeypatch):
+        monkeypatch.setattr(storage, "S3_ENDPOINT_URL", "https://s3.example.com")
+        monkeypatch.setattr(storage, "S3_BUCKET", "my-bucket")
+        monkeypatch.setattr(storage, "S3_ACCESS_KEY_ID", "key-id")
+        monkeypatch.setattr(storage, "S3_SECRET_ACCESS_KEY", "secret-key")
+        storage.validate_storage_config()
+
+    def test_partial_s3_config_raises_storage_error(self, monkeypatch):
+        monkeypatch.setattr(storage, "S3_ENDPOINT_URL", "https://s3.example.com")
+        monkeypatch.setattr(storage, "S3_BUCKET", "my-bucket")
+        monkeypatch.setattr(storage, "S3_ACCESS_KEY_ID", "")
+        monkeypatch.setattr(storage, "S3_SECRET_ACCESS_KEY", "")
+        with pytest.raises(storage.StorageError, match="Incomplete S3 configuration"):
+            storage.validate_storage_config()
+
+    def test_writable_local_storage_passes(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(storage, "S3_ENDPOINT_URL", "")
+        monkeypatch.setattr(storage, "S3_BUCKET", "")
+        monkeypatch.setattr(storage, "S3_ACCESS_KEY_ID", "")
+        monkeypatch.setattr(storage, "S3_SECRET_ACCESS_KEY", "")
+        monkeypatch.setattr(storage, "FILE_STORAGE_DIR", str(tmp_path / "files"))
+        storage.validate_storage_config()
+
+    def test_unwritable_local_storage_raises_storage_error(self, monkeypatch):
+        monkeypatch.setattr(storage, "S3_ENDPOINT_URL", "")
+        monkeypatch.setattr(storage, "S3_BUCKET", "")
+        monkeypatch.setattr(storage, "S3_ACCESS_KEY_ID", "")
+        monkeypatch.setattr(storage, "S3_SECRET_ACCESS_KEY", "")
+        monkeypatch.setattr(storage, "FILE_STORAGE_DIR", "/proc/nonexistent_dir_unwritable")
+        with pytest.raises(storage.StorageError, match="unwritable"):
+            storage.validate_storage_config()

@@ -50,6 +50,9 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.p
 # Copy source. Owned by the non-root `app` user.
 COPY --chown=app:app . .
 
+# Ensure local file storage directory exists and is owned by the non-root `app` user.
+RUN mkdir -p /app/.khedmapro_files && chown -R app:app /app/.khedmapro_files
+
 # Python hygiene.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

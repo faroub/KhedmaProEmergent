@@ -18,8 +18,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     restart: on-failure:5
-    # Blank out the dev bind mount + venv cache from the default file.
-    volumes: []
+    # Mount persistent storage for local upload files while keeping rootfs read-only.
+    volumes:
+      - khedmapro-files-data:/app/.khedmapro_files
     # Blank out the dev command; the Dockerfile.prod's CMD (gunicorn) is used.
     command: []
     # Real secrets belong here, NOT in the compose file. Create /app/backend/.env
@@ -65,3 +66,6 @@ services:
     restart: on-failure:5
     # Same rule as mongo: no host port, backend reaches it over the compose network.
     ports: []
+
+volumes:
+  khedmapro-files-data:

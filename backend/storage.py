@@ -65,6 +65,41 @@ def uses_s3() -> bool:
     return bool(S3_ENDPOINT_URL and S3_BUCKET and S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY)
 
 
+def validate_storage_config() -> None:
+    """Validate storage configuration at startup.
+
+    If any S3 variable is provided, all required S3 variables must be set.
+    Otherwise (local filesystem storage), verify that `FILE_STORAGE_DIR`
+    exists and is writable.
+    """
+    s3_vars = {
+        "S3_ENDPOINT_URL": S3_ENDPOINT_URL,
+        "S3_BUCKET": S3_BUCKET,
+        "S3_ACCESS_KEY_ID": S3_ACCESS_KEY_ID,
+        "S3_SECRET_ACCESS_KEY": S3_SECRET_ACCESS_KEY,
+    }
+    set_s3_vars = [k for k, v in s3_vars.items() if bool(v)]
+    if set_s3_vars and len(set_s3_vars) < 4:
+        missing = [k for k, v in s3_vars.items() if not bool(v)]
+        raise StorageError(
+            f"Incomplete S3 configuration: set {', '.join(set_s3_vars)}, but missing {', '.join(missing)}"
+        )
+
+    if not uses_s3():
+        try:
+            os.makedirs(FILE_STORAGE_DIR, exist_ok=True)
+            probe_path = os.path.join(FILE_STORAGE_DIR, ".write_probe")
+            with open(probe_path, "wb") as f:
+                f.write(b"probe")
+            if os.path.exists(probe_path):
+                os.remove(probe_path)
+        except OSError as e:
+            logger.error("Local storage directory '%s' is unwritable: %s", FILE_STORAGE_DIR, e)
+            raise StorageError(
+                f"Local storage directory '{FILE_STORAGE_DIR}' is unwritable: {e}"
+            ) from e
+
+
 def sniff(data: bytes) -> str:
     """Return the content type of `data` by magic bytes, or '' if unknown."""
     if data.startswith(b"RIFF") and data[8:12] == _WEBP_TAIL:

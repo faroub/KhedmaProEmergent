@@ -72,6 +72,7 @@ services:
     volumes:
       - ./backend:/app
       - backend-venv:/app/.venv  # keep Python deps cached across restarts
+      - khedmapro-files-data:/app/.khedmapro_files
     working_dir: /app
     command: uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 
@@ -108,3 +109,4 @@ volumes:
   mongo-data:
   backend-venv:
   frontend-node-modules:
+  khedmapro-files-data:

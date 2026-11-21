@@ -51,6 +51,15 @@ async def _validate_startup_config() -> None:
     so local development keeps working with the defaults.
     """
     import config
+    import storage
+
+    try:
+        storage.validate_storage_config()
+    except storage.StorageError as e:
+        if config.APP_ENV == "production":
+            logger.error("Refusing to start due to storage config issue: %s", e)
+            raise RuntimeError(f"Unsafe production storage configuration: {e}") from e
+        logger.warning("Development-mode storage issue (APP_ENV=%s): %s", config.APP_ENV, e)
 
     problems = config.production_config_problems(
         sms_provider=(await get_provider_status()).get("provider", "")
