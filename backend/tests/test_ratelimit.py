@@ -142,3 +142,60 @@ def test_message_send_per_user_limit_returns_429(monkeypatch):
         assert int(exc.value.headers["Retry-After"]) >= 1
 
     _run(monkeypatch, scenario)
+
+
+def test_consume_phone_otp_limit_unit(monkeypatch):
+    phone = "+213550112233"
+    storage = {}
+
+    class FakeOtpRateLimits:
+        async def find_one(self, query):
+            if query.get("_id") != phone:
+                return None
+            doc = storage.get(phone)
+            if not doc:
+                return None
+            last_sent = query.get("last_sent_at", {})
+            if "$gt" in last_sent:
+                if doc.get("last_sent_at") and doc["last_sent_at"] > last_sent["$gt"]:
+                    return doc
+                return None
+            return None
+
+        async def find_one_and_update(self, query, update, upsert=False, return_document=None):
+            now_str = update.get("$set", {}).get("last_sent_at")
+            if not storage.get(phone):
+                if upsert:
+                    doc = {
+                        "_id": phone,
+                        "last_sent_at": now_str,
+                        "hour_started_at": now_str,
+                        "hour_count": 1,
+                    }
+                    storage[phone] = doc
+                    return doc
+                return None
+            else:
+                doc = storage[phone]
+                last_sent_clause = query.get("$or", [{}])[0].get("last_sent_at", {})
+                if "$lte" in last_sent_clause and doc.get("last_sent_at") and doc["last_sent_at"] > last_sent_clause["$lte"]:
+                    return None
+                doc["last_sent_at"] = now_str
+                if "$inc" in update and "hour_count" in update["$inc"]:
+                    doc["hour_count"] += update["$inc"]["hour_count"]
+                return doc
+
+    class FakeDB:
+        otp_rate_limits = FakeOtpRateLimits()
+
+    monkeypatch.setattr(ratelimit, "db", FakeDB())
+
+    # 1. First call succeeds
+    asyncio.run(ratelimit.consume_phone_otp_limit(phone))
+    assert storage[phone]["hour_count"] == 1
+
+    # 2. Immediate second call fails with 429
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(ratelimit.consume_phone_otp_limit(phone))
+    assert exc.value.status_code == 429
+    assert "30 seconds" in exc.value.detail

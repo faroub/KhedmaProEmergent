@@ -12,7 +12,7 @@ from config import RATE_LIMIT_OTP_IP
 from database import db
 from deps import current_user
 from phone import normalize_dz_phone, send_otp_code
-from ratelimit import client_ip, consume
+from ratelimit import client_ip, consume, consume_phone_otp_limit
 from schemas import (
     OtpRequestIn,
     OtpVerifyIn,
@@ -48,7 +48,6 @@ async def request_otp(body: OtpRequestIn, request: Request):
     phone = normalize_dz_phone(body.phone)
     now = datetime.now(timezone.utc)
     one_hour_ago = now - timedelta(hours=1)
-    thirty_seconds_ago = now - timedelta(seconds=30)
 
     await db.otp_challenges.delete_many({
         "phone_e164": phone,
@@ -58,27 +57,8 @@ async def request_otp(body: OtpRequestIn, request: Request):
         ],
     })
 
-    rate = await db.otp_rate_limits.find_one({"_id": phone})
-    if rate:
-        last_sent = rate.get("last_sent_at")
-        if isinstance(last_sent, str):
-            last_sent = datetime.fromisoformat(last_sent.replace("Z", "+00:00"))
-        if last_sent and last_sent > thirty_seconds_ago:
-            raise HTTPException(status_code=429, detail="Please wait 30 seconds before requesting another code")
-        hour_started = rate.get("hour_started_at")
-        if isinstance(hour_started, str):
-            hour_started = datetime.fromisoformat(hour_started.replace("Z", "+00:00"))
-        if hour_started and hour_started > one_hour_ago:
-            if rate.get("hour_count", 0) >= 5:
-                raise HTTPException(status_code=429, detail="Too many OTP requests; try again later")
-            hour_count = rate.get("hour_count", 0) + 1
-            hour_start = hour_started
-        else:
-            hour_count = 1
-            hour_start = now
-    else:
-        hour_count = 1
-        hour_start = now
+    # Atomic per-phone rate limiting (30s cooldown + 5/hr cap)
+    await consume_phone_otp_limit(phone)
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     code_hash = bcrypt.hashpw(code.encode(), bcrypt.gensalt()).decode()
@@ -91,15 +71,6 @@ async def request_otp(body: OtpRequestIn, request: Request):
             "created_at": now.isoformat(),
             "expires_at": (now + timedelta(minutes=5)).isoformat(),
         },
-        upsert=True,
-    )
-    await db.otp_rate_limits.update_one(
-        {"_id": phone},
-        {"$set": {
-            "last_sent_at": now.isoformat(),
-            "hour_started_at": hour_start.isoformat(),
-            "hour_count": hour_count,
-        }},
         upsert=True,
     )
     try:
