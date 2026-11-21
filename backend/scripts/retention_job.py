@@ -60,9 +60,14 @@ async def run(dry_run: bool = False) -> dict:
     async for user in cursor:
         docs = user.get("verification_documents") or []
         counts["providers"] += 1
-        keys = [d.get("key") for d in docs if d.get("key")]
-        counts["documents_deleted"] += len(docs)
-        for key in keys:
+        remaining_docs = []
+        user_deleted = 0
+        user_failed = 0
+
+        for doc in docs:
+            key = doc.get("key")
+            if not key:
+                continue
             if dry_run:
                 counts["objects_deleted"] += 1
                 logger.info("[dry-run] would delete %s", key)
@@ -70,19 +75,35 @@ async def run(dry_run: bool = False) -> dict:
             try:
                 await delete_object(key)
                 counts["objects_deleted"] += 1
-            except Exception as e:  # a missing file must not block the record cleanup
+                user_deleted += 1
+            except Exception as e:
                 counts["objects_failed"] += 1
-                logger.warning("delete failed for %s: %s", key, e)
+                user_failed += 1
+                remaining_docs.append(doc)
+                logger.warning(
+                    "delete failed for %s: %s (retaining document record for retry)",
+                    key, e,
+                )
+
         if dry_run:
+            counts["documents_deleted"] += len(docs)
             continue
+
+        counts["documents_deleted"] += user_deleted
         await db.users.update_one(
             {"id": user["id"]},
-            {"$set": {"verification_documents": []}},
+            {"$set": {"verification_documents": remaining_docs}},
         )
-        logger.info(
-            "cleared %d documents for %s (status=%s)",
-            len(docs), user["id"], user.get("verification_status"),
-        )
+        if remaining_docs:
+            logger.warning(
+                "partially cleared documents for %s: %d deleted, %d failed and retained for retry",
+                user["id"], user_deleted, user_failed,
+            )
+        else:
+            logger.info(
+                "cleared %d documents for %s (status=%s)",
+                user_deleted, user["id"], user.get("verification_status"),
+            )
     return counts
 
 

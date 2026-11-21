@@ -235,7 +235,12 @@ def _s3_delete(key: str) -> None:
     try:
         _s3_client().delete_object(Bucket=S3_BUCKET, Key=key)
     except Exception as e:
-        logger.warning("S3 delete failed for %s: %s", key, e)
+        err_code = str(getattr(e, "response", {}).get("Error", {}).get("Code", ""))
+        if err_code in ("NoSuchKey", "404", "NotFound"):
+            logger.info("S3 object %s already missing during deletion", key)
+            return
+        logger.error("S3 delete failed for %s: %s", key, e)
+        raise StorageError(f"S3 deletion failed: {e}") from e
 
 
 _s3 = None
@@ -274,6 +279,11 @@ def _local_get(key: str) -> Optional[bytes]:
 
 def _local_delete(key: str) -> None:
     try:
-        os.remove(_local_path(key))
-    except OSError:
-        pass
+        path = _local_path(key)
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError as e:
+        if getattr(e, "errno", None) == 2 or not os.path.exists(_local_path(key)):
+            return
+        logger.error("local storage delete failed for %s: %s", key, e)
+        raise StorageError(f"Local storage deletion failed: {e}") from e

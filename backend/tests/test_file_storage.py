@@ -330,6 +330,47 @@ class TestMigrationAndRetention:
         assert _db().users.find_one({"id": pending_uid})["verification_documents"]
         assert _db().users.find_one({"id": fresh_uid})["verification_documents"]
 
+    def test_retention_job_retains_failed_deletions(self, monkeypatch):
+        import scripts.retention_job as retention_mod
+        import storage
+
+        old_iso = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
+        uid = f"p24-partial-{uuid.uuid4().hex[:8]}"
+
+        async def _failing_delete(key):
+            if key == "verification/fail.png":
+                raise storage.StorageError("S3 network timeout")
+
+        monkeypatch.setattr(storage, "delete_object", _failing_delete)
+
+        async def go():
+            from motor.motor_asyncio import AsyncIOMotorClient
+
+            client = AsyncIOMotorClient(MONGO_URL)
+            monkeypatch.setattr(retention_mod, "db", client[DB_NAME])
+            try:
+                client[DB_NAME].users.insert_one({
+                    "id": uid,
+                    "role": "service_provider",
+                    "email": f"{uid}@example.com",
+                    "verification_status": "verified",
+                    "verification_reviewed_at": old_iso,
+                    "verification_documents": [
+                        {"id": "d1", "type": "id_recto", "key": "verification/ok.png"},
+                        {"id": "d2", "type": "id_verso", "key": "verification/fail.png"},
+                    ],
+                })
+                counts = await retention_mod.run(dry_run=False)
+                assert counts["objects_deleted"] == 1
+                assert counts["objects_failed"] == 1
+                doc = client[DB_NAME].users.find_one({"id": uid})
+                assert len(doc["verification_documents"]) == 1
+                assert doc["verification_documents"][0]["id"] == "d2"
+            finally:
+                client.close()
+
+        asyncio.run(go())
+
 
 class TestStorageConfigValidation:
     def test_complete_s3_config_passes(self, monkeypatch):
@@ -363,3 +404,12 @@ class TestStorageConfigValidation:
         monkeypatch.setattr(storage, "FILE_STORAGE_DIR", "/proc/nonexistent_dir_unwritable")
         with pytest.raises(storage.StorageError, match="unwritable"):
             storage.validate_storage_config()
+
+    def test_local_delete_missing_file_succeeds(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(storage, "S3_ENDPOINT_URL", "")
+        monkeypatch.setattr(storage, "S3_BUCKET", "")
+        monkeypatch.setattr(storage, "S3_ACCESS_KEY_ID", "")
+        monkeypatch.setattr(storage, "S3_SECRET_ACCESS_KEY", "")
+        monkeypatch.setattr(storage, "FILE_STORAGE_DIR", str(tmp_path))
+        key = "verification/nonexistent_file.png"
+        asyncio.run(storage.delete_object(key))
