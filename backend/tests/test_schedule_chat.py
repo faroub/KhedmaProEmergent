@@ -185,10 +185,10 @@ class TestChatWebSocket:
 
     def test_valid_token_receives_realtime_message(self, s, client_ctx, provider_ctx):
         async def go():
-            uri = f"{WS_BASE}/api/ws/chat?token={provider_ctx['token']}"
+            uri = f"{WS_BASE}/api/ws/chat"
             received = []
             async with websockets.connect(uri) as ws:
-                # give server a moment to register
+                await ws.send(json.dumps({"type": "auth", "token": provider_ctx["token"]}))
                 await asyncio.sleep(0.5)
                 # trigger message from client -> provider via REST
                 r = s.post(f"{API}/chats/{provider_ctx['id']}/messages",

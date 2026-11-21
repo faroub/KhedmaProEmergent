@@ -102,7 +102,15 @@ def compute_subscription(user: dict, trial_days: Optional[int] = None) -> dict:
             "should_soft_delete": False,
         }
 
-    created_at = user["created_at"]
+    created_at = user.get("created_at")
+    if not created_at:
+        return {
+            "trial_ends_at": None,
+            "subscription_status": "trial",
+            "days_until_due": 30,
+            "active": True,
+            "should_soft_delete": False,
+        }
     if isinstance(created_at, str):
         created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
     if created_at.tzinfo is None:

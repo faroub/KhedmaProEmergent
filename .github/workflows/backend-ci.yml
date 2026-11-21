@@ -1,4 +1,4 @@
-name: backend CI
+name: CI & Regression Pipeline
 
 on:
   pull_request:
@@ -15,21 +15,11 @@ jobs:
       DB_NAME: khedmapro_ci_test
       JWT_SECRET: ci-only-jwt-secret-never-used-outside-ci-0123456789
       EMERGENT_PUSH_KEY: placeholder
-      # CI runs in development mode; the payment tests need the mock fallback
-      # (ALLOW_MOCK_PAYMENTS is off by default since P9).
       ALLOW_MOCK_PAYMENTS: "true"
-      # The suite registers/logs in dozens of throwaway accounts from a single
-      # IP, so lift the per-IP ceilings (per-user limits stay at defaults).
-      # Limiter semantics are covered in-process by tests/test_ratelimit.py
-      # using explicit small limits.
       RATE_LIMIT_LOGIN_IP: "10000"
       RATE_LIMIT_OTP_IP: "10000"
       RATE_LIMIT_GUEST_BOOKING_IP: "10000"
-      # Shared by the server and the pytest process; signs the Chargily
-      # webhook payloads in tests/test_webhooks_idempotent.py (P19).
       CHARGILY_WEBHOOK_SECRET: "ci-webhook-signing-only"
-      # Redis bus for the WebSocket fan-out test (P27): the second uvicorn
-      # worker spawned by tests/test_ws_fanout.py inherits this URL.
       REDIS_URL: redis://localhost:6379
       EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
 
@@ -59,18 +49,13 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # Match the production image (backend/Dockerfile.prod): catches
-          # import-time errors that newer Pythons hide via PEP 649.
           python-version: "3.11"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # requirements-dev.txt pulls in requirements.txt plus the test/lint
-          # tooling (pytest, flake8…); production installs requirements.prod.txt.
           pip install -r backend/requirements-dev.txt
 
-      # Separate step so an import error is visible on its own line.
       - name: Import smoke test (import server)
         working-directory: backend
         run: python -c "import server; print('import server OK')"
@@ -81,7 +66,6 @@ jobs:
       - name: Start backend server
         working-directory: backend
         run: |
-          # OTP tests read the server log at this fixed path (test_otp_auth.py).
           sudo mkdir -p /var/log/supervisor
           sudo touch /var/log/supervisor/backend.err.log
           sudo chown -R "$USER" /var/log/supervisor
@@ -96,10 +80,38 @@ jobs:
             sleep 1
           done
           echo "::error::backend failed to start"
-          tail -50 /var/log/supervisor/backend.err.log
+          tail -100 /var/log/supervisor/backend.err.log
           exit 1
 
-      # No /api/seed step: since P6 the suite creates every account it needs.
-      - name: Run tests
+      - name: Run backend tests
         working-directory: backend
-        run: python -m pytest -n 0 -q
+        run: python -m pytest -n 0 -v
+
+      - name: Dump backend error log on failure
+        if: failure()
+        run: |
+          echo "=== BACKEND ERROR LOG ==="
+          cat /var/log/supervisor/backend.err.log || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Frontend TypeScript check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Frontend lint check
+        working-directory: frontend
+        run: yarn lint
