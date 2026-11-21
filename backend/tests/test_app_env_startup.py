@@ -23,6 +23,8 @@ def _clean_config(monkeypatch):
     monkeypatch.setattr(config, "ALLOW_DEV_SEED", False)
     monkeypatch.setattr(config, "SMS_PROVIDER", "twilio")
     monkeypatch.setattr(config, "EMERGENT_PUSH_KEY", "emergent-relay-key")
+    import storage
+    monkeypatch.setattr(storage, "validate_storage_config", lambda: None)
 
 
 def _fake_status(provider: str):

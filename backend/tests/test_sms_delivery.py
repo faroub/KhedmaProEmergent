@@ -148,6 +148,8 @@ def test_request_otp_delivery_failure_cleans_up_challenge(monkeypatch):
         async def update_one(self, query, update, upsert=True):
             if "$unset" in update:
                 unsets.append((query, update["$unset"]))
+        async def find_one_and_update(self, query, update, **kwargs):
+            return {"_id": "+213555123456", "hour_count": 1}
 
     class FakeRateLimitsColl:
         async def find_one_and_update(self, *args, **kwargs):
