@@ -64,9 +64,14 @@ async def get_effective_settings() -> dict:
     # Marketing website content (editable from admin — hero + contact for now).
     site_doc = doc.get("site") or {}
 
+    price_val = doc.get("subscription_price_dzd")
+    trial_val = doc.get("trial_days")
+    subscription_price = int(price_val) if price_val is not None else int(ENV_SUBSCRIPTION_FEE_DZD)
+    trial_days = int(trial_val) if trial_val is not None else int(ENV_TRIAL_MONTHS * 30)
+
     return {
-        "subscription_price_dzd": int(doc.get("subscription_price_dzd") or ENV_SUBSCRIPTION_FEE_DZD),
-        "trial_days": int(doc.get("trial_days") or (ENV_TRIAL_MONTHS * 30)),
+        "subscription_price_dzd": subscription_price,
+        "trial_days": trial_days,
         "payments_enabled": bool(doc.get("payments_enabled", True)),
         "chargily_mode": mode,
         "chargily_base_url": _base_url_for(mode),

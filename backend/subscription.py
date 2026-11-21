@@ -36,7 +36,8 @@ async def refresh_trial_days_cache() -> None:
         from routes.settings import get_effective_settings  # lazy: avoids a circular import
 
         eff = await get_effective_settings()
-        value = int(eff.get("trial_days") or _TRIAL_DAYS_DEFAULT)
+        val = eff.get("trial_days")
+        value = int(val) if val is not None else _TRIAL_DAYS_DEFAULT
     except Exception:
         value = _TRIAL_DAYS_DEFAULT
     _trial_days_cache["value"] = value
@@ -50,7 +51,7 @@ def invalidate_trial_days_cache() -> None:
 
 
 def _effective_trial_days() -> int:
-    return _trial_days_cache["value"] or _TRIAL_DAYS_DEFAULT
+    return _trial_days_cache["value"] if _trial_days_cache["value"] is not None else _TRIAL_DAYS_DEFAULT
 
 
 def compute_subscription(user: dict, trial_days: Optional[int] = None) -> dict:
