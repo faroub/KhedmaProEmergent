@@ -74,7 +74,6 @@ async def create_review(
 
     doc = {
         "id": review_id,
-        "booking_id": body.booking_id,
         "provider_id": provider_id,
         "client_id": user["id"],
         "client_name": user["full_name"],
@@ -83,6 +82,8 @@ async def create_review(
         "photos": photos,
         "created_at": now_iso,
     }
+    if body.booking_id:
+        doc["booking_id"] = body.booking_id
     try:
         await db.reviews.insert_one(doc)
     except DuplicateKeyError:

@@ -260,3 +260,45 @@ def test_create_review_invalid_photo_rejected_unit(monkeypatch):
         asyncio.run(reviews_mod.create_review(body, user))
     assert exc.value.status_code == 400
     assert "Invalid photo format" in exc.value.detail
+
+
+def test_multiple_direct_reviews_without_booking_id_allowed_unit(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    import routes.reviews as reviews_mod
+    from schemas import ReviewCreate
+
+    inserted_docs = []
+
+    class FakeUsersColl:
+        async def find_one(self, query, projection=None):
+            return {"id": "p1", "role": "service_provider"}
+        async def update_one(self, query, update): pass
+
+    class FakeReviewsColl:
+        async def find_one(self, query, projection=None):
+            return None
+        async def insert_one(self, doc):
+            inserted_docs.append(doc)
+            return SimpleNamespace(inserted_id="r1")
+        def find(self, query, projection=None):
+            class FakeCursor:
+                async def to_list(self, limit):
+                    return inserted_docs
+            return FakeCursor()
+
+    fake_db = SimpleNamespace(
+        users=FakeUsersColl(),
+        reviews=FakeReviewsColl(),
+    )
+    monkeypatch.setattr(reviews_mod, "db", fake_db)
+
+    for i in range(4):
+        body = ReviewCreate(provider_id="p1", rating=5.0, comment=f"Review {i}")
+        user = {"id": f"cli-{i}", "role": "client", "full_name": f"Client {i}"}
+        res = asyncio.run(reviews_mod.create_review(body, user))
+        assert res["id"]
+
+    assert len(inserted_docs) == 4
+    for doc in inserted_docs:
+        assert "booking_id" not in doc
