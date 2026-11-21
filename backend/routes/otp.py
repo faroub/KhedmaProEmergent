@@ -102,7 +102,15 @@ async def request_otp(body: OtpRequestIn, request: Request):
         }},
         upsert=True,
     )
-    await send_otp_code(phone, code)
+    try:
+        await send_otp_code(phone, code)
+    except HTTPException as e:
+        await db.otp_challenges.delete_one({"phone_e164": phone})
+        await db.otp_rate_limits.update_one(
+            {"_id": phone},
+            {"$unset": {"last_sent_at": ""}},
+        )
+        raise e
     return {"message": "If the number is valid, a verification code was sent", "expires_in": 300}
 
 
