@@ -343,33 +343,25 @@ class TestMigrationAndRetention:
 
         monkeypatch.setattr(storage, "delete_object", _failing_delete)
 
-        async def go():
-            from motor.motor_asyncio import AsyncIOMotorClient
+        _db().users.insert_one({
+            "id": uid,
+            "role": "service_provider",
+            "email": f"{uid}@example.com",
+            "verification_status": "verified",
+            "verification_reviewed_at": old_iso,
+            "verification_documents": [
+                {"id": "d1", "type": "id_recto", "key": "verification/ok.png"},
+                {"id": "d2", "type": "id_verso", "key": "verification/fail.png"},
+            ],
+        })
 
-            client = AsyncIOMotorClient(MONGO_URL)
-            monkeypatch.setattr(retention_mod, "db", client[DB_NAME])
-            try:
-                client[DB_NAME].users.insert_one({
-                    "id": uid,
-                    "role": "service_provider",
-                    "email": f"{uid}@example.com",
-                    "verification_status": "verified",
-                    "verification_reviewed_at": old_iso,
-                    "verification_documents": [
-                        {"id": "d1", "type": "id_recto", "key": "verification/ok.png"},
-                        {"id": "d2", "type": "id_verso", "key": "verification/fail.png"},
-                    ],
-                })
-                counts = await retention_mod.run(dry_run=False)
-                assert counts["objects_deleted"] == 1
-                assert counts["objects_failed"] == 1
-                doc = client[DB_NAME].users.find_one({"id": uid})
-                assert len(doc["verification_documents"]) == 1
-                assert doc["verification_documents"][0]["id"] == "d2"
-            finally:
-                client.close()
+        counts = _run_jobs(monkeypatch, retention_mod)
+        assert counts["objects_deleted"] == 1
+        assert counts["objects_failed"] == 1
 
-        asyncio.run(go())
+        doc = _db().users.find_one({"id": uid})
+        assert len(doc["verification_documents"]) == 1
+        assert doc["verification_documents"][0]["id"] == "d2"
 
 
 class TestStorageConfigValidation:
