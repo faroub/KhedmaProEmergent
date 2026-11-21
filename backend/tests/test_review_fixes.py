@@ -226,3 +226,37 @@ def test_compute_subscription_honors_trial_days_override():
     week = compute_subscription(doc, trial_days=7)
     assert 85 <= days_to(default) <= 90, default["trial_ends_at"]
     assert 5 <= days_to(week) <= 7, week["trial_ends_at"]
+
+
+def test_create_review_invalid_photo_rejected_unit(monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+    import routes.reviews as reviews_mod
+    from schemas import ReviewCreate
+
+    body = ReviewCreate(
+        provider_id="p1",
+        rating=5.0,
+        comment="Great",
+        photos=["invalid_photo_format"],
+    )
+    user = {"id": "c1", "role": "client", "full_name": "Test Client"}
+
+    class FakeUsersColl:
+        async def find_one(self, query, projection=None):
+            return {"id": "p1", "role": "service_provider"}
+
+    class FakeReviewsColl:
+        async def find_one(self, query, projection=None):
+            return None
+
+    class FakeDB:
+        users = FakeUsersColl()
+        reviews = FakeReviewsColl()
+
+    monkeypatch.setattr(reviews_mod, "db", FakeDB())
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(reviews_mod.create_review(body, user))
+    assert exc.value.status_code == 400
+    assert "Invalid photo format" in exc.value.detail

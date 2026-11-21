@@ -10,6 +10,8 @@ from deps import require_role
 from routes.push import fire_and_forget, send_push
 from schemas import BookingStatus, ReviewCreate, Role
 
+from pymongo.errors import DuplicateKeyError
+
 router = APIRouter(tags=["reviews"])
 
 
@@ -30,6 +32,13 @@ async def create_review(
         if booking["status"] != BookingStatus.completed.value:
             raise HTTPException(status_code=400, detail="Booking must be completed to review")
         if booking.get("reviewed"):
+            raise HTTPException(status_code=409, detail="Booking already reviewed")
+        # Atomic reservation: flip reviewed to True; if a concurrent request already did so, fail with 409
+        res = await db.bookings.update_one(
+            {"id": body.booking_id, "status": BookingStatus.completed.value, "reviewed": {"$ne": True}},
+            {"$set": {"reviewed": True}},
+        )
+        if res.modified_count != 1:
             raise HTTPException(status_code=409, detail="Booking already reviewed")
         provider_id = booking["provider_id"]
     elif body.provider_id:
@@ -57,8 +66,8 @@ async def create_review(
     raw_photos = (body.photos or [])[:3]
     photos: list[str] = []
     for p in raw_photos:
-        if not isinstance(p, str) or not p.startswith("data:image/"):
-            continue
+        if not isinstance(p, str) or not (p.startswith("data:image/") or p.startswith("http://") or p.startswith("https://")):
+            raise HTTPException(status_code=400, detail="Invalid photo format")
         if len(p) > 500_000:  # ~350 KB base64 payload cap
             raise HTTPException(status_code=413, detail="Photo too large — compress before upload")
         photos.append(p)
@@ -74,9 +83,10 @@ async def create_review(
         "photos": photos,
         "created_at": now_iso,
     }
-    await db.reviews.insert_one(doc)
-    if booking:
-        await db.bookings.update_one({"id": body.booking_id}, {"$set": {"reviewed": True}})
+    try:
+        await db.reviews.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="Review already submitted")
 
     # Recompute provider rating.
     all_reviews = await db.reviews.find({"provider_id": provider_id}, {"_id": 0}).to_list(2000)

@@ -96,6 +96,7 @@ async def on_startup():
     await db.bookings.create_index("client_id")
     await db.bookings.create_index("provider_id")
     await db.reviews.create_index("provider_id")
+    await db.reviews.create_index("booking_id", unique=True, sparse=True)
     await db.messages.create_index("thread_id")
     await db.messages.create_index([("thread_id", 1), ("created_at", 1)])
     await db.schedules.create_index("provider_id", unique=True)
