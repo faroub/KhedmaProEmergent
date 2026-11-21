@@ -64,9 +64,9 @@ class WSManager:
     async def start(self):
         """Attach a Redis pub/sub bus when REDIS_URL is set (multi-worker).
 
-        Without REDIS_URL nothing changes: local in-memory delivery. A missing
-        'redis' package only degrades (logged), but a reachable-but-broken
-        Redis fails loudly at startup instead of silently dropping fan-out.
+        Uses bounded retries with exponential backoff on initial connection.
+        In production (`APP_ENV=production`), failure to connect to Redis when
+        REDIS_URL is configured fails closed by raising RuntimeError.
         """
         url = os.environ.get("REDIS_URL")
         if not url:
@@ -74,17 +74,49 @@ class WSManager:
         try:
             import redis.asyncio as aioredis
         except ImportError:
-            logger.error(
+            msg = (
                 "REDIS_URL is set but the 'redis' package is not installed — "
                 "falling back to per-worker in-memory delivery; chat messages "
                 "will not reach sockets held by other workers"
             )
+            from config import APP_ENV
+            if APP_ENV == "production":
+                raise RuntimeError(msg)
+            logger.error(msg)
             return
+
         client = aioredis.from_url(url, decode_responses=True)
         pubsub = client.pubsub()
-        # Subscribe before accepting any publish so nothing published between
-        # start() and the subscriber loop is lost.
-        await pubsub.subscribe(CHANNEL)
+
+        # Bounded retries with exponential backoff
+        max_attempts = 5
+        connected = False
+        last_err = None
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await client.ping()
+                await pubsub.subscribe(CHANNEL)
+                connected = True
+                break
+            except Exception as e:
+                last_err = e
+                logger.warning(
+                    "Redis connection attempt %d/%d to %s failed: %s",
+                    attempt, max_attempts, url, e,
+                )
+                if attempt < max_attempts:
+                    await asyncio.sleep(min(1.0 * (2 ** (attempt - 1)), 10.0))
+
+        if not connected:
+            from config import APP_ENV
+            err_msg = f"Failed to connect to Redis pub/sub at {url} after {max_attempts} attempts: {last_err}"
+            await pubsub.close()
+            await client.close()
+            if APP_ENV == "production":
+                raise RuntimeError(f"Unsafe production Redis configuration: {err_msg}")
+            logger.error(err_msg)
+            return
 
         async def publish(payload: str):
             await client.publish(CHANNEL, payload)

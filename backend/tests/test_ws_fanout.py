@@ -140,6 +140,80 @@ class TestInProcessBusFanOut:
         assert asyncio.run(go()) == [{"type": "message"}]
 
 
+class TestRedisConnectionRetriesAndFailures:
+    def test_production_refuses_unreachable_redis(self, monkeypatch):
+        import config
+        import sys
+        import types
+
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:9999")
+        monkeypatch.setattr(config, "APP_ENV", "production")
+
+        class FakeAioRedis:
+            @staticmethod
+            def from_url(url, **kwargs):
+                class FakePubSub:
+                    async def subscribe(self, channel): pass
+                    async def close(self): pass
+                class FakeClient:
+                    async def ping(self): raise ConnectionError("Connection refused")
+                    def pubsub(self): return FakePubSub()
+                    async def close(self): pass
+                return FakeClient()
+
+        fake_redis_mod = types.ModuleType("redis")
+        fake_aioredis_mod = types.ModuleType("redis.asyncio")
+        fake_aioredis_mod.from_url = FakeAioRedis.from_url
+        fake_redis_mod.asyncio = fake_aioredis_mod
+        monkeypatch.setitem(sys.modules, "redis", fake_redis_mod)
+        monkeypatch.setitem(sys.modules, "redis.asyncio", fake_aioredis_mod)
+
+        async def fake_sleep(duration):
+            pass
+
+        monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+        mgr = WSManager()
+        with pytest.raises(RuntimeError, match="Unsafe production Redis configuration"):
+            asyncio.run(mgr.start())
+
+    def test_development_warns_and_degrades_on_unreachable_redis(self, monkeypatch):
+        import config
+        import sys
+        import types
+
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:9999")
+        monkeypatch.setattr(config, "APP_ENV", "development")
+
+        class FakeAioRedis:
+            @staticmethod
+            def from_url(url, **kwargs):
+                class FakePubSub:
+                    async def subscribe(self, channel): pass
+                    async def close(self): pass
+                class FakeClient:
+                    async def ping(self): raise ConnectionError("Connection refused")
+                    def pubsub(self): return FakePubSub()
+                    async def close(self): pass
+                return FakeClient()
+
+        fake_redis_mod = types.ModuleType("redis")
+        fake_aioredis_mod = types.ModuleType("redis.asyncio")
+        fake_aioredis_mod.from_url = FakeAioRedis.from_url
+        fake_redis_mod.asyncio = fake_aioredis_mod
+        monkeypatch.setitem(sys.modules, "redis", fake_redis_mod)
+        monkeypatch.setitem(sys.modules, "redis.asyncio", fake_aioredis_mod)
+
+        async def fake_sleep(duration):
+            pass
+
+        monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+        mgr = WSManager()
+        asyncio.run(mgr.start())
+        assert mgr._publish is None
+
+
 def _register_client() -> dict:
     email = f"TEST_ws27_{uuid.uuid4().hex[:8]}@example.com"
     r = requests.post(
