@@ -120,15 +120,21 @@ async def consume_phone_otp_limit(phone: str) -> None:
 
     query_new = {
         "_id": phone,
-        "$or": [
-            {"last_sent_at": {"$lte": thirty_seconds_ago_iso}},
-            {"last_sent_at": {"$exists": False}},
-            {"last_sent_at": None},
-        ],
-        "$or": [
-            {"hour_started_at": {"$lte": one_hour_ago_iso}},
-            {"hour_started_at": {"$exists": False}},
-            {"hour_started_at": None},
+        "$and": [
+            {
+                "$or": [
+                    {"last_sent_at": {"$lte": thirty_seconds_ago_iso}},
+                    {"last_sent_at": {"$exists": False}},
+                    {"last_sent_at": None},
+                ]
+            },
+            {
+                "$or": [
+                    {"hour_started_at": {"$lte": one_hour_ago_iso}},
+                    {"hour_started_at": {"$exists": False}},
+                    {"hour_started_at": None},
+                ]
+            },
         ],
     }
     update_new = {

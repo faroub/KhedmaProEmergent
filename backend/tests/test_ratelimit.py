@@ -199,3 +199,31 @@ def test_consume_phone_otp_limit_unit(monkeypatch):
         asyncio.run(ratelimit.consume_phone_otp_limit(phone))
     assert exc.value.status_code == 429
     assert "30 seconds" in exc.value.detail
+
+
+def test_consume_phone_otp_limit_query_structure(monkeypatch):
+    """Verify query_new uses $and so both last_sent_at and hour_started_at $or clauses exist."""
+    phone = "+213550112233"
+    queries_executed = []
+
+    class FakeOtpRateLimits:
+        async def find_one(self, query):
+            return None
+
+        async def find_one_and_update(self, query, update, upsert=False, return_document=None):
+            queries_executed.append(query)
+            if "$and" in query:
+                return {"_id": phone, "hour_count": 1}
+            return None
+
+    class FakeDB:
+        otp_rate_limits = FakeOtpRateLimits()
+
+    monkeypatch.setattr(ratelimit, "db", FakeDB())
+    asyncio.run(ratelimit.consume_phone_otp_limit(phone))
+
+    # Second query is query_new which must contain $and with 2 clauses
+    assert len(queries_executed) >= 2
+    query_new = queries_executed[1]
+    assert "$and" in query_new
+    assert len(query_new["$and"]) == 2
