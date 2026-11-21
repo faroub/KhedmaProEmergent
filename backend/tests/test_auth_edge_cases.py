@@ -252,3 +252,68 @@ def test_verify_otp_duplicate_key_race_handled(monkeypatch):
     res = asyncio.run(otp_mod.verify_otp(body, FakeRequest()))
     assert res["access_token"]
     assert res["is_new_user"] is False
+
+
+def test_verify_otp_concurrent_single_use_enforcement(monkeypatch):
+    import routes.otp as otp_mod
+    from schemas import OtpVerifyIn, Role
+
+    phone = "+213550998877"
+    deleted_count = {"n": 0}
+
+    class FakeChallengesColl:
+        async def find_one(self, query, projection=None):
+            return {"phone_e164": phone, "code_hash": "$2b$12$12345678901234567890123456789012345678901234567890123", "expires_at": "2099-01-01T00:00:00+00:00", "attempts": 0}
+        async def delete_one(self, query):
+            deleted_count["n"] += 1
+            if deleted_count["n"] == 1:
+                return SimpleNamespace(deleted_count=1)
+            return SimpleNamespace(deleted_count=0)
+
+    class FakeUsersColl:
+        async def find_one(self, query, projection=None):
+            return {"id": "user-concurrent-1", "phone_e164": phone, "role": "client", "full_name": "Concurrent User", "token_version": 0}
+        async def update_one(self, query, update): pass
+        async def find_one_and_update(self, *args, **kwargs): return {"count": 1}
+
+    class FakePlatformSettings:
+        async def find_one(self, query, projection=None):
+            return {}
+
+    fake_db = SimpleNamespace(
+        otp_challenges=FakeChallengesColl(),
+        users=FakeUsersColl(),
+        rate_limits=FakeUsersColl(),
+        platform_settings=FakePlatformSettings(),
+    )
+    monkeypatch.setattr(otp_mod, "db", fake_db)
+    import database as db_mod
+    import ratelimit as rl_mod
+    import routes.settings as settings_mod
+    monkeypatch.setattr(db_mod, "db", fake_db)
+    monkeypatch.setattr(rl_mod, "db", fake_db)
+    monkeypatch.setattr(settings_mod, "db", fake_db)
+
+    async def fake_checkpw(code_bytes, hash_bytes):
+        return True
+
+    import bcrypt
+    monkeypatch.setattr(bcrypt, "checkpw", fake_checkpw)
+
+    class FakeRequest:
+        client = None
+
+    body = OtpVerifyIn(phone="0550998877", code="123456", role=Role.client)
+
+    async def run_concurrent():
+        return await asyncio.gather(
+            otp_mod.verify_otp(body, FakeRequest()),
+            otp_mod.verify_otp(body, FakeRequest()),
+            return_exceptions=True,
+        )
+
+    results = asyncio.run(run_concurrent())
+    successes = [r for r in results if isinstance(r, dict) and "access_token" in r]
+    failures = [r for r in results if isinstance(r, HTTPException) and r.status_code == 401]
+    assert len(successes) == 1
+    assert len(failures) == 1
