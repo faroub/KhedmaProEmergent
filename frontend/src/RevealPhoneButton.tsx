@@ -31,8 +31,10 @@ export function RevealPhoneButton({ otherId, bookingStatus, testID = "reveal-pho
 
   // Reset state if the target/booking changes.
   useEffect(() => {
-    setPhone(null);
-    setErr(null);
+    Promise.resolve().then(() => {
+      setPhone(null);
+      setErr(null);
+    });
   }, [otherId, bookingStatus]);
 
   const canReveal = !bookingStatus || REVEAL_ALLOWED.has(bookingStatus);

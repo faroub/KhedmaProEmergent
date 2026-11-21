@@ -128,6 +128,7 @@ export const PinDropMap = forwardRef<PinHandle, Props>(
     );
   }
 );
+PinDropMap.displayName = "PinDropMap";
 
 const styles = StyleSheet.create({
   wrap: { borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "#1E2B45", backgroundColor: "#0B1120" },

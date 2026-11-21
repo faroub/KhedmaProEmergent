@@ -12,7 +12,6 @@ export const LANGS: { code: Lang; label: string; native: string }[] = [
 
 const STORAGE_KEY = "sp_lang";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dict: Record<Lang, Record<string, string>> = {
   en: {
     // Brand

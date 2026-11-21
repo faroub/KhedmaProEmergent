@@ -78,7 +78,11 @@ export function VerificationCard() {
   }, []);
 
   useEffect(() => {
-    load();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) load();
+    });
+    return () => { active = false; };
   }, [load]);
 
   const openUploader = () => {

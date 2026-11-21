@@ -29,7 +29,9 @@ export function ProviderAnalyticsCard({ testID = "provider-analytics" }: { testI
 
   useEffect(() => {
     let dead = false;
-    setLoading(true);
+    Promise.resolve().then(() => {
+      if (!dead) setLoading(true);
+    });
     api
       .providerAnalytics(range)
       .then((res: any) => {

@@ -69,7 +69,9 @@ export function PortfolioManager({ onChange }: Props) {
   const [viewerIdx, setViewerIdx] = useState<number | null>(null);
 
   useEffect(() => {
-    setItems(normalize(user?.portfolio_images || []));
+    Promise.resolve().then(() => {
+      setItems(normalize(user?.portfolio_images || []));
+    });
   }, [user?.portfolio_images]);
 
   const persist = async (list: PortfolioItem[]) => {

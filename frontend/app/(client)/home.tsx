@@ -122,7 +122,11 @@ export default function Home() {
   }, [selectedCat, search, wilayaCode, scope, coords, minPrice, maxPrice, verifiedOnly, newOnly, sort]);
 
   useEffect(() => {
-    load();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) load();
+    });
+    return () => { active = false; };
   }, [load]);
 
   const onRefresh = () => {

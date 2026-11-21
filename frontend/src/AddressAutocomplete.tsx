@@ -23,12 +23,12 @@ export function AddressAutocomplete({ value, onChangeText, placeholder, testID }
   useEffect(() => {
     if (!focused) return;
     if (!value || value.trim().length < 3) {
-      setItems([]);
+      Promise.resolve().then(() => setItems([]));
       return;
     }
     if (value === lastQueryRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    setLoading(true);
+    Promise.resolve().then(() => setLoading(true));
     debounceRef.current = setTimeout(async () => {
       lastQueryRef.current = value;
       const res = await searchAddress(value, lang);

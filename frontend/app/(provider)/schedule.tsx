@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
@@ -36,8 +36,6 @@ LocaleConfig.locales["ar"] = {
   dayNames: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
   dayNamesShort: ["أحد", "اثن", "ثلا", "أرب", "خمي", "جمع", "سبت"],
 };
-
-const CACHE_KEY = "sp_schedule_cache"; // legacy, no longer used — SQLite is source of truth
 
 export default function Schedule() {
   const { user } = useAuth();
@@ -94,7 +92,11 @@ export default function Schedule() {
   }, [user]);
 
   useEffect(() => {
-    load();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) load();
+    });
+    return () => { active = false; };
   }, [load]);
 
   const toggleDayClosed = (day: string) => {

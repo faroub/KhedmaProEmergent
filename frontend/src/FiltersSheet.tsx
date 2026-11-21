@@ -66,9 +66,11 @@ export function FiltersSheet({
   // Sync local state whenever the sheet is (re)opened with a new external state.
   React.useEffect(() => {
     if (visible) {
-      setLocal(state);
-      setMinPriceStr(state.minPrice != null ? String(state.minPrice) : "");
-      setMaxPriceStr(state.maxPrice != null ? String(state.maxPrice) : "");
+      Promise.resolve().then(() => {
+        setLocal(state);
+        setMinPriceStr(state.minPrice != null ? String(state.minPrice) : "");
+        setMaxPriceStr(state.maxPrice != null ? String(state.maxPrice) : "");
+      });
     }
   }, [visible, state]);
 

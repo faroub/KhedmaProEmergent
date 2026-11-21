@@ -105,9 +105,12 @@ export default function ProviderDetail() {
             colors={["rgba(11,17,32,0.4)", "rgba(11,17,32,0.95)"]}
             style={StyleSheet.absoluteFill}
           />
-          <SafeAreaView edges={["top"]}>
+          <SafeAreaView edges={["top"]} style={{ flexDirection: "row", justifyContent: "space-between", paddingRight: 16 }}>
             <Pressable onPress={() => router.back()} style={styles.backBtn} testID="provider-back-btn">
               <Ionicons name="chevron-back" size={24} color={theme.colors.onSurface} />
+            </Pressable>
+            <Pressable onPress={openReport} style={styles.backBtn} testID="report-provider-btn">
+              <Ionicons name="flag-outline" size={20} color={theme.colors.onSurface} />
             </Pressable>
           </SafeAreaView>
         </ImageBackground>

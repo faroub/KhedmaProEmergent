@@ -47,11 +47,14 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!user) return;
-    loadHistory();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadHistory();
+    });
 
     (async () => {
       const token = await readToken();
-      if (!token) return;
+      if (!token || !active) return;
       try {
         const ws = new WebSocket(WS_URL());
         ws.onopen = () => {
@@ -85,10 +88,11 @@ export default function ChatScreen() {
     })();
 
     return () => {
+      active = false;
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [user, otherId, loadHistory]);
+  }, [user, otherId, loadHistory, logout, router]);
 
   useEffect(() => {
     // scroll to bottom on new messages

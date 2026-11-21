@@ -16,6 +16,8 @@ type Ad = {
 const CARD_MARGIN = theme.spacing.xl;
 const CARD_WIDTH = Dimensions.get("window").width - CARD_MARGIN * 2;
 
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 55 };
+
 export function AdsCarousel({ testID = "ads-carousel" }: { testID?: string }) {
   const [ads, setAds] = useState<Ad[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
@@ -36,8 +38,6 @@ export function AdsCarousel({ testID = "ads-carousel" }: { testID?: string }) {
     });
   }, []);
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 55 }).current;
-
   if (ads.length === 0) return null;
 
   return (
@@ -52,7 +52,7 @@ export function AdsCarousel({ testID = "ads-carousel" }: { testID?: string }) {
         decelerationRate="fast"
         contentContainerStyle={{ paddingHorizontal: CARD_MARGIN, gap: theme.spacing.sm }}
         onViewableItemsChanged={onViewableChanged}
-        viewabilityConfig={viewabilityConfig}
+        viewabilityConfig={VIEWABILITY_CONFIG}
         renderItem={({ item }) => <AdCard ad={item} />}
       />
     </View>
