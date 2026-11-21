@@ -11,7 +11,10 @@ user records (N8).
 """
 import asyncio
 import base64
+import hashlib
+import hmac
 import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -405,3 +408,27 @@ class TestStorageConfigValidation:
         monkeypatch.setattr(storage, "FILE_STORAGE_DIR", str(tmp_path))
         key = "verification/nonexistent_file.png"
         asyncio.run(storage.delete_object(key))
+
+
+class TestFileSecurity:
+    def test_path_traversal_key_raises_storage_error(self):
+        for bad_key in ("../etc/passwd", "..\\boot.ini", "portfolio/../../secret", "verification/./doc.pdf"):
+            with pytest.raises(storage.StorageError):
+                storage._local_path(bad_key)
+
+    def test_verify_private_token_rejects_expired_or_tampered(self):
+        key = "verification/doc123.png"
+        now_ts = int(time.time())
+        sig_url = storage.presigned_url(key, expires=60)
+        assert "/api/files/private/" in sig_url
+
+        assert not storage.verify_private_token(key, str(now_ts + 60), "invalid_sig_hash")
+
+        expired_ts = str(now_ts - 10)
+        exp_sig = hmac.new(storage.JWT_SECRET.encode(), f"{key}:{expired_ts}".encode(), hashlib.sha256).hexdigest()
+        assert not storage.verify_private_token(key, expired_ts, exp_sig)
+
+    def test_unapproved_mime_rejected(self):
+        exe_bytes = b"MZ\x90\x00\x03\x00\x00\x00"
+        with pytest.raises(storage.StorageError, match="unsupported file type"):
+            asyncio.run(storage.put_bytes(exe_bytes, kind="portfolio", allow=storage._ALLOWED_IMAGE_MIMES, max_bytes=5_000_000))

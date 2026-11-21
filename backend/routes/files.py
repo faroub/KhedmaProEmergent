@@ -20,7 +20,11 @@ async def _serve(key: str) -> Response:
     if data is None:
         raise HTTPException(status_code=404, detail="File not found")
     mime = sniff(data) or "application/octet-stream"
-    return Response(content=data, media_type=mime)
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "inline",
+    }
+    return Response(content=data, media_type=mime, headers=headers)
 
 
 @router.get("/files/public/{key:path}")
