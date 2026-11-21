@@ -61,12 +61,13 @@ Requires MongoDB running on `mongodb://localhost:27017` (or set `MONGO_URL` in `
 ## Env vars (`.env`)
 
 ```ini
+APP_ENV=development # development | test | production (docker-compose.prod.yml enforces production)
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=khedmapro
-JWT_SECRET=<32+ random characters — production (APP_ENV=production) refuses to start on a weak secret>
+JWT_SECRET=<32+ random characters — production (APP_ENV=production) refuses to start on weak/placeholder secret>
 JWT_EXPIRE_MINUTES=720
-EMERGENT_PUSH_KEY=placeholder
-# CHARGILY_SECRET_KEY=live_...   # optional
+EMERGENT_PUSH_KEY=placeholder # production refuses startup if unset or placeholder
+# CHARGILY_SECRET_KEY=live_...   # optional (ALLOW_MOCK_PAYMENTS is refused in production)
 ```
 
 ## Tests

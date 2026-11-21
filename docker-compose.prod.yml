@@ -27,6 +27,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      # Explicit production mode enforcement: fail closed on insecure defaults
+      APP_ENV: production
       # Sane prod defaults; adjust to your host's CPU count.
       WEB_CONCURRENCY: "4"
       GUNICORN_TIMEOUT: "60"

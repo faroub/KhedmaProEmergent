@@ -55,6 +55,12 @@ class TestProductionConfigProblems:
         problems = config.production_config_problems()
         assert len(problems) == 1 and "placeholder" in problems[0]
 
+    def test_placeholder_jwt_secret_replace_me_prefix(self, monkeypatch):
+        _clean_config(monkeypatch)
+        monkeypatch.setattr(config, "JWT_SECRET", "replace-me-with-a-long-random-secret-value-32chars")
+        problems = config.production_config_problems()
+        assert len(problems) == 1 and "placeholder" in problems[0]
+
     def test_mock_payments_allowed(self, monkeypatch):
         _clean_config(monkeypatch)
         monkeypatch.setattr(config, "ALLOW_MOCK_PAYMENTS", True)

@@ -123,7 +123,7 @@ def production_config_problems(sms_provider: str | None = None) -> list[str]:
     problems: list[str] = []
     # Placeholder check first: a placeholder is also short, but the actionable
     # message is "you left the default secret in place".
-    if JWT_SECRET == "change-me" or JWT_SECRET.startswith("local-dev"):
+    if JWT_SECRET == "change-me" or JWT_SECRET.startswith("local-dev") or JWT_SECRET.startswith("replace-me"):
         problems.append("JWT_SECRET matches a known placeholder value")
     elif len(JWT_SECRET) < 32:
         problems.append("JWT_SECRET is shorter than 32 characters")
