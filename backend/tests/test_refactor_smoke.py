@@ -128,11 +128,13 @@ def test_ws_invalid_token_closes_1008():
 
 
 def test_ws_valid_token_accepted():
+    import json
     token = fresh_provider()["access_token"]
 
     async def _run():
-        url = f"{WS_URL}/api/ws/chat?token={token}"
+        url = f"{WS_URL}/api/ws/chat"
         async with websockets.connect(url) as ws:
+            await ws.send(json.dumps({"type": "auth", "token": token}))
             state = ws.state.name
             await ws.close()
             return state

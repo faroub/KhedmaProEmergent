@@ -34,17 +34,16 @@ def _register_client() -> str:
 
 
 class TestWsChatHandshake:
-    def test_valid_token_handshake_succeeds(self):
+    def test_valid_first_message_auth_succeeds(self):
+        import json
         token = _register_client()
 
         async def go():
-            uri = f"{WS_BASE}/api/ws/chat?token={token}"
+            uri = f"{WS_BASE}/api/ws/chat"
             async with websockets.connect(uri, open_timeout=10) as ws:
-                # The server accepts and then waits for input; prove the
-                # connection is live by round-tripping a WebSocket ping.
+                await ws.send(json.dumps({"type": "auth", "token": token}))
                 pong = await ws.ping()
                 await asyncio.wait_for(pong, timeout=5)
-                # Nothing is pushed on connect — silence is expected.
                 try:
                     await asyncio.wait_for(ws.recv(), timeout=1)
                 except asyncio.TimeoutError:
@@ -53,11 +52,13 @@ class TestWsChatHandshake:
 
         assert asyncio.run(go()) is True
 
-    def test_invalid_token_rejected(self):
+    def test_query_string_token_rejected(self):
+        token = _register_client()
+
         async def go():
             try:
                 async with websockets.connect(
-                    f"{WS_BASE}/api/ws/chat?token=invalid.jwt.token",
+                    f"{WS_BASE}/api/ws/chat?token={token}",
                     open_timeout=10,
                 ) as ws:
                     try:
@@ -66,11 +67,9 @@ class TestWsChatHandshake:
                         return e.code
                     return "open"
             except websockets.exceptions.InvalidStatus as e:
-                # uvicorn rejects at the HTTP layer before app code runs.
                 return e.response.status_code
             except websockets.exceptions.ConnectionClosedError as e:
                 return e.code
 
         result = asyncio.run(go())
-        # 1008 = app-level policy violation; 403 = uvicorn handshake reject.
         assert result in (1008, 403, 401, 1006), f"got {result}"

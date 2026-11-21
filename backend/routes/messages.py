@@ -167,26 +167,18 @@ async def _read_auth_message(websocket: WebSocket) -> Optional[dict]:
 
 
 async def _ws_session_payload(websocket: WebSocket, token: Optional[str]) -> Optional[dict]:
-    """Decode the session payload from the first-message auth protocol, or from
-    the query-string token (deprecated, kept for one release). Returns None
-    (socket already closed with 1008) when authentication fails."""
+    """Decode the session payload from the first-message auth protocol.
+    Query-string token authentication is rejected with close code 1008.
+    Returns None (socket closed with 1008) when authentication fails."""
     if token:
-        try:
-            payload = decode_token(token)
-        except jwt.InvalidTokenError:
-            payload = None
-        else:
-            logger.warning(
-                "WS chat: connected via deprecated query-string token; "
-                'send {"type":"auth","token":...} as the first message instead'
-            )
-        if payload is None:
-            await websocket.close(code=1008)
-            return None
-    else:
-        payload = await _read_auth_message(websocket)
-        if payload is None:
-            return None
+        logger.info("WS chat: rejecting legacy query-string token connection attempt")
+        await websocket.close(code=1008)
+        return None
+
+    payload = await _read_auth_message(websocket)
+    if payload is None:
+        return None
+
     # Tokens minted for a specific purpose (e.g. phone verification) are not
     # session tokens.
     if not payload.get("sub") or payload.get("purpose") is not None:
@@ -207,12 +199,11 @@ async def _ws_session_valid(user_id: str, token_version: int) -> bool:
 async def ws_chat(websocket: WebSocket, token: Optional[str] = None):
     """Authenticated chat WebSocket.
 
-    Preferred auth: the client sends {"type":"auth","token":"<JWT>"} as the
-    first message within 5s of connect, which keeps tokens out of URLs and
-    proxy logs. The ?token=... query string still works for one release but is
-    deprecated. Sessions are rechecked on every inbound message and at least
-    once per WS_REVALIDATE_INTERVAL; deactivated, deleted, or revoked
-    accounts are dropped with close code 1008.
+    Auth: the client MUST send {"type":"auth","token":"<JWT>"} as the first
+    message within 5s of connect. Query-string ?token=... authentication is
+    rejected with close code 1008. Sessions are rechecked on every inbound
+    message and at least once per WS_REVALIDATE_INTERVAL; deactivated,
+    deleted, or revoked accounts are dropped with close code 1008.
     """
     await websocket.accept()
     payload = await _ws_session_payload(websocket, token)

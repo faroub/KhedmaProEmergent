@@ -125,6 +125,38 @@ class TestWsAuthMessage:
 
         assert asyncio.run(go()) == 1008
 
+    def test_query_string_token_rejected_with_1008(self):
+        me = _register_client()
+
+        async def go():
+            uri = f"{WS_BASE}/api/ws/chat?token={me['token']}"
+            try:
+                async with websockets.connect(uri, open_timeout=10) as ws:
+                    try:
+                        await asyncio.wait_for(ws.recv(), timeout=5)
+                    except websockets.exceptions.ConnectionClosed as e:
+                        return e.code
+                    return "open"
+            except websockets.exceptions.ConnectionClosed as e:
+                return e.code
+
+        code = asyncio.run(go())
+        assert code == 1008
+
+    def test_ws_session_payload_rejects_query_string_token(self):
+        class MockWebSocket:
+            def __init__(self):
+                self.closed_code = None
+
+            async def close(self, code=1000):
+                self.closed_code = code
+
+        mock_ws = MockWebSocket()
+        import routes.messages as msg_mod
+        payload = asyncio.run(msg_mod._ws_session_payload(mock_ws, token="some.query.token"))
+        assert payload is None
+        assert mock_ws.closed_code == 1008
+
 
 class TestWsRevalidation:
     def test_revocation_while_connected_closes_socket(self):
