@@ -424,3 +424,47 @@ def test_mark_done_without_check_in_has_no_worked_minutes(pair):
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "awaiting_confirmation"
     assert "worked_minutes" not in r.json()
+
+
+def test_concurrent_status_update_returns_409_conflict(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    import routes.bookings as bookings_mod
+    from schemas import BookingStatus, BookingStatusUpdate
+
+    bid = f"b_concur_{uuid.uuid4().hex[:8]}"
+    pid = f"p_concur_{uuid.uuid4().hex[:8]}"
+
+    class FakeBookingsColl:
+        async def find_one(self, query, projection=None):
+            return {
+                "id": bid,
+                "provider_id": pid,
+                "client_id": "c1",
+                "status": "pending",
+            }
+        async def update_one(self, query, update):
+            return SimpleNamespace(modified_count=0)
+
+    class FakeUsersColl:
+        async def update_one(self, query, update): pass
+
+    fake_db = SimpleNamespace(
+        bookings=FakeBookingsColl(),
+        users=FakeUsersColl(),
+    )
+    monkeypatch.setattr(bookings_mod, "db", fake_db)
+
+    user = {
+        "id": pid,
+        "role": "service_provider",
+        "full_name": "Test Provider",
+        "phone_verified": True,
+    }
+
+    body = BookingStatusUpdate(status=BookingStatus.confirmed)
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(bookings_mod.update_booking_status(bid, body, user))
+    assert exc.value.status_code == 409
+    assert "concurrent request" in exc.value.detail

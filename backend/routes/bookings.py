@@ -288,7 +288,15 @@ async def update_booking_status(
             raise HTTPException(status_code=403, detail="Clients can only cancel or confirm completion")
 
     updates["status"] = new_status
-    await db.bookings.update_one({"id": booking_id}, {"$set": updates})
+    result = await db.bookings.update_one(
+        {"id": booking_id, "status": booking["status"]},
+        {"$set": updates},
+    )
+    if result.modified_count != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="Booking status was updated by a concurrent request — please reload and try again",
+        )
     booking.update(updates)
 
     # Bump provider `last_activity_at` for the ranking recency bonus whenever
