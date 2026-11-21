@@ -236,3 +236,16 @@ class TestZeroBoundarySettings:
         }
         sub = sub_mod.compute_subscription(user, trial_days=0)
         assert sub["subscription_status"] == "due"
+
+    def test_serialize_user_handles_missing_fields(self):
+        import subscription as sub_mod
+
+        incomplete_doc = {
+            "id": "user-incomplete-1",
+            "role": "service_provider",
+        }
+        res = sub_mod.serialize_user(incomplete_doc)
+        assert res["id"] == "user-incomplete-1"
+        assert res["full_name"] == ""
+        assert res["email"] == ""
+        assert res["role"] == "service_provider"

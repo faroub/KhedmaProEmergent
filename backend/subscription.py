@@ -224,9 +224,9 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
     public_lat = centroid[0] if centroid else None
     public_lng = centroid[1] if centroid else None
     out = {
-        "id": doc["id"],
-        "full_name": doc["full_name"],
-        "role": doc["role"],
+        "id": doc.get("id", ""),
+        "full_name": doc.get("full_name") or "",
+        "role": doc.get("role") or "client",
         "category": doc.get("category"),
         "bio": doc.get("bio"),
         "hourly_rate": doc.get("hourly_rate"),
@@ -241,7 +241,7 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         "is_new": _is_new_provider(doc),
         "last_activity_at": doc.get("last_activity_at"),
         "active": sub["active"],
-        "created_at": doc["created_at"],
+        "created_at": doc.get("created_at"),
         "trial_ends_at": sub["trial_ends_at"],
         "subscription_status": sub["subscription_status"],
         "days_until_due": sub["days_until_due"],
@@ -291,7 +291,7 @@ def serialize_user(doc: dict, public: bool = False) -> dict:
         # real pinned service area, not the public centroid.
         out["location_lat"] = doc.get("location_lat")
         out["location_lng"] = doc.get("location_lng")
-        out["email"] = doc["email"]
+        out["email"] = doc.get("email", "")
         out["phone"] = doc.get("phone")
         # Metadata only — verification file keys never leave the server (P24).
         out["verification_documents"] = [
