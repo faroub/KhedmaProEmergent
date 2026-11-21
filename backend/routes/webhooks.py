@@ -157,20 +157,32 @@ async def chargily_webhook(request: Request):
             })
         elif event_type in ("checkout.failed", "checkout.canceled"):
             new_status = event_type.split(".")[1]
-            await db.subscription_payments.update_one(
-                {"provider_checkout_id": checkout_id},
-                {"$set": {"status": new_status}},
-            )
-            await db.payment_audit_logs.insert_one({
-                "id": str(uuid.uuid4()),
-                "event_id": event_id,
-                "event_type": event_type,
-                "checkout_id": checkout_id,
-                "provider_id": payment["provider_id"],
-                "previous_status": payment.get("status"),
-                "new_status": new_status,
-                "timestamp": now_iso,
-            })
+            if payment.get("status") == "paid":
+                await db.payment_audit_logs.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "event_id": event_id,
+                    "event_type": event_type,
+                    "checkout_id": checkout_id,
+                    "provider_id": payment["provider_id"],
+                    "previous_status": "paid",
+                    "new_status": "ignored_regression",
+                    "timestamp": now_iso,
+                })
+            else:
+                await db.subscription_payments.update_one(
+                    {"provider_checkout_id": checkout_id},
+                    {"$set": {"status": new_status}},
+                )
+                await db.payment_audit_logs.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "event_id": event_id,
+                    "event_type": event_type,
+                    "checkout_id": checkout_id,
+                    "provider_id": payment["provider_id"],
+                    "previous_status": payment.get("status"),
+                    "new_status": new_status,
+                    "timestamp": now_iso,
+                })
     except Exception:
         # Processing failed after the insert: mark the event so a retry can
         # claim it above, then surface the error to the payment provider.

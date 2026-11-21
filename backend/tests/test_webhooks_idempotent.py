@@ -191,6 +191,24 @@ class TestWebhookIdempotency:
         user = MongoClient(MONGO_URL)[DB_NAME].users.find_one({"id": provider["user"]["id"]})
         assert user.get("last_paid_at") is None
 
+    def test_out_of_order_failed_event_does_not_regress_paid_status(self):
+        provider, checkout_id = _setup_paid_scenario()
+        evt_paid = f"evt_paid_{uuid.uuid4().hex[:10]}"
+        r_paid = _post(_event(evt_paid, checkout_id, event_type="checkout.paid", status="paid"))
+        assert r_paid.status_code == 200
+        assert _payment(checkout_id)["status"] == "paid"
+
+        evt_failed = f"evt_failed_{uuid.uuid4().hex[:10]}"
+        r_failed = _post(_event(evt_failed, checkout_id, event_type="checkout.failed", status="failed"))
+        assert r_failed.status_code == 200
+
+        payment_after = _payment(checkout_id)
+        assert payment_after["status"] == "paid"
+
+        audit = MongoClient(MONGO_URL)[DB_NAME].payment_audit_logs.find_one({"event_id": evt_failed})
+        assert audit is not None
+        assert audit["new_status"] == "ignored_regression"
+
     def test_reconcile_provider_payments(self, monkeypatch):
         from routes.webhooks import reconcile_provider_payments
 
