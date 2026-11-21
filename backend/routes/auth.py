@@ -80,7 +80,7 @@ _VALID_WILAYA_CODES = {w["code"] for w in WILAYAS}
 
 @router.post("/auth/register", response_model=TokenOut, status_code=201)
 async def register(body: RegisterIn):
-    email = body.email.lower()
+    email = body.email.strip().lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="Email is already registered")
     if body.role == Role.service_provider:
@@ -195,7 +195,7 @@ async def register(body: RegisterIn):
 
 @router.post("/auth/login", response_model=TokenOut)
 async def login(body: LoginIn, request: Request):
-    email = body.email.lower()
+    email = body.email.strip().lower()
     # Per-IP guard on top of the per-email one: one address must not be able
     # to spray credentials across many accounts.
     await consume(f"login_ip:{client_ip(request)}", RATE_LIMIT_LOGIN_IP, 900)
@@ -211,6 +211,8 @@ async def login(body: LoginIn, request: Request):
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
         raise HTTPException(status_code=410, detail="This account has been deleted")
+    if user.get("is_manually_deactivated"):
+        raise HTTPException(status_code=403, detail="Account is deactivated")
     token = make_token(user["id"], user["role"], user.get("token_version") or 0)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 

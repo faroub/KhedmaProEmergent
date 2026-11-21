@@ -195,3 +195,60 @@ def test_phone_verification_token_replay_is_rejected(monkeypatch):
         _register_in_process(monkeypatch, mongodb, replay)
     assert exc.value.status_code == 400
     assert "already been used" in exc.value.detail
+
+
+def test_verify_otp_duplicate_key_race_handled(monkeypatch):
+    import routes.otp as otp_mod
+    from schemas import OtpVerifyIn, Role
+
+    phone = "+213550112233"
+
+    class FakeChallengesColl:
+        async def find_one(self, query, projection=None):
+            return {"phone_e164": phone, "code_hash": "$2b$12$12345678901234567890123456789012345678901234567890123", "expires_at": "2099-01-01T00:00:00+00:00", "attempts": 0}
+        async def delete_one(self, query):
+            return SimpleNamespace(deleted_count=1)
+
+    class FakeUsersColl:
+        def __init__(self):
+            self.inserted = False
+        async def find_one(self, query, projection=None):
+            if not self.inserted:
+                return None
+            return {"id": "user-race-1", "phone_e164": phone, "role": "client", "full_name": "Race User", "token_version": 0}
+        async def insert_one(self, doc):
+            self.inserted = True
+            raise DuplicateKeyError("E11000 duplicate key error")
+        async def update_one(self, query, update):
+            pass
+
+    fake_users = FakeUsersColl()
+
+    class FakeRateLimitsColl:
+        async def find_one_and_update(self, *args, **kwargs):
+            return {"count": 1}
+
+    fake_db = SimpleNamespace(
+        otp_challenges=FakeChallengesColl(),
+        users=fake_users,
+        rate_limits=FakeRateLimitsColl(),
+    )
+    monkeypatch.setattr(otp_mod, "db", fake_db)
+    import database as db_mod
+    import ratelimit as rl_mod
+    monkeypatch.setattr(db_mod, "db", fake_db)
+    monkeypatch.setattr(rl_mod, "db", fake_db)
+
+    async def fake_checkpw(code_bytes, hash_bytes):
+        return True
+
+    import bcrypt
+    monkeypatch.setattr(bcrypt, "checkpw", fake_checkpw)
+
+    class FakeRequest:
+        client = None
+
+    body = OtpVerifyIn(phone="0550112233", code="123456", role=Role.client)
+    res = asyncio.run(otp_mod.verify_otp(body, FakeRequest()))
+    assert res["access_token"]
+    assert res["is_new_user"] is False

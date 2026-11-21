@@ -30,7 +30,7 @@ class VerificationDocType(str, Enum):
 # ---------- Auth ----------
 class RegisterIn(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(min_length=8, max_length=128)
     role: Role
     full_name: str
     phone: Optional[str] = None
@@ -59,7 +59,7 @@ class OtpVerifyForRegistrationIn(BaseModel):
 
 class LoginIn(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=128)
 
 
 class TokenOut(BaseModel):

@@ -7,6 +7,7 @@ from typing import Annotated
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 from config import RATE_LIMIT_OTP_IP
 from database import db
@@ -137,12 +138,18 @@ async def verify_otp(body: OtpVerifyIn, request: Request):
             "phone_verified": True,  # OTP was just verified
             "phone_verified_at": now.isoformat(),
         }
-        await db.users.insert_one(user_doc)
-        user = user_doc
-    else:
+        try:
+            await db.users.insert_one(user_doc)
+            user = user_doc
+        except DuplicateKeyError:
+            user = await db.users.find_one({"phone_e164": phone}, {"_id": 0})
+            is_new = False
+    if not is_new and user:
         user = await enforce_lifecycle(user)
         if user.get("is_deleted"):
             raise HTTPException(status_code=410, detail="This account has been deleted")
+        if user.get("is_manually_deactivated"):
+            raise HTTPException(status_code=403, detail="This account is deactivated")
         # Mark existing account's phone as verified (idempotent).
         if not user.get("phone_verified"):
             await db.users.update_one(
