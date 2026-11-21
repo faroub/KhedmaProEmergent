@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from config import MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES
 from database import db
-from deps import current_user, require_role
+from deps import current_user, current_user_allow_deactivated, require_role
 from schemas import PortfolioUpdateIn, ProfileCompleteIn, Role
 from security import increment_token_version
 from storage import StorageError, decode_data_uri, put_bytes
@@ -115,7 +115,7 @@ async def set_portfolio(
 
 # ---- Manual account lifecycle (both roles) ----
 @router.post("/users/me/deactivate")
-async def deactivate_account(user: Annotated[dict, Depends(current_user)]):
+async def deactivate_account(user: Annotated[dict, Depends(current_user_allow_deactivated)]):
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"id": user["id"]},
@@ -126,7 +126,7 @@ async def deactivate_account(user: Annotated[dict, Depends(current_user)]):
 
 
 @router.post("/users/me/reactivate")
-async def reactivate_account(user: Annotated[dict, Depends(current_user)]):
+async def reactivate_account(user: Annotated[dict, Depends(current_user_allow_deactivated)]):
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {"is_manually_deactivated": False, "manually_deactivated_at": None}},
@@ -136,7 +136,7 @@ async def reactivate_account(user: Annotated[dict, Depends(current_user)]):
 
 
 @router.post("/users/me/delete")
-async def delete_account(user: Annotated[dict, Depends(current_user)]):
+async def delete_account(user: Annotated[dict, Depends(current_user_allow_deactivated)]):
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"id": user["id"]},

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from config import DEACTIVATION_MONTHS
 from database import db
-from deps import require_role
+from deps import require_role_allow_deactivated
 from routes.settings import get_effective_settings
 from schemas import Role
 from subscription import compute_subscription, serialize_user
@@ -21,7 +21,7 @@ router = APIRouter(tags=["subscription"])
 
 
 @router.get("/subscription/status")
-async def subscription_status(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
+async def subscription_status(user: Annotated[dict, Depends(require_role_allow_deactivated(Role.service_provider))]):
     eff = await get_effective_settings()
     sub = compute_subscription(user, trial_days=int(eff["trial_days"]))
     return {
@@ -41,7 +41,7 @@ async def subscription_status(user: Annotated[dict, Depends(require_role(Role.se
 
 
 @router.post("/subscription/pay")
-async def pay_subscription(user: Annotated[dict, Depends(require_role(Role.service_provider))]):
+async def pay_subscription(user: Annotated[dict, Depends(require_role_allow_deactivated(Role.service_provider))]):
     """Provider monthly subscription. Uses Chargily Pay when configured, else
     falls back to a MOCK success (dev/preview environments)."""
     from routes.webhooks import ALLOW_MOCK_PAYMENTS, create_checkout, is_chargily_enabled

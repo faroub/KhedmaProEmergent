@@ -33,10 +33,33 @@ async def current_user(token: Annotated[Optional[str], Depends(oauth2_scheme)]) 
     user = await enforce_lifecycle(user)
     if user.get("is_deleted"):
         raise HTTPException(status_code=410, detail="Account has been deleted")
-    if user.get("is_manually_deactivated"):
-        raise HTTPException(status_code=403, detail="Account is deactivated")
     # Session revocation (P13): tokens minted before a token_version bump
     # (logout, deactivation, deletion) are no longer valid.
+    if payload.get("ver", 0) != (user.get("token_version") or 0):
+        raise HTTPException(status_code=401, detail="Session revoked — please log in again")
+    if user.get("is_manually_deactivated"):
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+    return user
+
+
+async def current_user_allow_deactivated(token: Annotated[Optional[str], Depends(oauth2_scheme)]) -> dict:
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = decode_token(token)
+        user_id = payload["sub"]
+        if payload.get("purpose") is not None:
+            raise jwt.InvalidTokenError("Wrong token purpose")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except (KeyError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    user = await enforce_lifecycle(user)
+    if user.get("is_deleted"):
+        raise HTTPException(status_code=410, detail="Account has been deleted")
     if payload.get("ver", 0) != (user.get("token_version") or 0):
         raise HTTPException(status_code=401, detail="Session revoked — please log in again")
     return user
@@ -67,6 +90,14 @@ async def optional_current_user(token: Annotated[Optional[str], Depends(oauth2_s
 
 def require_role(role: Role):
     async def dep(user: Annotated[dict, Depends(current_user)]) -> dict:
+        if user["role"] != role.value:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return user
+    return dep
+
+
+def require_role_allow_deactivated(role: Role):
+    async def dep(user: Annotated[dict, Depends(current_user_allow_deactivated)]) -> dict:
         if user["role"] != role.value:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return user

@@ -27,15 +27,15 @@ def auth(tok):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def own_providers(s):
+def own_providers():
     """Twelve throwaway providers + one with 4 distinct-client reviews — the
     suite-side replacement for the dev seed (P6)."""
     for _ in range(12):
-        fresh_provider(s)
-    prov = fresh_provider(s)
+        fresh_provider()
+    prov = fresh_provider()
     for _ in range(4):
-        cli = fresh_client(s)
-        r = s.post(f"{API}/reviews", headers=auth(cli["access_token"]), json={
+        cli = fresh_client()
+        r = requests.post(f"{API}/reviews", headers=auth(cli["access_token"]), json={
             "provider_id": prov["user"]["id"], "rating": 5, "comment": "TEST seeded-style review"
         })
         assert r.status_code == 201, r.text

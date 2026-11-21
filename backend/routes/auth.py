@@ -10,7 +10,7 @@ from pymongo.errors import DuplicateKeyError
 
 from config import RATE_LIMIT_LOGIN_IP
 from database import db
-from deps import current_user
+from deps import current_user, current_user_allow_deactivated
 from phone import normalize_dz_phone
 from ratelimit import client_ip, consume
 from reference_data import WILAYAS
@@ -218,7 +218,7 @@ async def login(body: LoginIn, request: Request):
 
 
 @router.post("/auth/logout")
-async def logout(user: Annotated[dict, Depends(current_user)]):
+async def logout(user: Annotated[dict, Depends(current_user_allow_deactivated)]):
     """Invalidate every token issued before this call (token_version bump),
     so logging out actually ends the session server-side — not just locally."""
     await increment_token_version(user["id"])
@@ -226,5 +226,5 @@ async def logout(user: Annotated[dict, Depends(current_user)]):
 
 
 @router.get("/auth/me")
-async def me(user: Annotated[dict, Depends(current_user)]):
+async def me(user: Annotated[dict, Depends(current_user_allow_deactivated)]):
     return serialize_user(user)

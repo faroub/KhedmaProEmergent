@@ -58,6 +58,7 @@ def test_explicit_true_is_refused_in_production():
 
 def _call_pay(monkeypatch, user: dict, allow_mock: bool):
     import routes.webhooks as webhooks
+    import routes.subscription as sub_routes
     from routes.subscription import pay_subscription
 
     async def _no_chargily():
@@ -70,7 +71,19 @@ def _call_pay(monkeypatch, user: dict, allow_mock: bool):
         "routes.subscription.get_effective_settings",
         _effective_settings_with_payments,
     )
-    return asyncio.run(pay_subscription(user))
+
+    async def go():
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        client = AsyncIOMotorClient(_env["MONGO_URL"])
+        monkeypatch.setattr(sub_routes, "db", client[_env["DB_NAME"]])
+        monkeypatch.setattr(webhooks, "db", client[_env["DB_NAME"]])
+        try:
+            return await pay_subscription(user)
+        finally:
+            client.close()
+
+    return asyncio.run(go())
 
 
 async def _effective_settings_with_payments():
