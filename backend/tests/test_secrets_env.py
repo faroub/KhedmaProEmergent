@@ -195,3 +195,44 @@ class TestStripSecretsMigration:
         # Second run: nothing left to strip.
         results2 = _run_migrations(monkeypatch)
         assert results2["strip_platform_secrets"]["modified"] == 0
+
+
+class TestZeroBoundarySettings:
+    def test_zero_price_and_trial_days_are_preserved(self, monkeypatch):
+        from datetime import datetime, timezone
+        import routes.settings as settings_mod
+        import subscription as sub_mod
+
+        class FakeSMSStatus:
+            pass
+
+        async def fake_get_provider_status():
+            return {"provider": "mock", "healthy": True}
+
+        class FakePlatformSettings:
+            async def find_one(self, query, projection=None):
+                return {
+                    "id": "global",
+                    "subscription_price_dzd": 0,
+                    "trial_days": 0,
+                }
+
+        class FakeDB:
+            platform_settings = FakePlatformSettings()
+
+        monkeypatch.setattr(settings_mod, "db", FakeDB())
+        monkeypatch.setattr("sms.get_provider_status", fake_get_provider_status)
+
+        eff = asyncio.run(settings_mod.get_effective_settings())
+        assert eff["subscription_price_dzd"] == 0
+        assert eff["trial_days"] == 0
+
+        # Verify compute_subscription with 0 trial days
+        now_iso = datetime.now(timezone.utc).isoformat()
+        user = {
+            "role": "service_provider",
+            "created_at": now_iso,
+            "last_paid_at": None,
+        }
+        sub = sub_mod.compute_subscription(user, trial_days=0)
+        assert sub["subscription_status"] == "due"

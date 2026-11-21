@@ -158,8 +158,8 @@ export default function AdminSettings() {
     try {
       const s: any = await api.adminGetSettings();
       setSettings(s);
-      setPrice(String(s.subscription_price_dzd || 1000));
-      setTrial(String(s.trial_days || 90));
+      setPrice(String(s.subscription_price_dzd !== undefined && s.subscription_price_dzd !== null ? s.subscription_price_dzd : 1000));
+      setTrial(String(s.trial_days !== undefined && s.trial_days !== null ? s.trial_days : 90));
       setMode(s.chargily_mode || "test");
       setPayEnabled(!!s.payments_enabled);
       if (s.sms) {
@@ -253,8 +253,8 @@ export default function AdminSettings() {
     setBusy(true);
     try {
       const patch: any = {
-        subscription_price_dzd: Number(price) || 1000,
-        trial_days: Number(trial) || 90,
+        subscription_price_dzd: price !== "" && !isNaN(Number(price)) ? Number(price) : 1000,
+        trial_days: trial !== "" && !isNaN(Number(trial)) ? Number(trial) : 90,
         chargily_mode: mode,
         payments_enabled: payEnabled,
       };
