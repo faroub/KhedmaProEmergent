@@ -203,3 +203,31 @@ class TestWsRevalidation:
             return None
 
         assert asyncio.run(go()) == 1008
+
+
+def test_ws_session_valid_unit(monkeypatch):
+    import routes.messages as msg_mod
+
+    class FakeUsersColl:
+        async def find_one(self, query, projection=None):
+            uid = query.get("id")
+            if uid == "user-active":
+                return {"id": "user-active", "token_version": 1}
+            elif uid == "user-revoked":
+                return {"id": "user-revoked", "token_version": 2}
+            elif uid == "user-deactivated":
+                return {"id": "user-deactivated", "token_version": 1, "is_manually_deactivated": True}
+            elif uid == "user-deleted":
+                return {"id": "user-deleted", "token_version": 1, "is_deleted": True}
+            return None
+
+    class FakeDB:
+        users = FakeUsersColl()
+
+    monkeypatch.setattr(msg_mod, "db", FakeDB())
+
+    assert asyncio.run(msg_mod._ws_session_valid("user-active", 1)) is True
+    assert asyncio.run(msg_mod._ws_session_valid("user-revoked", 1)) is False
+    assert asyncio.run(msg_mod._ws_session_valid("user-deactivated", 1)) is False
+    assert asyncio.run(msg_mod._ws_session_valid("user-deleted", 1)) is False
+    assert asyncio.run(msg_mod._ws_session_valid("nonexistent", 1)) is False
