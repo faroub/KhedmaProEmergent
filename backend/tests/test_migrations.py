@@ -6,10 +6,13 @@
 """
 import asyncio
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 
+import pytest
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
@@ -161,3 +164,38 @@ class TestWilayaBackfillMigration:
         doc = coll.users.find_one({"id": uid})
         assert doc.get("wilaya_code") is None
         assert "wilaya_backfilled_at" not in doc
+
+
+class TestMigrationFailureHandling:
+    def test_migration_failure_sets_status_failed_and_main_exits_nonzero(self, monkeypatch):
+        import scripts.migrate as migrate_mod
+
+        async def failing_migration(dry_run: bool):
+            raise RuntimeError("Database connection lost during migration")
+
+        monkeypatch.setattr(migrate_mod, "MIGRATIONS", [("failing_test_migration", failing_migration)])
+        results = asyncio.run(migrate_mod.run(dry_run=False))
+        assert results["failing_test_migration"]["status"] == "failed"
+        assert "Database connection lost" in results["failing_test_migration"]["error"]
+
+        monkeypatch.setattr(sys, "argv", ["migrate.py"])
+        with pytest.raises(SystemExit) as exc_info:
+            migrate_mod.main()
+        assert exc_info.value.code == 1
+
+    def test_duplicate_key_error_causes_fatal_migration_failure(self, monkeypatch):
+        import scripts.migrate as migrate_mod
+
+        async def fake_create_index(self, key, **kwargs):
+            raise DuplicateKeyError("E11000 duplicate key error collection")
+
+        class FakeColl:
+            create_index = fake_create_index
+
+        class FakeDB:
+            chargily_events = FakeColl()
+
+        monkeypatch.setattr(migrate_mod, "db", FakeDB())
+
+        with pytest.raises(RuntimeError, match="Duplicate key conflict"):
+            asyncio.run(migrate_mod._ensure_unique_event_id_index(dry_run=False))

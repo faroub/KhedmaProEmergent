@@ -19,6 +19,8 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from pymongo.errors import DuplicateKeyError
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
@@ -41,7 +43,11 @@ async def _ensure_unique_event_id_index(dry_run: bool) -> dict:
     concurrent delivery of the same event loses the insert and is skipped."""
     if dry_run:
         return {"unique_indexes": ["chargily_events.event_id"]}
-    await db.chargily_events.create_index("event_id", unique=True)
+    try:
+        await db.chargily_events.create_index("event_id", unique=True)
+    except DuplicateKeyError as e:
+        logger.error("Failed to create unique index on chargily_events.event_id due to duplicate records: %s", e)
+        raise RuntimeError(f"Duplicate key conflict in chargily_events.event_id: {e}") from e
     return {"unique_indexes": ["chargily_events.event_id"]}
 
 
@@ -54,12 +60,16 @@ async def _ensure_unique_report_window_index(dry_run: bool) -> dict:
     name = "unique_report_window_index"
     if dry_run:
         return {"unique_indexes": [name]}
-    await db.reports.create_index(
-        keys,
-        unique=True,
-        name=name,
-        partialFilterExpression={"window": {"$exists": True}},
-    )
+    try:
+        await db.reports.create_index(
+            keys,
+            unique=True,
+            name=name,
+            partialFilterExpression={"window": {"$exists": True}},
+        )
+    except DuplicateKeyError as e:
+        logger.error("Failed to create %s due to duplicate report documents: %s", name, e)
+        raise RuntimeError(f"Duplicate key conflict in {name}: {e}") from e
     return {"unique_indexes": [name]}
 
 
@@ -276,11 +286,14 @@ async def run(dry_run: bool = False) -> dict:
     results = {}
     for name, migration in MIGRATIONS:
         try:
-            results[name] = await migration(dry_run)
+            res = await migration(dry_run)
+            if isinstance(res, dict) and "status" not in res:
+                res["status"] = "skipped" if dry_run else "success"
+            results[name] = res
             logger.info("%s (dry_run=%s): %s", name, dry_run, results[name])
         except Exception as e:  # one failed migration must not hide the rest
             logger.exception("%s failed", name)
-            results[name] = {"error": str(e)}
+            results[name] = {"status": "failed", "error": str(e)}
     return results
 
 
@@ -290,7 +303,15 @@ def main() -> None:
         "--dry-run", action="store_true", help="report what would change without writing"
     )
     args = parser.parse_args()
-    asyncio.run(run(dry_run=args.dry_run))
+    results = asyncio.run(run(dry_run=args.dry_run))
+    failed = [
+        name for name, res in results.items()
+        if isinstance(res, dict) and (res.get("status") == "failed" or "error" in res)
+    ]
+    if failed:
+        logger.error("Migration finished with %d failure(s): %s", len(failed), ", ".join(failed))
+        sys.exit(1)
+    logger.info("All migrations executed successfully (dry_run=%s).", args.dry_run)
 
 
 if __name__ == "__main__":

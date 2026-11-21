@@ -26,13 +26,34 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 
 | Script | Purpose |
 |--------|---------|
-| `python -m scripts.migrate` | Idempotent data migrations (wilaya backfill for legacy providers, location backfill, category renames, moving inline base64 files into storage). Run once per deploy **before** starting workers. `--dry-run` supported |
+| `python -m scripts.migrate` | Idempotent data migrations (wilaya backfill, location backfill, category renames, moving inline base64 files into storage, index creation). Run once per deploy **before** starting workers. `--dry-run` supported; exits with status `1` if any migration fails |
 | `python -m scripts.lifecycle_job` | Soft-deletes providers unpaid past the deactivation deadline. Meant to run daily from cron; `--dry-run` supported |
 | `python -m scripts.retention_job` | Deletes verification documents once their review closed more than `VERIFICATION_DOCS_RETENTION_DAYS` (default 90) ago — the files **and** the records. Run daily/weekly from cron; `--dry-run` supported |
 | `python scripts/create_admin.py` | Provisions an admin account (no admin is ever auto-created) |
 | `python -m scripts.seed_dev` | Dev-only demo seed. Refused when `APP_ENV=production` |
 
-Startup itself only does idempotent work (index creation, category seed, config checks) — data migrations and lifecycle writes are the scripts' job.
+Startup itself only does idempotent work (index creation, category seed, config checks) — data migrations and lifecycle writes are the scripts' job. If `scripts.migrate` exits with a non-zero exit code, deployment MUST stop and fail closed until migration issues are resolved.
+
+### Database Backup & Recovery Procedures
+
+Before running production data migrations or major upgrades:
+
+1. **Create Backup**:
+   ```bash
+   mongodump --uri="mongodb://localhost:27017/khedmapro" --out=/backup/khedmapro_$(date +%Y%m%d_%H%M%S)
+   ```
+2. **Dry Run Migration**:
+   ```bash
+   python -m scripts.migrate --dry-run
+   ```
+3. **Apply Migration**:
+   ```bash
+   python -m scripts.migrate
+   ```
+4. **Rollback / Recovery (if needed)**:
+   ```bash
+   mongorestore --uri="mongodb://localhost:27017/khedmapro" --drop /backup/khedmapro_<timestamp>/khedmapro
+   ```
 
 ## Uploaded files
 
